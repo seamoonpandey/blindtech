@@ -24,6 +24,82 @@ const HARD_QUOTES = [
   "Goodbye, world."
 ];
 
+const TEAM_NAMES = [
+  "It Works On My Machine",
+  "Blame The Compiler",
+  "Semicolon Optional",
+  "Oops All Side Effects",
+  "Probably Deterministic",
+  "The Accidental Globals",
+  "Unreachable But Executed",
+  "Ship It & Pray",
+  "Undefined But Confident",
+  "The Quantum TODO",
+  "Works Until Demo",
+  "The Misleading Benchmarks",
+  "Hotfix In Production",
+  "The Schrödinger Deploy",
+  "Trust Me Bro It’s O(1)",
+  "The Heuristic Vibes",
+  "Just One More Flag",
+  "Legacy By Tomorrow",
+  "The Eventually Correct",
+  "The Phantom Requirements",
+  "Cargo Cult Engineers",
+  "Temporary Permanent Fix",
+  "The Parallel Universe Branch",
+  "The Sleep-Deprived Commit",
+  "Fast Enough Probably",
+  "The Non Reproducibles",
+  "The Dark Magic Constants",
+  "Unoptimized Feelings",
+  "Magic Number Enjoyers",
+  "The Accidental Framework",
+  "The Debugger Gaslighting",
+  "Clearly A Feature",
+  "The Half-Baked Abstractions",
+  "Premature Optimization Club",
+  "The Technical Debt Enjoyers",
+  "Uncomment In Case Of Fire",
+  "The Ill-Defined Interface",
+  "Not A Bug If Unnoticed",
+  "The Infinite Refactor",
+  "Works As Intended Somehow",
+  "The Conditional Chaos",
+  "The Last Minute Merge",
+  "Ship Now Think Later",
+  "The Ghost Of Deprecated APIs",
+  "The Runtime Vibes",
+  "Benchmarked On My Laptop",
+  "The Overfit Solution",
+  "The Postmortem Pending",
+  "The Config From Hell",
+  "The Spooky Action At Runtime",
+  "The Accidental Microservice",
+  "The Hand-Wavy Spec",
+  "The Panic-Driven Design",
+  "The False Sense Of Security",
+  "The Just Push It Crew",
+  "The Heavily Coupled",
+  "The Questionable Assumptions",
+  "The One Weird Edge Case",
+  "The Maybe Monads",
+  "The Latent Disaster",
+  "The Debug Print Survivors",
+  "The Silent Data Corruption",
+  "The Async Anxiety",
+  "The Eventually Fired",
+  "The Undefined Roadmap",
+  "The Chaos-Driven Development",
+  "The Blame Game Theory",
+  "The Suspiciously Fast",
+  "The Haunted Build Server",
+  "The Deadline Optimized",
+  "The Regex Summoners",
+  "The Hope-Based Architecture",
+  "The Accidental AI"
+];
+
 async function gameRoutes(fastify, options) {
   const clients = new Map(); // userId -> socket
 
@@ -317,12 +393,20 @@ async function gameRoutes(fastify, options) {
             let result = {};
             
             if (content.type === 'player') {
+              // Get used team names
+              const usedNamesRes = await client.query('SELECT name FROM teams WHERE name IS NOT NULL');
+              const usedNames = usedNamesRes.rows.map(r => r.name);
+              const availableNames = TEAM_NAMES.filter(n => !usedNames.includes(n));
+              const teamName = availableNames.length > 0 
+                ? availableNames[Math.floor(Math.random() * availableNames.length)]
+                : `Team ${Math.floor(Math.random() * 1000)}`;
+
               // Create team
               await client.query(
-                'INSERT INTO teams (user1_id, user2_id, round_formed) VALUES ($1, $2, 2)',
-                [currentUser.id, content.id]
+                'INSERT INTO teams (user1_id, user2_id, round_formed, name) VALUES ($1, $2, 2, $3)',
+                [currentUser.id, content.id, teamName]
               );
-              result = { type: 'team', partner: content.name };
+              result = { type: 'team', partner: content.name, teamName };
             } else {
               // Eliminate
               await client.query('UPDATE users SET is_eliminated = true WHERE id = $1', [currentUser.id]);
