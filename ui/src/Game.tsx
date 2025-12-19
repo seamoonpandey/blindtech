@@ -81,6 +81,11 @@ export default function Game() {
   const [submitted, setSubmitted] = useState(false);
   const [initialSubmission, setInitialSubmission] = useState<{target_id: string, rank: number}[] | null>(null);
   const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
+  
+  // Round 2 States
+  const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string}[]>([]);
+  const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
+  const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string} | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -120,6 +125,14 @@ export default function Game() {
         setLeaderboard(data.leaderboard);
       } else if (data.type === 'round_finished') {
         alert('END OF ROUND 1');
+      } else if (data.type === 'lottery_pool') {
+        setLotteryPool(data.pool);
+      } else if (data.type === 'round2_role') {
+        setRound2Role(data.role);
+      } else if (data.type === 'card_taken') {
+        setLotteryPool(prev => prev.map(c => c.id === data.cardId ? { ...c, is_taken: true, taken_by: data.taken_by } : c));
+      } else if (data.type === 'selection_result') {
+        setSelectionResult(data.result);
       }
     };
 
@@ -164,6 +177,14 @@ export default function Game() {
 
   const finishRound = () => {
     ws?.send(JSON.stringify({ type: 'finish_round' }));
+  };
+
+  const startRound2 = () => {
+    ws?.send(JSON.stringify({ type: 'start_round_2' }));
+  };
+
+  const selectCard = (cardId: string) => {
+    ws?.send(JSON.stringify({ type: 'select_card', cardId }));
   };
 
   const togglePlayer = (player: Player) => {
@@ -358,7 +379,7 @@ export default function Game() {
             </div>
           )}
 
-          {gameState.status === 'active' && user.role === 'volunteer' && (
+          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 1 && (
             <div className="card admin-card">
               <h2 className="section-title">ROUND 1 ACTIVE</h2>
               <p>Players are currently submitting their rankings.</p>
@@ -384,26 +405,105 @@ export default function Game() {
               </button>
             </div>
           )}
+
           {gameState.status === 'finished' && (
             <div className="card finished-card">
               <div className="loader-dots">
                 <span></span><span></span><span></span>
               </div>
-              <h2 className="section-title">ROUND 1 COMPLETE</h2>
+              <h2 className="section-title">ROUND {gameState.current_round} COMPLETE</h2>
               {user.role === 'player' ? (
                 <>
                   <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                    COMMENCING TO ROUND 2
+                    COMMENCING TO ROUND {gameState.current_round + 1}
                   </p>
                   <p style={{ opacity: 0.7 }}>Hold your seats...</p>
                 </>
               ) : (
                 <>
                   <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                    ROUND 1 FINALIZED
+                    ROUND {gameState.current_round} FINALIZED
                   </p>
                   <p style={{ opacity: 0.7 }}>Awaiting next phase instructions...</p>
+                  {user.role === 'volunteer' && gameState.current_round === 1 && (
+                    <button 
+                      onClick={startRound2} 
+                      className="submit-btn" 
+                      style={{ width: '100%', marginTop: '1.5rem' }}
+                    >
+                      START ROUND 2
+                    </button>
+                  )}
                 </>
+              )}
+            </div>
+          )}
+
+          {gameState.current_round === 2 && gameState.status === 'active' && (
+            <div className="round2-container">
+              {round2Role === 'leader' ? (
+                <div className="card leader-card">
+                  {selectionResult ? (
+                    <div className="selection-result" style={{ textAlign: 'center', padding: '2rem 0' }}>
+                      <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
+                      <p>Your permanent partner is:</p>
+                      <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)' }}>
+                        {selectionResult.partner}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="loader-dots">
+                        <span></span><span></span><span></span>
+                      </div>
+                      <h2 className="section-title">ROUND 2: LOTTERY</h2>
+                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>YOU ARE A LEADER</p>
+                      <p style={{ opacity: 0.7 }}>Wait till someone chooses you...</p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="card selector-card">
+                  <h2 className="section-title">ROUND 2: LOTTERY</h2>
+                  {selectionResult ? (
+                    <div className="selection-result" style={{ textAlign: 'center', padding: '2rem 0' }}>
+                      {selectionResult.type === 'team' ? (
+                        <>
+                          <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
+                          <p>Your permanent partner is:</p>
+                          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)' }}>
+                            {selectionResult.partner}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#ff4444' }}>ELIMINATED</h3>
+                          <p className="quote" style={{ fontStyle: 'italic', fontSize: '1.2rem', opacity: 0.8 }}>
+                            "{selectionResult.quote}"
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ marginBottom: '1.5rem' }}>Select a card to find your partner or your fate.</p>
+                      <div className="card-grid">
+                        {lotteryPool.map(card => (
+                          <div 
+                            key={card.id} 
+                            className={`lottery-card ${card.is_taken ? 'taken' : ''}`}
+                            onClick={() => !card.is_taken && selectCard(card.id)}
+                          >
+                            <div className="card-inner">
+                              <div className="card-front">?</div>
+                              <div className="card-back">{card.is_taken ? '×' : ''}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -717,8 +817,74 @@ export default function Game() {
 
         .stat-label {
           font-size: 0.7rem;
-          font-weight: bold;
           opacity: 0.7;
+        }
+
+        /* Round 2 Styles */
+        .card-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+          gap: 10px;
+          margin-top: 1rem;
+        }
+
+        .lottery-card {
+          aspect-ratio: 2/3;
+          perspective: 1000px;
+          cursor: pointer;
+        }
+
+        .card-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          text-align: center;
+          transition: transform 0.6s;
+          transform-style: preserve-3d;
+          border: 2px solid #000;
+          background: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+          font-weight: bold;
+        }
+
+        .lottery-card.taken .card-inner {
+          background: #eee;
+          color: #ccc;
+          cursor: not-allowed;
+        }
+
+        .lottery-card:not(.taken):hover .card-inner {
+          background: #000;
+          color: #fff;
+          transform: translateY(-5px);
+          box-shadow: 4px 4px 0 #000;
+        }
+
+        .card-front, .card-back {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          backface-visibility: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .card-back {
+          transform: rotateY(180deg);
+        }
+
+        .selection-result h3 {
+          letter-spacing: 2px;
+        }
+
+        @media (max-width: 600px) {
+          .card-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
         }
 
         .leaderboard-list {
@@ -743,10 +909,25 @@ export default function Game() {
           text-align: center;
         }
 
+        .entry-info {
+          flex: 1;
+        }
+
         .entry-name {
           font-weight: bold;
           font-size: 0.85rem;
           margin-bottom: 2px;
+        }
+
+        .entry-bar-bg {
+          height: 4px;
+          background: #eee;
+          border: 1px solid black;
+        }
+
+        .entry-bar-fill {
+          height: 100%;
+          background: black;
         }
 
         .entry-score {
