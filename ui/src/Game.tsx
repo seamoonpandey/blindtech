@@ -519,9 +519,14 @@ export default function Game() {
                     <div className="selection-result" style={{ textAlign: 'center', padding: '2rem 0' }}>
                       <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
                       <p>Your permanent partner is:</p>
-                      <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)' }}>
+                      <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
                         {selectionResult.partner}
                       </p>
+                      {selectionResult.teamName && (
+                        <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                          {selectionResult.teamName.toUpperCase()}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -543,9 +548,14 @@ export default function Game() {
                         <>
                           <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
                           <p>Your permanent partner is:</p>
-                          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)' }}>
+                          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
                             {selectionResult.partner}
                           </p>
+                          {selectionResult.teamName && (
+                            <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                              {selectionResult.teamName.toUpperCase()}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>

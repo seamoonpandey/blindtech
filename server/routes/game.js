@@ -243,7 +243,8 @@ async function gameRoutes(fastify, options) {
                 const content = selectionRes.rows[0].content;
                 let result = {};
                 if (content.type === 'player') {
-                  result = { type: 'team', partner: content.name };
+                  const teamRes = await db.query('SELECT name FROM teams WHERE (user1_id = $1 OR user2_id = $1) AND round_formed = 2', [currentUser.id]);
+                  result = { type: 'team', partner: content.name, teamName: teamRes.rows[0]?.name };
                 } else {
                   result = { type: 'eliminated', quote: content.text };
                 }
@@ -251,9 +252,10 @@ async function gameRoutes(fastify, options) {
               }
             } else {
               // Check if leader is picked
-              const pickedRes = await db.query('SELECT u.name FROM lottery_pool lp JOIN users u ON lp.taken_by = u.id WHERE lp.content->>\'type\' = \'player\' AND lp.content->>\'id\' = $1 AND lp.is_taken = true', [currentUser.id]);
+              const pickedRes = await db.query('SELECT u.id, u.name FROM lottery_pool lp JOIN users u ON lp.taken_by = u.id WHERE lp.content->>\'type\' = \'player\' AND lp.content->>\'id\' = $1 AND lp.is_taken = true', [currentUser.id]);
               if (pickedRes.rows.length > 0) {
-                const result = { type: 'team', partner: pickedRes.rows[0].name };
+                const teamRes = await db.query('SELECT name FROM teams WHERE (user1_id = $1 OR user2_id = $1) AND round_formed = 2', [currentUser.id]);
+                const result = { type: 'team', partner: pickedRes.rows[0].name, teamName: teamRes.rows[0]?.name };
                 socket.send(JSON.stringify({ type: 'selection_result', result }));
               }
             }
