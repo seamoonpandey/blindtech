@@ -118,6 +118,14 @@ async function gameRoutes(fastify, options) {
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
+        if (data.type === 'finish_round' && currentUser.role === 'volunteer') {
+          console.log('Finishing round...');
+          await db.query('UPDATE game_state SET status = \'finished\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          broadcast({ type: 'round_finished', round: 1 });
+        }
+
         if (data.type === 'submit_ranking' && currentUser.role === 'player') {
           // payload: [{target_id, rank}, ...]
           await db.query(

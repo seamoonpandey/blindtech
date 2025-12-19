@@ -118,6 +118,8 @@ export default function Game() {
         setGameState(data.state);
       } else if (data.type === 'leaderboard_update') {
         setLeaderboard(data.leaderboard);
+      } else if (data.type === 'round_finished') {
+        alert('END OF ROUND 1');
       }
     };
 
@@ -158,6 +160,10 @@ export default function Game() {
   const stopRound = () => {
     console.log('Sending stop_round message...');
     ws?.send(JSON.stringify({ type: 'stop_round' }));
+  };
+
+  const finishRound = () => {
+    ws?.send(JSON.stringify({ type: 'finish_round' }));
   };
 
   const togglePlayer = (player: Player) => {
@@ -363,12 +369,42 @@ export default function Game() {
                 </div>
               </div>
               <button 
+                onClick={finishRound} 
+                className="submit-btn" 
+                style={{ width: '100%', marginTop: '1.5rem' }}
+              >
+                FINISH ROUND
+              </button>
+              <button 
                 onClick={stopRound} 
                 className="secondary-btn" 
-                style={{ width: '100%', marginTop: '1.5rem', background: '#ff4444', color: 'white' }}
+                style={{ width: '100%', marginTop: '0.5rem', background: '#ff4444', color: 'white' }}
               >
                 STOP ROUND
               </button>
+            </div>
+          )}
+          {gameState.status === 'finished' && (
+            <div className="card finished-card">
+              <div className="loader-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <h2 className="section-title">ROUND 1 COMPLETE</h2>
+              {user.role === 'player' ? (
+                <>
+                  <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
+                    COMMENCING TO ROUND 2
+                  </p>
+                  <p style={{ opacity: 0.7 }}>Hold your seats...</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
+                    ROUND 1 FINALIZED
+                  </p>
+                  <p style={{ opacity: 0.7 }}>Awaiting next phase instructions...</p>
+                </>
+              )}
             </div>
           )}
         </div>
