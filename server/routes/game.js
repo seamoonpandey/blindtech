@@ -81,6 +81,7 @@ async function gameRoutes(fastify, options) {
     socket.on('message', async (message) => {
       try {
         const data = JSON.parse(message.toString());
+        console.log('Received WS message:', data.type, data);
         
         if (data.type === 'auth') {
           const { token } = data;
@@ -106,6 +107,13 @@ async function gameRoutes(fastify, options) {
 
         if (data.type === 'start_round' && currentUser.role === 'volunteer') {
           await db.query('UPDATE game_state SET current_round = 1, status = \'active\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+        }
+
+        if (data.type === 'stop_round' && currentUser.role === 'volunteer') {
+          console.log('Stopping round...');
+          await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }

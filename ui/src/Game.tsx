@@ -155,6 +155,10 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'start_round' }));
   };
 
+  const stopRound = () => {
+    ws?.send(JSON.stringify({ type: 'stop_round' }));
+  };
+
   const togglePlayer = (player: Player) => {
     if (selectedPlayers.find(p => p.id === player.id)) {
       setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
@@ -357,6 +361,13 @@ export default function Game() {
                   <div className="stat-label">TOTAL PLAYERS</div>
                 </div>
               </div>
+              <button 
+                onClick={stopRound} 
+                className="secondary-btn" 
+                style={{ width: '100%', marginTop: '1.5rem', background: '#ff4444', color: 'white' }}
+              >
+                STOP ROUND
+              </button>
             </div>
           )}
         </div>
