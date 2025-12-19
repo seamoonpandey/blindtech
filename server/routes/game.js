@@ -91,10 +91,13 @@ async function gameRoutes(fastify, options) {
           // Send current state
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           const leaderboard = await calculateLeaderboard();
+          const submissionRes = await db.query('SELECT payload FROM submissions WHERE user_id = $1 AND round = 1', [currentUser.id]);
+          
           socket.send(JSON.stringify({ 
             type: 'init', 
             state: stateRes.rows[0],
-            leaderboard
+            leaderboard,
+            submission: submissionRes.rows[0]?.payload || null
           }));
           return;
         }

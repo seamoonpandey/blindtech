@@ -7,7 +7,7 @@
 
 body {
   margin: 0;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   background-color: var(--bg-color);
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
@@ -35,7 +35,8 @@ button:active {
   box-shadow: 2px 2px 0px 0px black;
 }
 
-input, select {
+input,
+select {
   border: var(--border-width) solid black;
   padding: 10px;
   font-family: inherit;
@@ -45,31 +46,52 @@ input, select {
   background: white;
 }
 
-input:focus, select:focus {
+input:focus,
+select:focus {
   background-color: #f0f0f0;
 }
 
 .container {
-  max-width: 800px;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 2rem;
+  }
 }
 
 .card {
   border: var(--border-width) solid black;
-  padding: 2rem;
+  padding: 1.5rem;
   box-shadow: var(--shadow-offset) var(--shadow-offset) 0px 0px black;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   background: white;
 }
 
+@media (min-width: 768px) {
+  .card {
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+}
+
 .title {
-  font-size: 3rem;
+  font-size: 2rem;
   text-transform: uppercase;
-  text-align: center;
-  margin-bottom: 2rem;
+  text-align: left;
+  margin-bottom: 1.5rem;
   text-shadow: 2px 2px 0px black;
-  -webkit-text-stroke: 1px white; 
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: 3.5rem;
+    margin-bottom: 2rem;
+  }
 }
 
 .nav {
@@ -77,8 +99,15 @@ input:focus, select:focus {
   justify-content: space-between;
   align-items: center;
   border-bottom: var(--border-width) solid black;
-  padding: 1rem 2rem;
-  margin-bottom: 2rem;
+  padding: 1rem 0;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .nav {
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+  }
 }
 
 .nav a {
@@ -98,4 +127,5 @@ input:focus, select:focus {
   padding: 0.5rem;
   margin-bottom: 1rem;
   font-weight: bold;
+  font-size: 0.9rem;
 }
