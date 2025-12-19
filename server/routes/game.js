@@ -131,6 +131,23 @@ async function gameRoutes(fastify, options) {
     return res.rows;
   }
 
+  async function getRound3Matches() {
+    const res = await db.query(`
+      SELECT 
+        m.id, m.team1_id, m.team2_id, m.volunteer_id,
+        m.team1_scores, m.team2_scores, m.current_subround, m.status,
+        t1.name as team1_name, t2.name as team2_name,
+        t1.user1_id as team1_user1, t1.user2_id as team1_user2,
+        t2.user1_id as team2_user1, t2.user2_id as team2_user2,
+        v.name as volunteer_name
+      FROM round3_matches m
+      LEFT JOIN teams t1 ON m.team1_id = t1.id
+      LEFT JOIN teams t2 ON m.team2_id = t2.id
+      LEFT JOIN users v ON m.volunteer_id = v.id
+    `);
+    return res.rows;
+  }
+
   // Helper to calculate leaderboard
   const calculateLeaderboard = async () => {
     // Round 1 logic
@@ -260,7 +277,11 @@ async function gameRoutes(fastify, options) {
               }
             }
           }
-          return;
+          // If round 3 is active, send the match info
+          if (stateRes.rows[0].current_round === 3) {
+            const matches = await getRound3Matches();
+            socket.send(JSON.stringify({ type: 'round3_init', matches }));
+          }
         }
 
         if (!currentUser) return;
@@ -362,10 +383,104 @@ async function gameRoutes(fastify, options) {
 
         if (data.type === 'start_round_3' && currentUser.role === 'volunteer') {
           console.log('Starting Round 3...');
+          
+          // Get all teams from Round 2
+          const teamsRes = await db.query('SELECT * FROM teams WHERE round_formed = 2');
+          let teams = teamsRes.rows;
+          
+          // Shuffle teams
+          for (let i = teams.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [teams[i], teams[j]] = [teams[j], teams[i]];
+          }
+          
+          // Clear old matches
+          await db.query('DELETE FROM round3_matches');
+          
+          // Match teams
+          for (let i = 0; i < teams.length; i += 2) {
+            const team1 = teams[i];
+            const team2 = teams[i + 1] || null; // Null if odd number of teams
+            
+            await db.query(
+              'INSERT INTO round3_matches (team1_id, team2_id, status) VALUES ($1, $2, $3)',
+              [team1.id, team2 ? team2.id : null, team2 ? 'waiting' : 'finished']
+            );
+            
+            // If team2 is null, it's a "Bye" - team1 is automatically safe
+            if (!team2) {
+              // We'll mark them as safe later, for now they just wait or we can handle bye differently.
+              // Actually, according to user's flow, it's better to match everyone or give a dummy.
+              // For now, if odd, the last team just sits in a 'finished' bye match.
+            }
+          }
+
           await db.query('UPDATE game_state SET current_round = 3, status = \'active\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          
+          broadcast({ type: 'round3_init', matches: await getRound3Matches() });
           console.log('Round 3 started successfully');
+        }
+
+        if (data.type === 'join_match' && currentUser.role === 'volunteer') {
+          const { matchId } = data;
+          console.log(`Volunteer ${currentUser.name} joining match ${matchId}`);
+          
+          await db.query(
+            'UPDATE round3_matches SET volunteer_id = $1, status = \'active\' WHERE id = $2 AND volunteer_id IS NULL',
+            [currentUser.id, matchId]
+          );
+          
+          broadcast({ type: 'round3_update', matches: await getRound3Matches() });
+        }
+
+        if (data.type === 'score_team' && currentUser.role === 'volunteer') {
+          const { matchId, teamIndex, score } = data; // teamIndex: 1 or 2, score: true/false
+          console.log(`Volunteer scoring Match ${matchId}, Team ${teamIndex}: ${score}`);
+          
+          const matchRes = await db.query('SELECT * FROM round3_matches WHERE id = $1', [matchId]);
+          const match = matchRes.rows[0];
+          
+          if (!match || match.volunteer_id !== currentUser.id) return;
+          
+          const teamScoresKey = teamIndex === 1 ? 'team1_scores' : 'team2_scores';
+          const currentScores = match[teamScoresKey] || [];
+          currentScores.push(score);
+          
+          await db.query(`UPDATE round3_matches SET ${teamScoresKey} = $1 WHERE id = $2`, [JSON.stringify(currentScores), matchId]);
+          
+          // Check if both teams scored for current subround
+          const updatedMatchRes = await db.query('SELECT * FROM round3_matches WHERE id = $1', [matchId]);
+          const updatedMatch = updatedMatchRes.rows[0];
+          
+          if (updatedMatch.team1_scores.length === updatedMatch.team2_scores.length) {
+            if (updatedMatch.current_subround < 3) {
+              await db.query('UPDATE round3_matches SET current_subround = current_subround + 1 WHERE id = $1', [matchId]);
+            } else {
+              // Finish match
+              await db.query('UPDATE round3_matches SET status = \'finished\' WHERE id = $1', [matchId]);
+              
+              // Process elimination logic
+              const processTeam = async (teamId, scores) => {
+                if (!teamId) return;
+                const positives = scores.filter(s => s === true).length;
+                const safe = positives >= 2;
+                if (!safe) {
+                  // Mark users in team as eliminated
+                  const teamUsersRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [teamId]);
+                  const { user1_id, user2_id } = teamUsersRes.rows[0];
+                  await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [user1_id, user2_id]);
+                }
+              };
+              
+              await processTeam(updatedMatch.team1_id, updatedMatch.team1_scores);
+              await processTeam(updatedMatch.team2_id, updatedMatch.team2_scores);
+            }
+          }
+          
+          broadcast({ type: 'round3_update', matches: await getRound3Matches() });
         }
 
         if (data.type === 'select_card' && currentUser.role === 'player') {

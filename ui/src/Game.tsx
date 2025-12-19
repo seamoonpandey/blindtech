@@ -70,6 +70,174 @@ function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: P
   );
 }
 
+function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: any[]; isEliminated: boolean; randomQuote: string }) {
+  const myMatch = matches.find(m => 
+    m.team1_user1 === userId || m.team1_user2 === userId || 
+    m.team2_user1 === userId || m.team2_user2 === userId
+  );
+
+  return (
+    <div className="match-view">
+      <h2 className="section-title">ROUND 3: PHYSICAL TRIALS</h2>
+      {isEliminated ? (
+        <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+          <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1rem' }}>ELIMINATED</h3>
+          <p style={{ fontStyle: 'italic', opacity: 0.8 }}>"{randomQuote}"</p>
+        </div>
+      ) : (
+        <div className="match-info">
+          <p style={{ marginBottom: '1rem' }}>Listen to the Volunteer's instructions. 3 Rounds of physical trial.</p>
+          
+          {myMatch && (
+            <div className="my-match-section" style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '0.9rem', color: '#00ff00', marginBottom: '1rem', fontWeight: 'bold' }}>YOUR DUEL</h3>
+              <div className="match-card" style={{ border: '4px solid #00ff00', background: '#f0fff0' }}>
+                 <div className="match-header">
+                    <span>MATCH ID: {myMatch.id.slice(0, 8)}</span>
+                    <span style={{ color: myMatch.status === 'active' ? '#00ff00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
+                 </div>
+                 <div className="match-teams">
+                    <div className="team-box">
+                       <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team1_name}</div>
+                       <div className="score-dots">
+                          {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
+                            <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />
+                          ))}
+                       </div>
+                    </div>
+                    <div className="vs-badge" style={{ transform: 'scale(1.2)' }}>VS</div>
+                    <div className="team-box">
+                       <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team2_name || 'BYE'}</div>
+                       <div className="score-dots">
+                          {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
+                            <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+                 {myMatch.status === 'waiting' && (
+                   <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                     WAITING FOR VOLUNTEER REFEREE...
+                   </div>
+                 )}
+                 {myMatch.status === 'active' && (
+                   <div style={{ textAlign: 'center', marginTop: '1rem', color: '#00cc00', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>
+                     DUEL IN PROGRESS: ROUND {myMatch.current_subround}/3
+                   </div>
+                 )}
+              </div>
+            </div>
+          )}
+
+          <h3 style={{ fontSize: '0.9rem', opacity: 0.6, marginBottom: '0.5rem' }}>ALL MATCHES</h3>
+          <div style={{ opacity: 0.7 }}>
+            {matches.filter(m => m.id !== myMatch?.id).map(m => {
+              if (m.status === 'finished') return null;
+              return (
+                <div key={m.id} className="match-card" style={{ transform: 'scale(0.95)', margin: '0.5rem -0.5rem' }}>
+                  <div className="match-header" style={{ fontSize: '0.8rem' }}>
+                      <span>MATCH {m.id.slice(0, 4)}</span>
+                      <span style={{ color: m.status === 'active' ? '#00ff00' : '#888' }}>{m.status.toUpperCase()}</span>
+                  </div>
+                  <div className="match-teams" style={{ fontSize: '0.9rem' }}>
+                      <div className="team-box">
+                        <div style={{ fontWeight: 'bold' }}>{m.team1_name}</div>
+                      </div>
+                      <div className="vs-badge">VS</div>
+                      <div className="team-box">
+                        <div style={{ fontWeight: 'bold' }}>{m.team2_name || 'BYE'}</div>
+                      </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {matches.length > 0 && matches.every(m => m.status === 'finished') && (
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+               <h3 style={{ color: '#00ff00' }}>YEAH YOU ARE SAFE AGAIN</h3>
+               <p style={{ opacity: 0.8 }}>Lets torture you in next round...</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunteerId: string; matches: any[]; onJoin: (id: string) => void; onScore: (id: string, idx: 1 | 2, score: boolean) => void }) {
+  const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
+
+  return (
+    <div className="volunteer-round3" style={{ marginTop: '1rem' }}>
+      <h2 className="section-title">ROUND 3: MATCH REFEREE</h2>
+      {myMatch ? (
+        <div className="match-card active-match" style={{ border: '4px solid #00ff00' }}>
+          <div className="match-header">
+            <span>ACTIVE DUEL - ROUND {myMatch.current_subround}/3</span>
+          </div>
+          <div className="match-teams">
+            <div className="team-box">{myMatch.team1_name}</div>
+            <div className="vs-badge">VS</div>
+            <div className="team-box">{myMatch.team2_name || 'BYE'}</div>
+          </div>
+          
+          <div className="scoring-controls">
+            <div className="score-row">
+              <span style={{ fontWeight: 'bold' }}>{myMatch.team1_name}</span>
+              <div className="score-btns">
+                <button className="score-btn minus" style={{ background: '#ffebeb' }} onClick={() => onScore(myMatch.id, 1, false)}>-</button>
+                <button className="score-btn plus" style={{ background: '#ebffeb' }} onClick={() => onScore(myMatch.id, 1, true)}>+</button>
+              </div>
+            </div>
+            {myMatch.team2_id && (
+              <div className="score-row">
+                <span style={{ fontWeight: 'bold' }}>{myMatch.team2_name}</span>
+                <div className="score-btns">
+                  <button className="score-btn minus" style={{ background: '#ffebeb' }} onClick={() => onScore(myMatch.id, 2, false)}>-</button>
+                  <button className="score-btn plus" style={{ background: '#ebffeb' }} onClick={() => onScore(myMatch.id, 2, true)}>+</button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="current-scores" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-around', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
+             <div className="score-dots">
+                {myMatch.team1_scores.map((s: boolean, i: number) => <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />)}
+             </div>
+             <div className="score-dots">
+                {myMatch.team2_scores.map((s: boolean, i: number) => <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />)}
+             </div>
+          </div>
+        </div>
+      ) : (
+        <div className="match-list">
+          <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', opacity: 0.6 }}>WAITING FOR REFEREE</h3>
+          {matches.filter(m => m.status === 'waiting' && !m.volunteer_id).map(m => (
+            <div key={m.id} className="match-card">
+              <div className="match-teams">
+                <div className="team-box">{m.team1_name}</div>
+                <div className="vs-badge">VS</div>
+                <div className="team-box">{m.team2_name || 'BYE'}</div>
+              </div>
+              <button 
+                className="primary-btn" 
+                style={{ width: '100%', marginTop: '1.5rem' }}
+                onClick={() => onJoin(m.id)}
+              >
+                VOLUNTEER AS REFEREE
+              </button>
+            </div>
+          ))}
+          {matches.filter(m => m.status === 'waiting' && !m.volunteer_id).length === 0 && (
+            <div className="empty-state">All matches currently have a volunteer referee.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Game() {
   const { user, logout, token } = useAuth();
   const navigate = useNavigate();
@@ -89,6 +257,7 @@ export default function Game() {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
   const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3'>('round1');
+  const [round3Matches, setRound3Matches] = useState<any[]>([]);
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -158,6 +327,8 @@ export default function Game() {
         setLotteryPool(prev => prev.map(c => c.id === data.cardId ? { ...c, is_taken: true, taken_by: data.taken_by } : c));
       } else if (data.type === 'selection_result') {
         setSelectionResult(data.result);
+      } else if (data.type === 'round3_init' || data.type === 'round3_update') {
+        setRound3Matches(data.matches);
       }
     };
 
@@ -210,6 +381,14 @@ export default function Game() {
 
   const startRound3 = () => {
     ws?.send(JSON.stringify({ type: 'start_round_3' }));
+  };
+
+  const joinMatch = (matchId: string) => {
+    ws?.send(JSON.stringify({ type: 'join_match', matchId }));
+  };
+
+  const scoreTeam = (matchId: string, teamIndex: 1 | 2, score: boolean) => {
+    ws?.send(JSON.stringify({ type: 'score_team', matchId, teamIndex, score }));
   };
 
   const selectCard = (cardId: string) => {
@@ -448,6 +627,24 @@ export default function Game() {
             </div>
           )}
 
+          {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 3 && (
+            <Round3PlayerView 
+              userId={user.id} 
+              matches={round3Matches} 
+              isEliminated={isEliminated}
+              randomQuote={randomQuote}
+            />
+          )}
+
+          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 3 && (
+            <Round3VolunteerView 
+              volunteerId={user.id}
+              matches={round3Matches}
+              onJoin={joinMatch}
+              onScore={scoreTeam}
+            />
+          )}
+
           {gameState.status === 'finished' && (
             <div className="card finished-card">
               <div className="loader-dots">
@@ -590,6 +787,7 @@ export default function Game() {
             </div>
           )}
 
+
           {gameState.current_round === 2 && gameState.status === 'active' && user.role === 'volunteer' && (
             <div className="card admin-card">
               <h2 className="section-title">ROUND 2 ACTIVE</h2>
@@ -724,7 +922,21 @@ export default function Game() {
                   {volunteerTab === 'round3' && (
                     <>
                       <h2 className="section-title">R3 STATUS</h2>
-                      <p>Round 3 data pending...</p>
+                      <div className="volunteer-data-list">
+                        <div className="data-items">
+                          {round3Matches.map(m => (
+                            <div key={m.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                <span>{m.team1_name || 'T1'} vs {m.team2_name || (m.status === 'finished' ? 'BYE' : '???')}</span>
+                                <span style={{ color: m.status === 'active' ? '#00ff00' : (m.status === 'finished' ? '#4444ff' : '#888') }}>{m.status.toUpperCase()}</span>
+                              </div>
+                              <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>
+                                Volunteer: {m.volunteer_name || 'NONE'} | Subround: {m.current_subround}/3
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </>
                   )}
                 </>
@@ -1134,6 +1346,94 @@ export default function Game() {
           gap: 10px;
           margin-top: 1rem;
         }
+
+        /* Round 3 Styles */
+        .match-card {
+          border: 3px solid black;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          background: white;
+          box-shadow: 4px 4px 0px 0px black;
+        }
+
+        .match-header {
+          display: flex;
+          justify-content: space-between;
+          font-weight: 900;
+          border-bottom: 2px solid black;
+          padding-bottom: 0.5rem;
+          margin-bottom: 1rem;
+        }
+
+        .match-teams {
+          display: flex;
+          align-items: center;
+          justify-content: space-around;
+          gap: 1rem;
+        }
+
+        .team-box {
+          flex: 1;
+          text-align: center;
+        }
+
+        .score-dots {
+          display: flex;
+          gap: 4px;
+          justify-content: center;
+          margin-top: 0.5rem;
+        }
+
+        .score-dot {
+          width: 8px;
+          height: 8px;
+          border: 1px solid black;
+          border-radius: 50%;
+        }
+
+        .score-dot.plus { background: #00ff00; }
+        .score-dot.minus { background: #ff4444; }
+
+        .vs-badge {
+          background: black;
+          color: white;
+          padding: 0.2rem 0.5rem;
+          font-size: 0.8rem;
+          font-weight: bold;
+        }
+
+        .scoring-controls {
+          margin-top: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .score-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          justify-content: space-between;
+        }
+
+        .score-btns {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .score-btn {
+          width: 40px;
+          height: 40px;
+          border: 2px solid black;
+          font-weight: 900;
+          cursor: pointer;
+          background: white;
+          box-shadow: 2px 2px 0px 0px black;
+        }
+
+        .score-btn.plus:hover { background: #00ff00; }
+        .score-btn.minus:hover { background: #ff4444; }
+        .score-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0px 0px black; }
 
         .lottery-card {
           aspect-ratio: 2/3;
