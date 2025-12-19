@@ -86,6 +86,7 @@ export default function Game() {
   const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string}[]>([]);
   const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string} | null>(null);
+  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -188,7 +189,18 @@ export default function Game() {
   };
 
   const selectCard = (cardId: string) => {
-    ws?.send(JSON.stringify({ type: 'select_card', cardId }));
+    setPendingCardId(cardId);
+  };
+
+  const confirmSelection = () => {
+    if (pendingCardId) {
+      ws?.send(JSON.stringify({ type: 'select_card', cardId: pendingCardId }));
+      setPendingCardId(null);
+    }
+  };
+
+  const cancelSelection = () => {
+    setPendingCardId(null);
   };
 
   const togglePlayer = (player: Player) => {
@@ -536,6 +548,33 @@ export default function Game() {
           )}
         </div>
 
+        {pendingCardId && (
+          <div className="modal-overlay">
+            <div className="card modal-card">
+              <h2 className="section-title">CONFIRM SELECTION</h2>
+              <p style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                Are you sure you want to select this card? This action is permanent and will determine your fate.
+              </p>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button 
+                  onClick={cancelSelection} 
+                  className="secondary-btn" 
+                  style={{ flex: 1 }}
+                >
+                  CANCEL
+                </button>
+                <button 
+                  onClick={confirmSelection} 
+                  className="primary-btn" 
+                  style={{ flex: 1 }}
+                >
+                  CONFIRM
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Right Column: Leaderboard */}
         <div className={`sidebar ${activeTab === 'leaderboard' ? 'show' : 'hide'}`}>
           <div className="card leaderboard-card">
@@ -716,6 +755,35 @@ export default function Game() {
           font-weight: bold;
           font-size: 0.8rem;
           transition: all 0.1s;
+        }
+
+        .admin-card {
+          border: 2px solid #ff4444;
+        }
+
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 1rem;
+        }
+
+        .modal-card {
+          max-width: 400px;
+          width: 100%;
+          animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes modal-pop {
+          from { transform: scale(0.8); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
         }
 
         .player-item:hover {
