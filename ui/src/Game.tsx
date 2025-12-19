@@ -83,9 +83,9 @@ export default function Game() {
   const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
   
   // Round 2 States
-  const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string}[]>([]);
+  const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string, team_name?: string}[]>([]);
   const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
-  const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string} | null>(null);
+  const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
   const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3'>('round1');

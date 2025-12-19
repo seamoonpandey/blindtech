@@ -122,9 +122,11 @@ async function gameRoutes(fastify, options) {
         CASE 
           WHEN (lp.content->>'type') = 'player' THEN (lp.content->>'name')
           ELSE 'QUOTE'
-        END as content_name
+        END as content_name,
+        t.name as team_name
       FROM lottery_pool lp
       LEFT JOIN users u ON lp.taken_by = u.id
+      LEFT JOIN teams t ON (t.user1_id = lp.taken_by OR t.user2_id = lp.taken_by) AND t.round_formed = 2
     `);
     return res.rows;
   }
@@ -436,7 +438,7 @@ async function gameRoutes(fastify, options) {
               if (leaderSocket) {
                 leaderSocket.send(JSON.stringify({ 
                   type: 'selection_result', 
-                  result: { type: 'team', partner: currentUser.name } 
+                  result: { type: 'team', partner: currentUser.name, teamName: result.teamName } 
                 }));
               }
             }
