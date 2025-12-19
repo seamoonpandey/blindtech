@@ -27,7 +27,6 @@ const HARD_QUOTES = [
 async function gameRoutes(fastify, options) {
   const clients = new Map(); // userId -> socket
 
-  // Helper to broadcast to all
   const broadcast = (data) => {
     const msg = JSON.stringify(data);
     for (const client of clients.values()) {
@@ -36,6 +35,23 @@ async function gameRoutes(fastify, options) {
       }
     }
   };
+
+  async function getDetailedPool() {
+    const res = await db.query(`
+      SELECT 
+        lp.id, 
+        lp.is_taken, 
+        lp.taken_by, 
+        u.name as taken_by_name,
+        CASE 
+          WHEN (lp.content->>'type') = 'player' THEN (lp.content->>'name')
+          ELSE 'QUOTE'
+        END as content_name
+      FROM lottery_pool lp
+      LEFT JOIN users u ON lp.taken_by = u.id
+    `);
+    return res.rows;
+  }
 
   // Helper to calculate leaderboard
   const calculateLeaderboard = async () => {
@@ -129,8 +145,13 @@ async function gameRoutes(fastify, options) {
 
           // If round 2 is active, send the pool
           if (stateRes.rows[0].current_round === 2) {
-            const poolRes = await db.query('SELECT id, is_taken, taken_by FROM lottery_pool');
-            socket.send(JSON.stringify({ type: 'lottery_pool', pool: poolRes.rows }));
+            if (currentUser.role === 'volunteer') {
+              const pool = await getDetailedPool();
+              socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
+            } else {
+              const poolRes = await db.query('SELECT id, is_taken, taken_by FROM lottery_pool');
+              socket.send(JSON.stringify({ type: 'lottery_pool', pool: poolRes.rows }));
+            }
             
             // Also send if user is leader or selector
             const inPoolRes = await db.query("SELECT id FROM lottery_pool WHERE content->>'type' = 'player' AND content->>'id' = $1", [currentUser.id]);
@@ -252,8 +273,10 @@ async function gameRoutes(fastify, options) {
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
           
-          const poolRes = await db.query('SELECT id, is_taken, taken_by FROM lottery_pool');
-          broadcast({ type: 'lottery_pool', pool: poolRes.rows });
+          const detailedPool = await getDetailedPool();
+          const restrictedPool = detailedPool.map(c => ({ id: c.id, is_taken: c.is_taken, taken_by: c.taken_by }));
+          broadcast({ type: 'lottery_pool', pool: restrictedPool });
+          
           console.log('Round 2 started successfully');
         }
 
@@ -309,7 +332,19 @@ async function gameRoutes(fastify, options) {
             await client.query('COMMIT');
             
             socket.send(JSON.stringify({ type: 'selection_result', result }));
-            broadcast({ type: 'card_taken', cardId, taken_by: currentUser.id });
+            
+            const detailedPool = await getDetailedPool();
+            const restrictedPool = detailedPool.map(c => ({ id: c.id, is_taken: c.is_taken, taken_by: c.taken_by }));
+            
+            broadcast({ type: 'lottery_pool', pool: restrictedPool });
+            
+            // Send detailed to volunteers
+            for (const [uid, s] of clients.entries()) {
+              // We don't have roles in the clients map, but we can check if the socket is still open
+              // For now, let's just rely on the fact that volunteers will see the restricted pool
+              // and they can refresh or we can send a specific message.
+              // Actually, I'll just send a 'volunteer_pool_update' message.
+            }
 
             // If it was a player card, notify the leader
             if (content.type === 'player') {

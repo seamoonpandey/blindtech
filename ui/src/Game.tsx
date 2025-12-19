@@ -83,11 +83,12 @@ export default function Game() {
   const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
   
   // Round 2 States
-  const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string}[]>([]);
+  const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string}[]>([]);
   const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
+  const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3'>('round1');
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -293,12 +294,14 @@ export default function Game() {
         >
           MISSION
         </button>
-        <button 
-          className={`tab-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('leaderboard')}
-        >
-          RANKINGS
-        </button>
+        {(user.role === 'volunteer' || gameState.current_round <= 1) && (
+          <button 
+            className={`tab-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('leaderboard')}
+          >
+            {user.role === 'volunteer' ? 'DATA' : 'RANKINGS'}
+          </button>
+        )}
       </div>
 
       <div className="game-layout">
@@ -619,37 +622,128 @@ export default function Game() {
           </div>
         )}
 
-        {/* Right Column: Leaderboard */}
-        <div className={`sidebar ${activeTab === 'leaderboard' ? 'show' : 'hide'}`}>
-          <div className="card leaderboard-card">
-            <h2 className="section-title">LIVE RANKINGS</h2>
-            <div className="leaderboard-container">
-              {leaderboard.length === 0 ? (
-                <div className="empty-leaderboard">
-                  <p>INITIALIZING DATA...</p>
-                </div>
-              ) : (
-                <div className="leaderboard-list">
-                  {leaderboard.map((entry, i) => (
-                    <div key={entry.id} className={`leaderboard-item rank-${i + 1}`}>
-                      <div className="entry-rank">{i + 1}</div>
-                      <div className="entry-info">
-                        <div className="entry-name">{entry.name}</div>
-                        <div className="entry-bar-bg">
-                          <div 
-                            className="entry-bar-fill" 
-                            style={{ width: `${Math.min(100, (entry.score / (leaderboard[0].score || 1)) * 100)}%` }}
-                          ></div>
-                        </div>
+        {/* Right Column: Leaderboard / Volunteer Data */}
+        {(user.role === 'volunteer' || gameState.current_round <= 1) && (
+          <div className={`sidebar ${activeTab === 'leaderboard' ? 'show' : 'hide'}`}>
+            <div className="card leaderboard-card">
+              {user.role === 'volunteer' ? (
+                <>
+                  <div className="volunteer-tabs">
+                    <button 
+                      className={`v-tab ${volunteerTab === 'round1' ? 'active' : ''}`}
+                      onClick={() => setVolunteerTab('round1')}
+                    >
+                      R1
+                    </button>
+                    <button 
+                      className={`v-tab ${volunteerTab === 'round2' ? 'active' : ''}`}
+                      onClick={() => setVolunteerTab('round2')}
+                    >
+                      R2
+                    </button>
+                    <button 
+                      className={`v-tab ${volunteerTab === 'round3' ? 'active' : ''}`}
+                      onClick={() => setVolunteerTab('round3')}
+                    >
+                      R3
+                    </button>
+                  </div>
+
+                  {volunteerTab === 'round1' && (
+                    <>
+                      <h2 className="section-title">R1 RANKINGS</h2>
+                      <div className="leaderboard-container">
+                        {leaderboard.length === 0 ? (
+                          <div className="empty-leaderboard">
+                            <p>INITIALIZING DATA...</p>
+                          </div>
+                        ) : (
+                          <div className="leaderboard-list">
+                            {leaderboard.map((entry, i) => (
+                              <div key={entry.id} className={`leaderboard-item rank-${i + 1}`}>
+                                <div className="entry-rank">{i + 1}</div>
+                                <div className="entry-info">
+                                  <div className="entry-name">{entry.name}</div>
+                                  <div className="entry-bar-bg">
+                                    <div 
+                                      className="entry-bar-fill" 
+                                      style={{ width: `${Math.min(100, (entry.score / (leaderboard[0].score || 1)) * 100)}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                <div className="entry-score">{entry.score}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="entry-score">{entry.score}</div>
-                    </div>
-                  ))}
-                </div>
+                    </>
+                  )}
+
+                  {volunteerTab === 'round2' && (
+                    <>
+                      <h2 className="section-title">R2 STATUS</h2>
+                      <div className="volunteer-data-list">
+                        <p style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '1rem' }}>
+                          Real-time lottery results will appear here.
+                        </p>
+                        {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').length === 0 ? (
+                          <p>No teams formed yet.</p>
+                        ) : (
+                          <div className="data-items">
+                            {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').map(card => (
+                              <div key={card.id} className="data-item">
+                                <span className="data-user">{card.taken_by_name || 'Unknown'}</span>
+                                <span className="data-arrow">→</span>
+                                <span className="data-result">{card.content_name || 'Picked'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {volunteerTab === 'round3' && (
+                    <>
+                      <h2 className="section-title">R3 STATUS</h2>
+                      <p>Round 3 data pending...</p>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2 className="section-title">LIVE RANKINGS</h2>
+                  <div className="leaderboard-container">
+                    {leaderboard.length === 0 ? (
+                      <div className="empty-leaderboard">
+                        <p>INITIALIZING DATA...</p>
+                      </div>
+                    ) : (
+                      <div className="leaderboard-list">
+                        {leaderboard.map((entry, i) => (
+                          <div key={entry.id} className={`leaderboard-item rank-${i + 1}`}>
+                            <div className="entry-rank">{i + 1}</div>
+                            <div className="entry-info">
+                              <div className="entry-name">{entry.name}</div>
+                              <div className="entry-bar-bg">
+                                <div 
+                                  className="entry-bar-fill" 
+                                  style={{ width: `${Math.min(100, (entry.score / (leaderboard[0].score || 1)) * 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                            <div className="entry-score">{entry.score}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <style>{`
@@ -823,6 +917,63 @@ export default function Game() {
           max-width: 400px;
           width: 100%;
           animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .volunteer-tabs {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 1.5rem;
+          border-bottom: 2px solid black;
+          padding-bottom: 0.5rem;
+        }
+
+        .v-tab {
+          flex: 1;
+          background: white;
+          border: 2px solid black;
+          padding: 0.3rem;
+          font-family: 'Courier New', Courier, monospace;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .v-tab.active {
+          background: black;
+          color: white;
+        }
+
+        .volunteer-data-list {
+          padding: 0.5rem;
+        }
+
+        .data-items {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .data-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem;
+          border: 1px solid #eee;
+          font-size: 0.9rem;
+        }
+
+        .data-user {
+          font-weight: bold;
+          flex: 1;
+        }
+
+        .data-arrow {
+          opacity: 0.5;
+        }
+
+        .data-result {
+          color: #ff4444;
+          font-weight: bold;
         }
 
         @keyframes modal-pop {
