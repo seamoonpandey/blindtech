@@ -117,11 +117,14 @@ async function gameRoutes(fastify, options) {
           const leaderboard = await calculateLeaderboard();
           const submissionRes = await db.query('SELECT payload FROM submissions WHERE user_id = $1 AND round = 1', [currentUser.id]);
           
+          const userRes = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
+          
           socket.send(JSON.stringify({ 
             type: 'init', 
             state: stateRes.rows[0],
             leaderboard,
-            submission: submissionRes.rows[0]?.payload || null
+            submission: submissionRes.rows[0]?.payload || null,
+            isEliminated: userRes.rows[0]?.is_eliminated || false
           }));
 
           // If round 2 is active, send the pool

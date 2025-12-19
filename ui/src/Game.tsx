@@ -87,6 +87,28 @@ export default function Game() {
   const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+  const [isEliminated, setIsEliminated] = useState(false);
+  const [randomQuote] = useState(() => {
+    const quotes = [
+      "The only way to win is to not play.",
+      "Your silence is your best weapon.",
+      "Trust is a luxury you can't afford.",
+      "In the end, we all stand alone.",
+      "The system has no mercy.",
+      "Your contribution has been noted and discarded.",
+      "Efficiency is the only virtue.",
+      "The code is the law.",
+      "You were a variable, now you are a constant: Zero.",
+      "Connection terminated.",
+      "Access denied permanently.",
+      "Your existence is a syntax error.",
+      "Null pointer exception in your soul.",
+      "Garbage collection in progress.",
+      "Process killed.",
+      "Segmentation fault (core dumped)."
+    ];
+    return quotes[Math.floor(Math.random() * quotes.length)];
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -116,6 +138,7 @@ export default function Game() {
       if (data.type === 'init') {
         setGameState(data.state);
         setLeaderboard(data.leaderboard);
+        setIsEliminated(data.isEliminated);
         if (data.submission) {
           setInitialSubmission(data.submission);
           setSubmitted(true);
@@ -430,10 +453,31 @@ export default function Game() {
               <h2 className="section-title">ROUND {gameState.current_round} COMPLETE</h2>
               {user.role === 'player' ? (
                 <>
-                  <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                    COMMENCING TO ROUND {gameState.current_round + 1}
-                  </p>
-                  <p style={{ opacity: 0.7 }}>Hold your seats...</p>
+                  {isEliminated ? (
+                    <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
+                        OOPSIE!
+                      </p>
+                      <p style={{ fontStyle: 'italic', fontSize: '1.1rem', opacity: 0.8, marginBottom: '1.5rem' }}>
+                        "{randomQuote}"
+                      </p>
+                      <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>
+                        You are eliminated and cannot continue.
+                      </p>
+                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ff4444' }}>
+                        GET OUT AND GO TO THE NEXT ROOM.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem', color: '#00ff00' }}>
+                        CONGRATULATIONS ON COMPLETING THAT BITCHY ROUND.
+                      </p>
+                      <p style={{ opacity: 0.7, marginTop: '0.5rem' }}>
+                        Commencing to Round {gameState.current_round + 1}... Hold your seats.
+                      </p>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
