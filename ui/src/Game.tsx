@@ -159,6 +159,10 @@ export default function Game() {
     if (selectedPlayers.find(p => p.id === player.id)) {
       setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
     } else {
+      if (selectedPlayers.length >= 10) {
+        alert('MISSION LIMIT REACHED: MAXIMUM 10 TARGETS ALLOWED.');
+        return;
+      }
       setSelectedPlayers([...selectedPlayers, player]);
     }
   };
@@ -252,7 +256,7 @@ export default function Game() {
                     <div className="player-pool">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h3>TARGETS</h3>
-                        <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>{selectedPlayers.length} SELECTED</span>
+                        <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>{selectedPlayers.length} / 10 SELECTED</span>
                       </div>
                       <div className="player-list">
                         {players.map(p => {
