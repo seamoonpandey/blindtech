@@ -692,10 +692,17 @@ export default function Game() {
                         ) : (
                           <div className="data-items">
                             {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').map(card => (
-                              <div key={card.id} className="data-item">
-                                <span className="data-user">{card.taken_by_name || 'Unknown'}</span>
-                                <span className="data-arrow">→</span>
-                                <span className="data-result">{card.content_name || 'Picked'}</span>
+                              <div key={card.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                                  <span className="data-user">{card.taken_by_name || 'Unknown'}</span>
+                                  <span className="data-arrow">→</span>
+                                  <span className="data-result">{card.content_name || 'Picked'}</span>
+                                </div>
+                                {card.team_name && (
+                                  <div style={{ fontSize: '0.75rem', color: '#00ff00', marginTop: '0.2rem', fontWeight: 'bold' }}>
+                                    TEAM: {card.team_name}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
