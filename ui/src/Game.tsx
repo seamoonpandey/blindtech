@@ -462,7 +462,7 @@ export default function Game() {
                     </>
                   )}
                 </div>
-              ) : (
+              ) : user.role === 'player' ? (
                 <div className="card selector-card">
                   <h2 className="section-title">ROUND 2: LOTTERY</h2>
                   {selectionResult ? (
@@ -504,7 +504,21 @@ export default function Game() {
                     </>
                   )}
                 </div>
-              )}
+              ) : null}
+            </div>
+          )}
+
+          {gameState.current_round === 2 && gameState.status === 'active' && user.role === 'volunteer' && (
+            <div className="card admin-card">
+              <h2 className="section-title">ROUND 2 ACTIVE</h2>
+              <p>Lottery is in progress. Leaders are waiting, Selectors are picking.</p>
+              <button 
+                onClick={stopRound} 
+                className="secondary-btn" 
+                style={{ width: '100%', marginTop: '1.5rem', background: '#ff4444', color: 'white' }}
+              >
+                STOP ROUND 2 & ELIMINATE SINGLES
+              </button>
             </div>
           )}
         </div>

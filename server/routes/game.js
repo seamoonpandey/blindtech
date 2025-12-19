@@ -169,7 +169,29 @@ async function gameRoutes(fastify, options) {
 
         if (data.type === 'stop_round' && currentUser.role === 'volunteer') {
           console.log('Stopping round...');
-          await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
+          const stateResBefore = await db.query('SELECT current_round FROM game_state WHERE id = 1');
+          const currentRound = stateResBefore.rows[0].current_round;
+
+          if (currentRound === 2) {
+            // Eliminate everyone not in a team
+            console.log('Eliminating single players in Round 2...');
+            const elimRes = await db.query(`
+              UPDATE users 
+              SET is_eliminated = true 
+              WHERE role = 'player' 
+              AND id NOT IN (
+                SELECT user1_id FROM teams WHERE round_formed = 2
+                UNION 
+                SELECT user2_id FROM teams WHERE round_formed = 2
+              )
+            `);
+            console.log('Eliminated', elimRes.rowCount, 'players');
+            await db.query('UPDATE game_state SET status = \'finished\' WHERE id = 1');
+          } else {
+            console.log('Not in Round 2, setting status to waiting. Current round:', currentRound);
+            await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
+          }
+
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
