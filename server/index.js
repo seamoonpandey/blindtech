@@ -2,7 +2,9 @@ const fastify = require('fastify')({ logger: true });
 require('dotenv').config();
 
 fastify.register(require('@fastify/cors'), { 
-  origin: true 
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 });
 
 fastify.register(require('@fastify/jwt'), {

@@ -23,15 +23,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (token) {
-      fetch('http://localhost:3000/me', {
+      console.log('Fetching /me with token:', token);
+      fetch('http://127.0.0.1:3000/me', {
         headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => {
+        console.log('/me response status:', res.status);
         if (res.ok) return res.json();
         throw new Error('Invalid token');
       })
-      .then(data => setUser(data))
-      .catch(() => logout());
+      .then(data => {
+        console.log('/me data:', data);
+        setUser(data);
+      })
+      .catch(err => {
+        console.error('/me fetch failed:', err);
+        logout();
+      });
     }
   }, [token]);
 
