@@ -156,6 +156,7 @@ export default function Game() {
   };
 
   const stopRound = () => {
+    console.log('Sending stop_round message...');
     ws?.send(JSON.stringify({ type: 'stop_round' }));
   };
 
