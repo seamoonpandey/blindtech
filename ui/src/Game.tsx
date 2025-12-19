@@ -183,6 +183,10 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'start_round_2' }));
   };
 
+  const startRound3 = () => {
+    ws?.send(JSON.stringify({ type: 'start_round_3' }));
+  };
+
   const selectCard = (cardId: string) => {
     ws?.send(JSON.stringify({ type: 'select_card', cardId }));
   };
@@ -265,7 +269,7 @@ export default function Game() {
       <div className="game-layout">
         {/* Left Column: Game Interaction */}
         <div className={`main-area ${activeTab === 'game' ? 'show' : 'hide'}`}>
-          {user.role === 'volunteer' && gameState.status === 'waiting' && (
+          {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 0 && (
             <div className="card admin-card">
               <h2 className="section-title">CONTROL PANEL</h2>
               <p>Initialize Round 1 for all players.</p>
@@ -431,7 +435,16 @@ export default function Game() {
                       className="submit-btn" 
                       style={{ width: '100%', marginTop: '1.5rem' }}
                     >
-                      START ROUND 2
+                      ACTIVATE ROUND 2
+                    </button>
+                  )}
+                  {user.role === 'volunteer' && gameState.current_round === 2 && (
+                    <button 
+                      onClick={startRound3} 
+                      className="submit-btn" 
+                      style={{ width: '100%', marginTop: '1.5rem' }}
+                    >
+                      ACTIVATE ROUND 3
                     </button>
                   )}
                 </>

@@ -186,12 +186,11 @@ async function gameRoutes(fastify, options) {
               )
             `);
             console.log('Eliminated', elimRes.rowCount, 'players');
-            await db.query('UPDATE game_state SET status = \'finished\' WHERE id = 1');
           } else {
-            console.log('Not in Round 2, setting status to waiting. Current round:', currentRound);
-            await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
+            console.log('Stopping Round', currentRound);
           }
 
+          await db.query('UPDATE game_state SET status = \'finished\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
@@ -253,6 +252,14 @@ async function gameRoutes(fastify, options) {
           const poolRes = await db.query('SELECT id, is_taken, taken_by FROM lottery_pool');
           broadcast({ type: 'lottery_pool', pool: poolRes.rows });
           console.log('Round 2 started successfully');
+        }
+
+        if (data.type === 'start_round_3' && currentUser.role === 'volunteer') {
+          console.log('Starting Round 3...');
+          await db.query('UPDATE game_state SET current_round = 3, status = \'active\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          console.log('Round 3 started successfully');
         }
 
         if (data.type === 'select_card' && currentUser.role === 'player') {
