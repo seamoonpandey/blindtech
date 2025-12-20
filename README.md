@@ -148,7 +148,9 @@ Test non-verbal communication and coordination in a **physical, offline setup**.
 
 ---
 
-## Round 4 – PARADOX TURN (Silent Team Strategy)
+## Round 4 – Coding Round
+
+## Round 5 – PARADOX TURN (Silent Team Strategy)
 
 ### Objective
 
@@ -239,8 +241,6 @@ Options:
 - Higher Momentum wins
 
 ---
-
-## Round 5 – Coding Round
 
 ### Objective
 
