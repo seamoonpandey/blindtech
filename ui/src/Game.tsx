@@ -230,7 +230,11 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunt
             </div>
           ))}
           {matches.filter(m => m.status === 'waiting' && !m.volunteer_id).length === 0 && (
-            <div className="empty-state">All matches currently have a volunteer referee.</div>
+            <div className="empty-state">
+              {matches.length === 0 
+                ? "No duels have been created yet. Activate Round 3 to begin."
+                : "All active matches currently have a volunteer referee."}
+            </div>
           )}
         </div>
       )}
