@@ -82,86 +82,89 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
     <div className="match-view">
       <h2 className="section-title">ROUND 3: PHYSICAL TRIALS</h2>
       {isEliminated ? (
-        <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-          <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1rem' }}>ELIMINATED</h3>
-          <p style={{ fontStyle: 'italic', opacity: 0.8 }}>"{randomQuote}"</p>
+        <div className="eliminated-card" style={{ textAlign: 'center', padding: '3rem 0', background: 'rgba(255,0,0,0.05)', borderRadius: '12px', border: '2px solid #ff4444' }}>
+          <div style={{ color: '#ff4444', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(255,0,0,0.4)', marginBottom: '1rem' }}>TERMINATED</div>
+          <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>YOU HAVE BEEN ELIMINATED</h3>
+          <p style={{ fontStyle: 'italic', opacity: 0.8, fontSize: '1.1rem', maxWidth: '80%', margin: '0 auto' }}>"{randomQuote}"</p>
         </div>
       ) : (
         <div className="match-info">
-          <p style={{ marginBottom: '1rem' }}>Listen to the Volunteer Referee's instructions. 3 Rounds of physical trial.</p>
+          {myMatch && myMatch.status !== 'finished' && (
+            <p style={{ marginBottom: '1rem', textAlign: 'center', opacity: 0.8 }}>Listen to the Volunteer Referee's instructions. 3 Rounds of physical trial.</p>
+          )}
           
           {myMatch ? (
             <div className="my-match-section" style={{ marginBottom: '2rem' }}>
-              <div className="match-card" style={{ border: '4px solid #00ff00', background: '#f0fff0' }}>
-                 <div className="match-header">
-                    <span>DUEL STATUS</span>
-                    <span style={{ color: myMatch.status === 'active' ? '#00ff00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
-                 </div>
-                 <div className="match-teams">
-                    <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={isTeam1 ? { border: '2px solid #00ff00', borderRadius: '8px', padding: '10px' } : {}}>
-                       {isTeam1 && <div style={{ fontSize: '0.7rem', color: '#00cc00', fontWeight: 'bold' }}>YOUR TEAM</div>}
-                       <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team1_name}</div>
-                       <div className="score-dots">
-                          {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
-                            <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />
-                          ))}
-                       </div>
-                    </div>
-                    <div className="vs-badge" style={{ transform: 'scale(1.2)' }}>VS</div>
-                    <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={!isTeam1 ? { border: '2px solid #00ff00', borderRadius: '8px', padding: '10px' } : {}}>
-                       {!isTeam1 && <div style={{ fontSize: '0.7rem', color: '#00cc00', fontWeight: 'bold' }}>YOUR TEAM</div>}
-                       <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
-                       <div className="score-dots">
-                          {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
-                            <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />
-                          ))}
-                       </div>
-                    </div>
-                 </div>
-                 {myMatch.status === 'waiting' && (
-                   <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                     WAITING FOR VOLUNTEER REFEREE...
+              {myMatch.status === 'finished' ? (
+                <div className="outcome-section" style={{ textAlign: 'center', padding: '3rem 0', background: 'rgba(0,0,0,0.05)', borderRadius: '12px' }}>
+                  {(() => {
+                    const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
+                    const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
+                    const hasOpponent = !!myMatch.team2_id;
+                    const isSafe = !hasOpponent || positives >= 2;
+                    
+                    return isSafe ? (
+                      <div className="victory-announcement">
+                        <div style={{ color: '#00ff00', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(0,255,0,0.4)', marginBottom: '0.5rem' }}>VICTORY</div>
+                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>DUEL COMPLETE: YOU ARE SAFE</h3>
+                        <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>Congratulations! You have survived the physical trials and advanced to the final stage.</p>
+                        <div style={{ padding: '15px 30px', border: '2px solid #00ff00', color: '#00ff00', display: 'inline-block', fontWeight: 'bold', letterSpacing: '2px' }}>
+                          STATUS: ACCESS GRANTED
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="defeat-announcement">
+                        <div style={{ color: '#ff4444', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(255,0,0,0.4)', marginBottom: '0.5rem' }}>DEFEAT</div>
+                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>DUEL TERMINATED: ELIMINATED</h3>
+                        <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>
+                          {positives === 0 ? "Your team was disqualified or failed to secure a single win." : "You failed to secure enough wins to stay in the game."}
+                        </p>
+                        <div style={{ padding: '15px 30px', border: '2px solid #ff4444', color: '#ff4444', display: 'inline-block', fontWeight: 'bold', letterSpacing: '2px' }}>
+                          STATUS: CONNECTION SEVERED
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="match-card active-duel" style={{ border: '4px solid #00ff00', background: '#f0fff0', borderRadius: '12px', overflow: 'hidden' }}>
+                   <div className="match-header" style={{ padding: '1rem', background: '#e0ffe0', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                      <span>DUEL IN PROGRESS</span>
+                      <span style={{ color: myMatch.status === 'active' ? '#00cc00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
                    </div>
-                 )}
-                 {myMatch.status === 'active' && (
-                   <div style={{ textAlign: 'center', marginTop: '1rem', color: '#00cc00', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>
-                     DUEL IN PROGRESS: ROUND {myMatch.current_subround}/3
+                   <div className="match-teams" style={{ padding: '2rem 1rem' }}>
+                      <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={isTeam1 ? { background: '#fff', border: '3px solid #00ff00', borderRadius: '12px', padding: '1.5rem' } : { padding: '1.5rem', opacity: 0.6 }}>
+                         {isTeam1 && <div style={{ fontSize: '0.8rem', color: '#00cc00', fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TEAM</div>}
+                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>{myMatch.team1_name}</div>
+                         <div className="score-dots" style={{ marginTop: '1rem' }}>
+                            {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
+                              <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '15px', height: '15px' }} />
+                            ))}
+                         </div>
+                      </div>
+                      <div className="vs-badge" style={{ fontSize: '2rem', fontWeight: 'black', opacity: 0.3 }}>VS</div>
+                      <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={!isTeam1 ? { background: '#fff', border: '3px solid #00ff00', borderRadius: '12px', padding: '1.5rem' } : { padding: '1.5rem', opacity: 0.6 }}>
+                         {!isTeam1 && <div style={{ fontSize: '0.8rem', color: '#00cc00', fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TEAM</div>}
+                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
+                         <div className="score-dots" style={{ marginTop: '1rem' }}>
+                            {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
+                              <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '15px', height: '15px' }} />
+                            ))}
+                         </div>
+                      </div>
                    </div>
-                 )}
-                 {myMatch.status === 'finished' && (
-                    <div style={{ textAlign: 'center', marginTop: '1rem', color: '#4444ff', fontWeight: 'bold' }}>
-                      DUEL COMPLETED
-                    </div>
-                 )}
-              </div>
+                   <div className="match-footer" style={{ textAlign: 'center', padding: '1.5rem', background: '#f9fff9', borderTop: '1px solid #e0ffe0' }}>
+                     {myMatch.status === 'waiting' && <span style={{ fontWeight: 'bold', opacity: 0.6 }}>AWAITING REFEREE TO START...</span>}
+                     {myMatch.status === 'active' && <span style={{ color: '#00cc00', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>SUBROUND {myMatch.current_subround}/3 LIVE</span>}
+                   </div>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="empty-state" style={{ textAlign: 'center', padding: '2rem' }}>
-              <p>You have not been assigned to a duel yet.</p>
-              <p style={{ opacity: 0.7, fontSize: '0.8rem' }}>Waiting for the Volunteer Referee to start the round.</p>
-            </div>
-          )}
-
-          {myMatch && myMatch.status === 'finished' && (
-            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-               {(() => {
-                 const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
-                 const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
-                 const hasOpponent = !!myMatch.team2_id;
-                 const isSafe = !hasOpponent || positives >= 2;
-                 
-                 return isSafe ? (
-                   <>
-                     <h3 style={{ color: '#00ff00', fontSize: '1.8rem' }}>SAFE</h3>
-                     <p style={{ opacity: 0.8 }}>You survived the physical trials.</p>
-                   </>
-                 ) : (
-                   <>
-                     <h3 style={{ color: '#ff4444', fontSize: '1.8rem' }}>ELIMINATED</h3>
-                     <p style={{ opacity: 0.8 }}>Failed to secure 2 wins. Better luck in the next life.</p>
-                   </>
-                 );
-               })()}
+            <div className="empty-state" style={{ textAlign: 'center', padding: '4rem 2rem', border: '2px dashed #ccc', borderRadius: '12px' }}>
+              <div className="loader-dots" style={{ marginBottom: '1.5rem' }}><span></span><span></span><span></span></div>
+              <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>CALIBRATING DUELS</h3>
+              <p style={{ opacity: 0.7 }}>Our algorithms are pairing you for the trials. Stand by.</p>
             </div>
           )}
         </div>
@@ -170,7 +173,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunteerId: string; matches: any[]; onJoin: (id: string) => void; onScore: (id: string, idx: 1 | 2, score: boolean) => void }) {
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { volunteerId: string; matches: any[]; onJoin: (id: string) => void; onScore: (id: string, idx: 1 | 2, score: boolean) => void; onDisqualify: (id: string, idx: 1 | 2) => void }) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
 
   return (
@@ -203,6 +206,11 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunt
                   disabled={myMatch.team1_scores.length >= myMatch.current_subround}
                   onClick={() => onScore(myMatch.id, 1, true)}
                 >+</button>
+                <button 
+                  className="score-btn dq" 
+                  style={{ background: '#ff0000', color: 'white', fontSize: '0.6rem', padding: '0 5px', marginLeft: '5px' }}
+                  onClick={() => onDisqualify(myMatch.id, 1)}
+                >DQ</button>
               </div>
             </div>
             {myMatch.team2_id && (
@@ -221,6 +229,11 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunt
                     disabled={myMatch.team2_scores.length >= myMatch.current_subround}
                     onClick={() => onScore(myMatch.id, 2, true)}
                   >+</button>
+                  <button 
+                    className="score-btn dq" 
+                    style={{ background: '#ff0000', color: 'white', fontSize: '0.6rem', padding: '0 5px', marginLeft: '5px' }}
+                    onClick={() => onDisqualify(myMatch.id, 2)}
+                  >DQ</button>
                 </div>
               </div>
             )}
@@ -237,30 +250,55 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunt
         </div>
       ) : (
         <div className="match-list">
-          <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', opacity: 0.6 }}>WAITING FOR REFEREE</h3>
-          {matches.filter(m => m.status === 'waiting' && !m.volunteer_id).map(m => (
-            <div key={m.id} className="match-card">
-              <div className="match-teams">
-                <div className="team-box">{m.team1_name}</div>
-                <div className="vs-badge">VS</div>
-                <div className="team-box">{m.team2_name || 'BYE'}</div>
+          <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', borderBottom: '2px solid #ccc', paddingBottom: '0.5rem', fontWeight: 'bold' }}>DUEL MANAGEMENT LOBBY</h3>
+          
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {matches.map(m => (
+              <div key={m.id} className="match-card" style={{ border: m.status === 'active' ? '2px solid #00ff00' : '2px solid #ccc', opacity: m.status === 'finished' ? 0.6 : 1, background: m.status === 'finished' ? '#f5f5f5' : 'white' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '0.8rem', opacity: 0.8 }}>
+                  <span style={{ color: m.status === 'active' ? '#00cc00' : (m.status === 'finished' ? '#4444ff' : '#888') }}>{m.status.toUpperCase()}</span>
+                  <span>{m.volunteer_name ? `Ref: ${m.volunteer_name}` : 'NO REFEREE'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{m.team1_name}</div>
+                  <div style={{ opacity: 0.3, fontWeight: 'bold' }}>VS</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{m.team2_name || 'LUCKY PASS'}</div>
+                </div>
+                
+                {m.status === 'waiting' && !m.volunteer_id && (
+                  <button 
+                    className="primary-btn" 
+                    style={{ width: '100%', marginTop: '1rem', padding: '8px' }}
+                    onClick={() => onJoin(m.id)}
+                  >
+                    VOLUNTEER AS REFEREE
+                  </button>
+                )}
+
+                {m.status === 'finished' && (
+                  <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: '#333', fontWeight: 'bold', padding: '5px', background: 'rgba(0,0,0,0.05)' }}>
+                    {(() => {
+                        const p1 = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s:any)=>s===true).length : 0;
+                        if (!m.team2_id) return 'LUCKY PASS - ADVANCED';
+                        return p1 >= 2 ? `RESULT: ${m.team1_name} WON` : `RESULT: ${m.team2_name} WON`;
+                    })()}
+                  </div>
+                )}
+
+                {m.status === 'active' && m.volunteer_id !== volunteerId && (
+                  <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.8rem', opacity: 0.6, fontStyle: 'italic' }}>
+                    Currently being refereed...
+                  </div>
+                )}
               </div>
-              <button 
-                className="primary-btn" 
-                style={{ width: '100%', marginTop: '1.5rem' }}
-                onClick={() => onJoin(m.id)}
-              >
-                VOLUNTEER AS REFEREE
-              </button>
-            </div>
-          ))}
-          {matches.filter(m => m.status === 'waiting' && !m.volunteer_id).length === 0 && (
-            <div className="empty-state">
-              {matches.length === 0 
-                ? "No duels have been created yet. Activate Round 3 to begin."
-                : "All active matches currently have a volunteer referee."}
-            </div>
-          )}
+            ))}
+
+            {matches.length === 0 && (
+              <div className="empty-state" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
+                No duels have been created yet. Activate Round 3 to begin.
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -334,6 +372,7 @@ export default function Game() {
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log('WS MESSAGE RECEIVED:', data.type, data);
       if (data.type === 'init') {
         setGameState(data.state);
         setLeaderboard(data.leaderboard);
@@ -356,8 +395,17 @@ export default function Game() {
         setLotteryPool(prev => prev.map(c => c.id === data.cardId ? { ...c, is_taken: true, taken_by: data.taken_by } : c));
       } else if (data.type === 'selection_result') {
         setSelectionResult(data.result);
+      } else if (data.type === 'duel_result') {
+        if (data.result === 'disqualified') {
+          alert('YOUR TEAM HAS BEEN DISQUALIFIED BY THE REFEREE.');
+          setIsEliminated(true);
+        } else if (data.result === 'won_by_dq') {
+          alert('YOUR OPPONENT WAS DISQUALIFIED. YOU WIN THE MATCH!');
+          setIsEliminated(false);
+        }
       } else if (data.type === 'round3_init' || data.type === 'round3_update') {
         const matches = data.matches as any[];
+        console.log('Updating Round 3 Matches:', matches);
         setRound3Matches(matches);
         
         // Check if current user is now eliminated based on match results
@@ -371,7 +419,11 @@ export default function Game() {
             const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
             const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
             if (positives < 2) {
+               console.log('Setting isEliminated: TRUE (Positives < 2)');
                setIsEliminated(true);
+            } else {
+               console.log('Setting isEliminated: FALSE (Positives >= 2)');
+               setIsEliminated(false);
             }
           }
         }
@@ -435,6 +487,44 @@ export default function Game() {
 
   const scoreTeam = (matchId: string, teamIndex: 1 | 2, score: boolean) => {
     ws?.send(JSON.stringify({ type: 'score_team', matchId, teamIndex, score }));
+  };
+
+  const disqualifyTeam = (matchId: string, teamIndex: 1 | 2) => {
+    console.log(`Attempting to disqualify match ${matchId} team ${teamIndex}`);
+    if (window.confirm("ARE YOU SURE? This will instantly ELIMINATE the team and pass their opponent.")) {
+      console.log("Calling DQ API...");
+      fetch('http://127.0.0.1:3000/round3/disqualify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ matchId, teamIndex })
+      })
+      .then(async res => {
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to disqualify');
+        }
+        return res.json();
+      })
+      .then(data => {
+        console.log('DQ API Success:', data);
+        // Optimistic update for immediate feedback
+        setRound3Matches(prev => prev.map(m => {
+            if (m.id === matchId) {
+                const team1_scores = teamIndex === 1 ? [false,false,false] : [true,true,true];
+                const team2_scores = teamIndex === 2 ? [false,false,false] : [true,true,true];
+                return { ...m, status: 'finished', team1_scores, team2_scores };
+            }
+            return m;
+        }));
+      })
+      .catch(err => {
+        console.error('DQ API Error:', err);
+        alert(`Error: ${err.message}`);
+      });
+    }
   };
 
   const selectCard = (cardId: string) => {
@@ -688,6 +778,7 @@ export default function Game() {
               matches={round3Matches}
               onJoin={joinMatch}
               onScore={scoreTeam}
+              onDisqualify={disqualifyTeam}
             />
           )}
 
@@ -984,10 +1075,26 @@ export default function Game() {
                             return (
                               <div key={m.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                                 <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                    <span style={{ color: getStatusColor(m.team1_scores, false, !!m.team2_id) }}>{m.team1_name}</span>
+                                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                      <span style={{ color: getStatusColor(m.team1_scores, false, !!m.team2_id) }}>{m.team1_name}</span>
+                                      {(m.status === 'active' || m.status === 'waiting') && (
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); disqualifyTeam(m.id, 1); }}
+                                          style={{ background: 'none', border: 'none', color: '#ff4444', fontSize: '0.6rem', cursor: 'pointer', marginLeft: '4px', padding: '0 2px', borderBottom: '1px solid #ff4444' }}
+                                        >DQ</button>
+                                      )}
+                                    </div>
                                     <span style={{ opacity: 0.4 }}>vs</span>
-                                    <span style={{ color: getStatusColor(m.team2_scores, !m.team2_id, !!m.team2_id) }}>{m.team2_name || 'LUCKY PASS'}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                      <span style={{ color: getStatusColor(m.team2_scores, !m.team2_id, !!m.team2_id) }}>{m.team2_name || 'LUCKY PASS'}</span>
+                                      {(m.status === 'active' || m.status === 'waiting') && m.team2_id && (
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); disqualifyTeam(m.id, 2); }}
+                                          style={{ background: 'none', border: 'none', color: '#ff4444', fontSize: '0.6rem', cursor: 'pointer', marginLeft: '4px', padding: '0 2px', borderBottom: '1px solid #ff4444' }}
+                                        >DQ</button>
+                                      )}
+                                    </div>
                                   </div>
                                   <span style={{ color: m.status === 'active' ? '#00ff00' : (m.status === 'finished' ? '#4444ff' : '#888'), fontSize: '0.7rem' }}>{m.status.toUpperCase()}</span>
                                 </div>

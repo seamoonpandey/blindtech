@@ -42,10 +42,9 @@ async function reset() {
       volunteers.push(res.rows[0]);
     }
 
-    // 4. Simulate Round 2 Finished State
+    // 4. Simulate Round 2 Finished State with 11 Teams
     console.log('Simulating Round 2 formation...');
     
-    // Split 40 players into 20 Leaders and 20 Selectors
     const leaders = players.slice(0, 20);
     const selectors = players.slice(20, 40);
 
@@ -61,13 +60,11 @@ async function reset() {
         const selector = selectors[i];
         const teamName = TEAM_NAMES[i];
         
-        // Create Team
         await client.query(
             'INSERT INTO teams (user1_id, user2_id, round_formed, name) VALUES ($1, $2, 2, $3)',
             [selector.id, leader.id, teamName]
         );
 
-        // Add to Lottery Pool
         await client.query(
             'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
             [JSON.stringify({ type: 'player', id: leader.id, name: leader.name }), true, selector.id]
@@ -76,44 +73,40 @@ async function reset() {
         console.log(`Team Created: ${teamName} (${selector.name} + ${leader.name})`);
     }
 
-    // Create 10 Death Cards (Taken by the other 10 selectors)
     const QUOTES = [
         "The system has no mercy.", 
         "Efficiency is the only virtue.",
         "Your silence is your best weapon."
     ];
 
+    // 5. Eliminate selectors who picked quotes
     for (let i = 11; i < 20; i++) {
         const selector = selectors[i];
         const quote = QUOTES[(i - 11) % QUOTES.length];
 
-        // Add to Lottery Pool
         await client.query(
             'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
             [JSON.stringify({ type: 'quote', text: quote }), true, selector.id]
         );
 
-        // Eliminate Selector
         await client.query('UPDATE users SET is_eliminated = true WHERE id = $1', [selector.id]);
         console.log(`Selector Eliminated: ${selector.name} picked a death card.`);
     }
 
-    // Remaining Leaders who weren't picked (20 - 11 = 9)
+    // 6. Eliminate unpicked leaders
     for (let i = 11; i < 20; i++) {
         const leader = leaders[i];
         
-        // Add untaken leader to pool
         await client.query(
             'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
             [JSON.stringify({ type: 'player', id: leader.id, name: leader.name }), false, null]
         );
 
-        // Eliminate Leader
         await client.query('UPDATE users SET is_eliminated = true WHERE id = $1', [leader.id]);
         console.log(`Leader Eliminated: ${leader.name} was not picked.`);
     }
 
-    // Add 9 untaken quotes to reach 40 cards total
+    // Add remaining quotes to pool
     for (let i = 0; i < 9; i++) {
         const quote = QUOTES[i % QUOTES.length];
         await client.query(
@@ -122,7 +115,7 @@ async function reset() {
         );
     }
 
-    // 5. Set Game State to Round 2 Finished
+    // 7. Set Game State to Round 2 Finished
     console.log('Finalizing game state...');
     await client.query("UPDATE game_state SET current_round = 2, status = 'finished' WHERE id = 1");
 
@@ -130,8 +123,7 @@ async function reset() {
     console.log('--- RESET COMPLETE ---');
     console.log('Total Players: 40');
     console.log('Total Teams: 11');
-    console.log('Total Eliminated: 18');
-    console.log('Total Safe: 22 (ready for Round 3)');
+    console.log('Status: Round 2 Finished, Ready for Round 3');
 
   } catch (err) {
     await client.query('ROLLBACK');

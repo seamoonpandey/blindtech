@@ -103,6 +103,90 @@ const TEAM_NAMES = [
 async function gameRoutes(fastify, options) {
   const clients = new Map(); // userId -> socket
 
+  // REST API for Disqualification (as requested for better visibility/reliability)
+  fastify.post('/round3/disqualify', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const { matchId, teamIndex } = request.body;
+    const currentUser = request.user;
+
+    if (currentUser.role !== 'volunteer') {
+      return reply.code(403).send({ error: 'Only volunteers can disqualify teams' });
+    }
+
+    console.log(`API DISQUALIFY: Volunteer ${currentUser.name} -> Match ${matchId} Team ${teamIndex}`);
+
+    try {
+      const matchRes = await db.query('SELECT * FROM round3_matches WHERE id = $1', [matchId]);
+      const match = matchRes.rows[0];
+      
+      if (!match) return reply.code(404).send({ error: 'Match not found' });
+      const validStatuses = ['active', 'waiting'];
+      if (!validStatuses.includes(match.status)) {
+        return reply.code(400).send({ error: `Cannot disqualify team in a match with status: ${match.status}` });
+      }
+
+      const disqualifiedId = teamIndex === 1 ? match.team1_id : match.team2_id;
+      const passingId = teamIndex === 1 ? match.team2_id : match.team1_id;
+
+      // 1. Mark match as finished with extreme scores
+      await db.query(`
+        UPDATE round3_matches 
+        SET status = 'finished', 
+            team1_scores = $1, 
+            team2_scores = $2 
+        WHERE id = $3`,
+        [
+          JSON.stringify(teamIndex === 1 ? [false, false, false] : [true, true, true]),
+          JSON.stringify(teamIndex === 2 ? [false, false, false] : [true, true, true]),
+          matchId
+        ]
+      );
+
+      // 2. Eliminate the disqualified team members
+      const dqUsersRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [disqualifiedId]);
+      if (dqUsersRes.rows[0]) {
+        const { user1_id, user2_id } = dqUsersRes.rows[0];
+        await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [user1_id, user2_id]);
+      }
+
+      // 3. Ensure passing team members are safe
+      if (passingId) {
+        const passUsersRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [passingId]);
+        if (passUsersRes.rows[0]) {
+          const { user1_id, user2_id } = passUsersRes.rows[0];
+          await db.query('UPDATE users SET is_eliminated = false WHERE id IN ($1, $2)', [user1_id, user2_id]);
+        }
+      }
+
+      // 4. Update UI via WebSocket broadcast
+      await broadcastRound3Update();
+
+      // 5. Explicit duel result notification
+      const participants = [];
+      if (dqUsersRes.rows[0]) participants.push(dqUsersRes.rows[0].user1_id, dqUsersRes.rows[0].user2_id);
+      if (passingId) {
+        const passUsersRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [passingId]);
+        if (passUsersRes.rows[0]) participants.push(passUsersRes.rows[0].user1_id, passUsersRes.rows[0].user2_id);
+      }
+
+      for (const pid of participants) {
+        const client = clients.get(pid);
+        if (client && client.socket.readyState === 1) {
+          const isDq = pid === dqUsersRes.rows[0]?.user1_id || pid === dqUsersRes.rows[0]?.user2_id;
+          client.socket.send(JSON.stringify({ 
+            type: 'duel_result', 
+            matchId, 
+            result: isDq ? 'disqualified' : 'won_by_dq'
+          }));
+        }
+      }
+
+      return reply.send({ success: true, matchId });
+    } catch (err) {
+      console.error('DQ API Error:', err);
+      return reply.code(500).send({ error: 'Internal server error during disqualification' });
+    }
+  });
+
   const broadcast = (data) => {
     const msg = JSON.stringify(data);
     for (const { socket } of clients.values()) {
@@ -113,20 +197,28 @@ async function gameRoutes(fastify, options) {
   };
 
   const broadcastRound3Update = async () => {
+    console.log('Broadcasting Round 3 Update...');
     const matches = await getRound3Matches();
+    let count = 0;
     for (const [userId, { socket, user }] of clients.entries()) {
       if (socket.readyState === 1) {
+        count++;
         if (user.role === 'volunteer') {
+          console.log(`Sending R3 update to VOLUNTEER: ${user.name}`);
           socket.send(JSON.stringify({ type: 'round3_update', matches }));
         } else {
           const myMatch = matches.find(m => 
             m.team1_user1 === userId || m.team1_user2 === userId || 
             m.team2_user1 === userId || m.team2_user2 === userId
           );
-          socket.send(JSON.stringify({ type: 'round3_update', matches: myMatch ? [myMatch] : [] }));
+          if (myMatch) {
+             console.log(`Sending R3 update to PLAYER: ${user.name} (Match ${myMatch.id})`);
+             socket.send(JSON.stringify({ type: 'round3_update', matches: [myMatch] }));
+          }
         }
       }
     }
+    console.log(`Broadcasted to ${count} active clients.`);
   };
 
   async function getDetailedPool() {
@@ -513,6 +605,69 @@ async function gameRoutes(fastify, options) {
           }
           
           await broadcastRound3Update();
+        }
+
+        if (data.type === 'disqualify_team' && currentUser.role === 'volunteer') {
+          const { matchId, teamIndex } = data;
+          console.log(`Volunteer ${currentUser.name} DISQUALIFYING Team ${teamIndex} in Match ${matchId}`);
+
+          const matchRes = await db.query('SELECT * FROM round3_matches WHERE id = $1', [matchId]);
+          const match = matchRes.rows[0];
+          
+          if (!match || match.status !== 'active') return;
+
+          const disqualifiedId = teamIndex === 1 ? match.team1_id : match.team2_id;
+          const passingId = teamIndex === 1 ? match.team2_id : match.team1_id;
+
+          // 1. Mark match as finished with extreme scores
+          await db.query(`
+            UPDATE round3_matches 
+            SET status = 'finished', 
+                team1_scores = $1, 
+                team2_scores = $2 
+            WHERE id = $3`,
+            [
+              teamIndex === 1 ? [false, false, false] : [true, true, true],
+              teamIndex === 2 ? [false, false, false] : [true, true, true],
+              matchId
+            ]
+          );
+
+          // 2. Eliminate the disqualified team members
+          const dqUsersRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [disqualifiedId]);
+          if (dqUsersRes.rows[0]) {
+            const { user1_id, user2_id } = dqUsersRes.rows[0];
+            await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [user1_id, user2_id]);
+          }
+
+          // 3. Ensure passing team members are safe (in case they were previously eliminated somehow, though unlikely)
+          if (passingId) {
+            const passUsersRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [passingId]);
+            if (passUsersRes.rows[0]) {
+              const { user1_id, user2_id } = passUsersRes.rows[0];
+              await db.query('UPDATE users SET is_eliminated = false WHERE id IN ($1, $2)', [user1_id, user2_id]);
+            }
+          }
+
+          // 4. Final Broadcast
+          console.log(`Match ${matchId} finished via DQ. Broadcasting...`);
+          await broadcastRound3Update();
+
+          // Explicit notification for participants
+          const participants = [];
+          if (dqUsersRes.rows[0]) participants.push(dqUsersRes.rows[0].user1_id, dqUsersRes.rows[0].user2_id);
+          if (passUsersRes && passUsersRes.rows[0]) participants.push(passUsersRes.rows[0].user1_id, passUsersRes.rows[0].user2_id);
+
+          for (const pid of participants) {
+            const client = clients.get(pid);
+            if (client && client.socket.readyState === 1) {
+              client.socket.send(JSON.stringify({ 
+                type: 'duel_result', 
+                matchId, 
+                result: pid === (teamIndex === 1 ? dqUsersRes.rows[0]?.user1_id || dqUsersRes.rows[0]?.user2_id : passUsersRes?.rows[0]?.user1_id) ? 'disqualified' : 'won_by_dq'
+              }));
+            }
+          }
         }
 
         if (data.type === 'select_card' && currentUser.role === 'player') {

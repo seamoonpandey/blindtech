@@ -17,7 +17,7 @@ async function authRoutes(fastify, options) {
         [name, email, hashedPassword, role]
       );
       const user = result.rows[0];
-      const token = fastify.jwt.sign({ id: user.id, role: user.role });
+      const token = fastify.jwt.sign({ id: user.id, role: user.role, name: user.name });
       return { user, token };
     } catch (err) {
       if (err.code === '23505') { // Unique violation
@@ -37,7 +37,7 @@ async function authRoutes(fastify, options) {
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
 
-    const token = fastify.jwt.sign({ id: user.id, role: user.role });
+    const token = fastify.jwt.sign({ id: user.id, role: user.role, name: user.name });
     return { user: { id: user.id, name: user.name, email: user.email, role: user.role }, token };
   });
 }
