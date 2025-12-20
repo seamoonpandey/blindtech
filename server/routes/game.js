@@ -257,6 +257,47 @@ async function gameRoutes(fastify, options) {
     return res.rows;
   }
 
+  async function getRound4Sessions() {
+    const res = await db.query(`
+      SELECT 
+        s.id, s.team_id, s.volunteer_id, s.status, s.result,
+        t.name as team_name,
+        t.user1_id, t.user2_id,
+        u1.name as user1_name, u2.name as user2_name,
+        v.name as volunteer_name
+      FROM round4_sessions s
+      JOIN teams t ON s.team_id = t.id
+      JOIN users u1 ON t.user1_id = u1.id
+      JOIN users u2 ON t.user2_id = u2.id
+      LEFT JOIN users v ON s.volunteer_id = v.id
+    `);
+    return res.rows;
+  }
+
+  const broadcastRound4Update = async () => {
+    console.log('Broadcasting Round 4 Update...');
+    const sessions = await getRound4Sessions();
+    let count = 0;
+    for (const [userId, { socket, user }] of clients.entries()) {
+      if (socket.readyState === 1) {
+        count++;
+        if (user.role === 'volunteer') {
+          console.log(`Sending R4 update to VOLUNTEER: ${user.name}`);
+          socket.send(JSON.stringify({ type: 'round4_update', sessions }));
+        } else {
+          const mySession = sessions.find(s => 
+            s.user1_id === userId || s.user2_id === userId
+          );
+          if (mySession) {
+            console.log(`Sending R4 update to PLAYER: ${user.name} (Session ${mySession.id})`);
+            socket.send(JSON.stringify({ type: 'round4_update', sessions: [mySession] }));
+          }
+        }
+      }
+    }
+    console.log(`Broadcasted R4 to ${count} active clients.`);
+  };
+
   // Helper to calculate leaderboard
   const calculateLeaderboard = async () => {
     // Round 1 logic
@@ -400,6 +441,18 @@ async function gameRoutes(fastify, options) {
               socket.send(JSON.stringify({ type: 'round3_init', matches: myMatch ? [myMatch] : [] }));
             }
           }
+          // If round 4 is active, send the session info
+          if (stateRes.rows[0].current_round === 4) {
+            if (currentUser.role === 'volunteer') {
+              socket.send(JSON.stringify({ type: 'round4_init', sessions: await getRound4Sessions() }));
+            } else {
+              const sessions = await getRound4Sessions();
+              const mySession = sessions.find(s => 
+                s.user1_id === currentUser.id || s.user2_id === currentUser.id
+              );
+              socket.send(JSON.stringify({ type: 'round4_init', sessions: mySession ? [mySession] : [] }));
+            }
+          }
         }
 
         if (!currentUser) return;
@@ -539,6 +592,101 @@ async function gameRoutes(fastify, options) {
           
           await broadcastRound3Update();
           console.log('Round 3 started successfully');
+        }
+
+        if (data.type === 'finish_round_3' && currentUser.role === 'volunteer') {
+          console.log('Finishing Round 3...');
+          
+          // Set game state to waiting (Round 3 finished, waiting for Round 4)
+          await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          console.log('Round 3 finished - players can now see their elimination status');
+        }
+
+        if (data.type === 'start_round_4' && currentUser.role === 'volunteer') {
+          console.log('Starting Round 4 (Coding Club)...');
+          
+          // Get all surviving teams (users who are not eliminated and are in teams)
+          const teamsRes = await db.query(`
+            SELECT DISTINCT t.* 
+            FROM teams t
+            JOIN users u1 ON t.user1_id = u1.id
+            JOIN users u2 ON t.user2_id = u2.id
+            WHERE t.round_formed = 2 
+            AND u1.is_eliminated = false 
+            AND u2.is_eliminated = false
+          `);
+          
+          const teams = teamsRes.rows;
+          console.log(`Found ${teams.length} surviving teams for Round 4`);
+          
+          // Clear old sessions
+          await db.query('DELETE FROM round4_sessions');
+          
+          // Create session for each team
+          for (const team of teams) {
+            await db.query(
+              'INSERT INTO round4_sessions (team_id, status) VALUES ($1, $2)',
+              [team.id, 'waiting']
+            );
+            console.log(`Created session for team: ${team.name}`);
+          }
+          
+          await db.query('UPDATE game_state SET current_round = 4, status = \'active\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          await broadcastRound4Update();
+          console.log('Round 4 started successfully');
+        }
+
+        if (data.type === 'volunteer_session' && currentUser.role === 'volunteer') {
+          const { sessionId } = data;
+          console.log(`Volunteer ${currentUser.name} joining session ${sessionId}`);
+          
+          await db.query(
+            'UPDATE round4_sessions SET volunteer_id = $1, status = \'active\' WHERE id = $2 AND volunteer_id IS NULL',
+            [currentUser.id, sessionId]
+          );
+          
+          await broadcastRound4Update();
+        }
+
+        if (data.type === 'evaluate_team' && currentUser.role === 'volunteer') {
+          const { sessionId, result } = data; // result: 'pass' or 'fail'
+          console.log(`Volunteer ${currentUser.name} evaluating session ${sessionId}: ${result}`);
+          
+          const sessionRes = await db.query('SELECT * FROM round4_sessions WHERE id = $1', [sessionId]);
+          const session = sessionRes.rows[0];
+          
+          if (!session || session.volunteer_id !== currentUser.id) {
+            console.log('Unauthorized evaluation attempt');
+            return;
+          }
+          
+          // Update session
+          await db.query(
+            'UPDATE round4_sessions SET status = \'finished\', result = $1 WHERE id = $2',
+            [result, sessionId]
+          );
+          
+          // Get team members
+          const teamRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [session.team_id]);
+          const { user1_id, user2_id } = teamRes.rows[0];
+          
+          if (result === 'fail') {
+            // Eliminate both team members
+            await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [user1_id, user2_id]);
+            console.log(`Team failed - both members eliminated`);
+          } else {
+            // Ensure both remain safe
+            await db.query('UPDATE users SET is_eliminated = false WHERE id IN ($1, $2)', [user1_id, user2_id]);
+            console.log(`Team passed - both members advance`);
+          }
+          
+          await broadcastRound4Update();
         }
 
         if (data.type === 'join_match' && currentUser.role === 'volunteer') {

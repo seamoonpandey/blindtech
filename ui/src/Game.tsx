@@ -173,7 +173,15 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { volunteerId: string; matches: any[]; onJoin: (id: string) => void; onScore: (id: string, idx: 1 | 2, score: boolean) => void; onDisqualify: (id: string, idx: 1 | 2) => void }) {
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, onStartRound4, onFinishRound3 }: { 
+  volunteerId: string; 
+  matches: any[]; 
+  onJoin: (id: string) => void; 
+  onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
+  onDisqualify: (id: string, idx: 1 | 2) => void;
+  onStartRound4?: () => void;
+  onFinishRound3?: () => void;
+}) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
 
   return (
@@ -299,8 +307,164 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
               </div>
             )}
           </div>
+
+          {matches.length > 0 && matches.every(m => m.status === 'finished') && onFinishRound3 && (
+            <button 
+              onClick={onFinishRound3}
+              className="submit-btn" 
+              style={{ width: '100%', marginTop: '1.5rem', background: '#ff9800', fontSize: '1.2rem', padding: '1rem' }}
+            >
+              ⏹️ FINISH ROUND 3
+            </button>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function Round4PlayerView({ session, isEliminated }: { session: any; isEliminated: boolean }) {
+  if (isEliminated) {
+    return (
+      <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
+        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>FAILED</h1>
+        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team has been eliminated from the Coding Club.</p>
+      </div>
+    );
+  }
+  
+  if (!session) {
+    return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading...</div>;
+  }
+  
+  if (session.status === 'finished') {
+    if (session.result === 'pass') {
+      return (
+        <div className="victory-screen" style={{ textAlign: 'center', padding: '4rem 2rem', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '12px' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'victoryPulse 1.5s infinite' }}>PASSED</h1>
+          <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>Your team advances to the next round!</p>
+        </div>
+      );
+    } else {
+      return (
+        <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>FAILED</h1>
+          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team has been eliminated.</p>
+        </div>
+      );
+    }
+  }
+  
+  if (session.status === 'active') {
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>CODING CLUB EVALUATION</h2>
+        <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '2rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Your team is being evaluated by</p>
+          <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{session.volunteer_name}</p>
+        </div>
+        <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Status: IN PROGRESS</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>CODING CLUB</h2>
+      <div style={{ background: '#f3f4f6', padding: '2rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Team: {session.team_name}</p>
+        <p style={{ opacity: 0.7 }}>Members: {session.user1_name}, {session.user2_name}</p>
+      </div>
+      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Waiting for volunteer evaluator...</p>
+    </div>
+  );
+}
+
+function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
+  sessions: any[];
+  volunteerId: string;
+  onJoinSession: (sessionId: string) => void;
+  onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
+}) {
+  const mySession = sessions.find(s => s.volunteer_id === volunteerId && s.status === 'active');
+  
+  if (mySession) {
+    return (
+      <div className="evaluation-panel" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem', borderRadius: '12px', color: 'white', marginTop: '1rem' }}>
+        <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>EVALUATING: {mySession.team_name}</h2>
+        <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', opacity: 0.9 }}>
+          Members: {mySession.user1_name}, {mySession.user2_name}
+        </p>
+        <div className="eval-buttons" style={{ display: 'flex', gap: '1rem' }}>
+          <button 
+            className="pass-btn"
+            style={{ background: '#10b981', flex: 1, padding: '1rem', fontSize: '1.2rem', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+            onClick={() => onEvaluate(mySession.id, 'pass')}
+          >
+            ✓ PASS TEAM
+          </button>
+          <button 
+            className="fail-btn"
+            style={{ background: '#ef4444', flex: 1, padding: '1rem', fontSize: '1.2rem', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+            onClick={() => onEvaluate(mySession.id, 'fail')}
+          >
+            ✗ FAIL TEAM
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="session-list" style={{ marginTop: '1rem' }}>
+      <h2 className="section-title">CODING CLUB - TEAM EVALUATIONS</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {sessions.map(s => (
+          <div key={s.id} className="session-card" style={{ background: 'white', border: '2px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <strong style={{ fontSize: '1.1rem' }}>{s.team_name}</strong>
+                <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.3rem' }}>
+                  {s.user1_name}, {s.user2_name}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className={`status-${s.status}`} style={{ 
+                  fontSize: '0.85rem', 
+                  fontWeight: 'bold',
+                  color: s.status === 'waiting' ? '#f59e0b' : s.status === 'active' ? '#3b82f6' : '#6b7280'
+                }}>
+                  {s.status.toUpperCase()}
+                </span>
+                {s.status === 'waiting' && (
+                  <button 
+                    onClick={() => onJoinSession(s.id)}
+                    style={{ padding: '0.5rem 1rem', background: '#667eea', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    EVALUATE
+                  </button>
+                )}
+                {s.status === 'finished' && (
+                  <div className={`result-${s.result}`} style={{ 
+                    fontWeight: 'bold',
+                    color: s.result === 'pass' ? '#10b981' : '#ef4444'
+                  }}>
+                    {s.result === 'pass' ? '✓ PASSED' : '✗ FAILED'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {sessions.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
+            No teams available for evaluation yet.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -323,8 +487,9 @@ export default function Game() {
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
-  const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3'>('round1');
+  const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3' | 'round4'>('round1');
   const [round3Matches, setRound3Matches] = useState<any[]>([]);
+  const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -396,11 +561,10 @@ export default function Game() {
       } else if (data.type === 'selection_result') {
         setSelectionResult(data.result);
       } else if (data.type === 'duel_result') {
+        // Update elimination status without showing alerts
         if (data.result === 'disqualified') {
-          alert('YOUR TEAM HAS BEEN DISQUALIFIED BY THE REFEREE.');
           setIsEliminated(true);
         } else if (data.result === 'won_by_dq') {
-          alert('YOUR OPPONENT WAS DISQUALIFIED. YOU WIN THE MATCH!');
           setIsEliminated(false);
         }
       } else if (data.type === 'round3_init' || data.type === 'round3_update') {
@@ -424,6 +588,26 @@ export default function Game() {
             } else {
                console.log('Setting isEliminated: FALSE (Positives >= 2)');
                setIsEliminated(false);
+            }
+          }
+        }
+      } else if (data.type === 'round4_init' || data.type === 'round4_update') {
+        const sessions = data.sessions as any[];
+        console.log('Updating Round 4 Sessions:', sessions);
+        setRound4Sessions(sessions);
+        
+        // Check if current user is eliminated based on session results
+        if (user && user.role === 'player') {
+          const mySession = sessions.find(s => 
+            s.user1_id === user.id || s.user2_id === user.id
+          );
+          if (mySession && mySession.status === 'finished') {
+            if (mySession.result === 'fail') {
+              console.log('Setting isEliminated: TRUE (Team failed)');
+              setIsEliminated(true);
+            } else {
+              console.log('Setting isEliminated: FALSE (Team passed)');
+              setIsEliminated(false);
             }
           }
         }
@@ -524,6 +708,32 @@ export default function Game() {
         console.error('DQ API Error:', err);
         alert(`Error: ${err.message}`);
       });
+    }
+  };
+
+  const finishRound3 = () => {
+    console.log('Finishing Round 3...', ws ? 'WS connected' : 'WS NOT connected');
+    ws?.send(JSON.stringify({ type: 'finish_round_3' }));
+  };
+
+  const startRound4 = () => {
+    console.log('Starting Round 4...', ws ? 'WS connected' : 'WS NOT connected');
+    if (ws) {
+      console.log('WebSocket readyState:', ws.readyState, '(1=OPEN)');
+      const message = JSON.stringify({ type: 'start_round_4' });
+      console.log('Sending message:', message);
+      ws.send(message);
+      console.log('Message sent');
+    }
+  };
+
+  const joinSession = (sessionId: string) => {
+    ws?.send(JSON.stringify({ type: 'volunteer_session', sessionId }));
+  };
+
+  const evaluateTeam = (sessionId: string, result: 'pass' | 'fail') => {
+    if (window.confirm(`Are you sure you want to ${result.toUpperCase()} this team?`)) {
+      ws?.send(JSON.stringify({ type: 'evaluate_team', sessionId, result }));
     }
   };
 
@@ -736,6 +946,20 @@ export default function Game() {
             </div>
           )}
 
+          {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 3 && (
+            <div className="card waiting-card">
+              <h2 className="section-title">ROUND 3 COMPLETE</h2>
+              <p style={{ marginBottom: '1.5rem' }}>All duels have been finished. Players have been notified of their status.</p>
+              <button 
+                onClick={startRound4} 
+                className="submit-btn" 
+                style={{ width: '100%', background: '#667eea', fontSize: '1.2rem', padding: '1rem' }}
+              >
+                🎯 ACTIVATE CODING CLUB (ROUND 4)
+              </button>
+            </div>
+          )}
+
           {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 1 && (
             <div className="card admin-card">
               <h2 className="section-title">ROUND 1 ACTIVE</h2>
@@ -779,6 +1003,24 @@ export default function Game() {
               onJoin={joinMatch}
               onScore={scoreTeam}
               onDisqualify={disqualifyTeam}
+              onStartRound4={startRound4}
+              onFinishRound3={finishRound3}
+            />
+          )}
+
+          {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 4 && (
+            <Round4PlayerView 
+              session={round4Sessions[0]}
+              isEliminated={isEliminated}
+            />
+          )}
+
+          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 4 && (
+            <Round4VolunteerView 
+              sessions={round4Sessions}
+              volunteerId={user.id}
+              onJoinSession={joinSession}
+              onEvaluate={evaluateTeam}
             />
           )}
 
@@ -838,6 +1080,15 @@ export default function Game() {
                       style={{ width: '100%', marginTop: '1.5rem' }}
                     >
                       ACTIVATE ROUND 3
+                    </button>
+                  )}
+                  {user.role === 'volunteer' && gameState.current_round === 3 && (
+                    <button 
+                      onClick={startRound4} 
+                      className="submit-btn" 
+                      style={{ width: '100%', marginTop: '1.5rem', background: '#667eea' }}
+                    >
+                      🎯 ACTIVATE CODING CLUB (ROUND 4)
                     </button>
                   )}
                 </>
@@ -992,6 +1243,12 @@ export default function Game() {
                     >
                       R3
                     </button>
+                    <button 
+                      className={`v-tab ${volunteerTab === 'round4' ? 'active' : ''}`}
+                      onClick={() => setVolunteerTab('round4')}
+                    >
+                      R4
+                    </button>
                   </div>
 
                   {volunteerTab === 'round1' && (
@@ -1095,15 +1352,69 @@ export default function Game() {
                                         >DQ</button>
                                       )}
                                     </div>
-                                  </div>
-                                  <span style={{ color: m.status === 'active' ? '#00ff00' : (m.status === 'finished' ? '#4444ff' : '#888'), fontSize: '0.7rem' }}>{m.status.toUpperCase()}</span>
                                 </div>
-                                <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                  Ref: {m.volunteer_name || 'NONE'} | Subround: {m.current_subround}/3
-                                </div>
+                                <span style={{ 
+                                  color: m.status === 'active' ? '#00ff00' : 
+                                         m.status === 'finished' ? (
+                                           // For finished matches, show green if team1 won, red if team1 lost
+                                           (() => {
+                                             if (!m.team2_id) return '#00cc00'; // Lucky pass
+                                             const t1Positives = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s: boolean) => s === true).length : 0;
+                                             return t1Positives >= 2 ? '#00cc00' : '#ff4444';
+                                           })()
+                                         ) : '#888',
+                                  fontSize: '0.7rem' 
+                                }}>
+                                  {m.status.toUpperCase()}
+                                </span>
                               </div>
+                              <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
+                                Ref: {m.volunteer_name || 'NONE'} | Subround: {m.current_subround}/3
+                              </div>
+                            </div>
                             );
                           })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                   {volunteerTab === 'round4' && (
+                    <>
+                      <h2 className="section-title">R4 STATUS</h2>
+                      <div className="volunteer-data-list">
+                        <div className="data-items">
+                          {round4Sessions.map(s => (
+                            <div key={s.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                <div>
+                                  <div>{s.team_name}</div>
+                                  <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
+                                    {s.user1_name}, {s.user2_name}
+                                  </div>
+                                </div>
+                                <span style={{ 
+                                  color: s.status === 'waiting' ? '#f59e0b' : s.status === 'active' ? '#3b82f6' : '#6b7280',
+                                  fontSize: '0.7rem' 
+                                }}>
+                                  {s.status.toUpperCase()}
+                                </span>
+                              </div>
+                              {s.status === 'finished' && (
+                                <div style={{ 
+                                  fontSize: '0.8rem', 
+                                  fontWeight: 'bold',
+                                  color: s.result === 'pass' ? '#10b981' : '#ef4444',
+                                  marginTop: '0.3rem'
+                                }}>
+                                  {s.result === 'pass' ? '✓ PASSED' : '✗ FAILED'}
+                                </div>
+                              )}
+                              <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
+                                Evaluator: {s.volunteer_name || 'NONE'}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </>
