@@ -76,6 +76,8 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
     m.team2_user1 === userId || m.team2_user2 === userId
   );
 
+  const isTeam1 = myMatch && (myMatch.team1_user1 === userId || myMatch.team1_user2 === userId);
+
   return (
     <div className="match-view">
       <h2 className="section-title">ROUND 3: PHYSICAL TRIALS</h2>
@@ -96,7 +98,8 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                     <span style={{ color: myMatch.status === 'active' ? '#00ff00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
                  </div>
                  <div className="match-teams">
-                    <div className="team-box">
+                    <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={isTeam1 ? { border: '2px solid #00ff00', borderRadius: '8px', padding: '10px' } : {}}>
+                       {isTeam1 && <div style={{ fontSize: '0.7rem', color: '#00cc00', fontWeight: 'bold' }}>YOUR TEAM</div>}
                        <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team1_name}</div>
                        <div className="score-dots">
                           {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
@@ -105,7 +108,8 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                        </div>
                     </div>
                     <div className="vs-badge" style={{ transform: 'scale(1.2)' }}>VS</div>
-                    <div className="team-box">
+                    <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={!isTeam1 ? { border: '2px solid #00ff00', borderRadius: '8px', padding: '10px' } : {}}>
+                       {!isTeam1 && <div style={{ fontSize: '0.7rem', color: '#00cc00', fontWeight: 'bold' }}>YOUR TEAM</div>}
                        <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team2_name || 'BYE'}</div>
                        <div className="score-dots">
                           {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
