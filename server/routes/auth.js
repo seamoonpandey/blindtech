@@ -18,6 +18,12 @@ async function authRoutes(fastify, options) {
       );
       const user = result.rows[0];
       const token = fastify.jwt.sign({ id: user.id, role: user.role, name: user.name });
+      reply.setCookie('token', token, {
+        path: '/',
+        httpOnly: false, // Allow client JS to read it for WebSocket handshake usage if needed
+        secure: false,   // Localhost
+        sameSite: 'lax'
+      });
       return { user, token };
     } catch (err) {
       if (err.code === '23505') { // Unique violation
@@ -38,7 +44,26 @@ async function authRoutes(fastify, options) {
     }
 
     const token = fastify.jwt.sign({ id: user.id, role: user.role, name: user.name });
+    reply.setCookie('token', token, {
+      path: '/',
+      httpOnly: false, // For easier client access during dev/ws usage
+      secure: false,
+      sameSite: 'lax'
+    });
     return { user: { id: user.id, name: user.name, email: user.email, role: user.role }, token };
+  });
+
+  fastify.get('/me', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    // The user is attached to the request by the authenticate decorator
+    const { id, name, role } = request.user;
+    // Optionally fetch fresh data from DB if needed, but the token payload might be enough
+    // For completeness, let's fetch from DB to be sure the user still exists
+    const result = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [id]);
+    const user = result.rows[0];
+    if (!user) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    return user;
   });
 }
 

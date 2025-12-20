@@ -19,13 +19,21 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  
+  // Try to get token from localStorage OR cookie
+  const getTokenFromCookie = () => {
+    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+    return match ? match[2] : null;
+  };
+
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token') || getTokenFromCookie());
 
   useEffect(() => {
     if (token) {
       console.log('Fetching /me with token:', token);
-      fetch('http://127.0.0.1:3000/me', {
-        headers: { Authorization: `Bearer ${token}` }
+      fetch('http://localhost:3000/me', {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
       })
       .then(res => {
         console.log('/me response status:', res.status);
@@ -53,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
+    document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   };
 
   return (

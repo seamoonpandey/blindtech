@@ -776,13 +776,6 @@ async function gameRoutes(fastify, options) {
     });
   });
 
-  fastify.get('/me', {
-    onRequest: [fastify.authenticate]
-  }, async (request, reply) => {
-    const result = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [request.user.id]);
-    return result.rows[0];
-  });
-
   fastify.get('/players', { onRequest: [fastify.authenticate] }, async (request, reply) => {
     const result = await db.query('SELECT id, name FROM users WHERE role = \'player\' AND id != $1', [request.user.id]);
     return result.rows;

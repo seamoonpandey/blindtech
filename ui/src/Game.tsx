@@ -433,7 +433,7 @@ export default function Game() {
     setWs(socket);
 
     // Fetch players
-    fetch('http://127.0.0.1:3000/players', {
+    fetch('http://localhost:3000/players', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -493,7 +493,7 @@ export default function Game() {
     console.log(`Attempting to disqualify match ${matchId} team ${teamIndex}`);
     if (window.confirm("ARE YOU SURE? This will instantly ELIMINATE the team and pass their opponent.")) {
       console.log("Calling DQ API...");
-      fetch('http://127.0.0.1:3000/round3/disqualify', {
+      fetch('http://localhost:3000/round3/disqualify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

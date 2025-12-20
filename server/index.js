@@ -2,7 +2,8 @@ const fastify = require('fastify')({ logger: true });
 require('dotenv').config();
 
 fastify.register(require('@fastify/cors'), { 
-  origin: true,
+  origin: true, // identifying the origin dynamically
+  credentials: true, // Allow cookies to be sent/received
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 });
@@ -11,11 +12,20 @@ fastify.register(require('@fastify/jwt'), {
   secret: process.env.JWT_SECRET || 'supersecret'
 });
 
+fastify.register(require('@fastify/cookie'));
+
 fastify.register(require('@fastify/websocket'));
 
 fastify.decorate('authenticate', async function (request, reply) {
   try {
-    await request.jwtVerify();
+    const token = request.cookies.token;
+    if (token) {
+      // Manually verify since jwtVerify usually checks header
+      const decoded = fastify.jwt.verify(token);
+      request.user = decoded;
+    } else {
+      await request.jwtVerify();
+    }
   } catch (err) {
     reply.send(err);
   }
