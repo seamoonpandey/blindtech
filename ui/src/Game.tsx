@@ -86,14 +86,13 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
         </div>
       ) : (
         <div className="match-info">
-          <p style={{ marginBottom: '1rem' }}>Listen to the Volunteer's instructions. 3 Rounds of physical trial.</p>
+          <p style={{ marginBottom: '1rem' }}>Listen to the Volunteer Referee's instructions. 3 Rounds of physical trial.</p>
           
-          {myMatch && (
+          {myMatch ? (
             <div className="my-match-section" style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '0.9rem', color: '#00ff00', marginBottom: '1rem', fontWeight: 'bold' }}>YOUR DUEL</h3>
               <div className="match-card" style={{ border: '4px solid #00ff00', background: '#f0fff0' }}>
                  <div className="match-header">
-                    <span>MATCH ID: {myMatch.id.slice(0, 8)}</span>
+                    <span>DUEL STATUS</span>
                     <span style={{ color: myMatch.status === 'active' ? '#00ff00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
                  </div>
                  <div className="match-teams">
@@ -125,38 +124,24 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                      DUEL IN PROGRESS: ROUND {myMatch.current_subround}/3
                    </div>
                  )}
+                 {myMatch.status === 'finished' && (
+                    <div style={{ textAlign: 'center', marginTop: '1rem', color: '#4444ff', fontWeight: 'bold' }}>
+                      DUEL COMPLETED
+                    </div>
+                 )}
               </div>
+            </div>
+          ) : (
+            <div className="empty-state" style={{ textAlign: 'center', padding: '2rem' }}>
+              <p>You have not been assigned to a duel yet.</p>
+              <p style={{ opacity: 0.7, fontSize: '0.8rem' }}>Waiting for the Volunteer Referee to start the round.</p>
             </div>
           )}
 
-          <h3 style={{ fontSize: '0.9rem', opacity: 0.6, marginBottom: '0.5rem' }}>ALL MATCHES</h3>
-          <div style={{ opacity: 0.7 }}>
-            {matches.filter(m => m.id !== myMatch?.id).map(m => {
-              if (m.status === 'finished') return null;
-              return (
-                <div key={m.id} className="match-card" style={{ transform: 'scale(0.95)', margin: '0.5rem -0.5rem' }}>
-                  <div className="match-header" style={{ fontSize: '0.8rem' }}>
-                      <span>MATCH {m.id.slice(0, 4)}</span>
-                      <span style={{ color: m.status === 'active' ? '#00ff00' : '#888' }}>{m.status.toUpperCase()}</span>
-                  </div>
-                  <div className="match-teams" style={{ fontSize: '0.9rem' }}>
-                      <div className="team-box">
-                        <div style={{ fontWeight: 'bold' }}>{m.team1_name}</div>
-                      </div>
-                      <div className="vs-badge">VS</div>
-                      <div className="team-box">
-                        <div style={{ fontWeight: 'bold' }}>{m.team2_name || 'BYE'}</div>
-                      </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
           {matches.length > 0 && matches.every(m => m.status === 'finished') && (
             <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-               <h3 style={{ color: '#00ff00' }}>YEAH YOU ARE SAFE AGAIN</h3>
-               <p style={{ opacity: 0.8 }}>Lets torture you in next round...</p>
+               <h3 style={{ color: '#00ff00' }}>SAFE</h3>
+               <p style={{ opacity: 0.8 }}>You survived the trials.</p>
             </div>
           )}
         </div>

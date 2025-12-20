@@ -105,9 +105,26 @@ async function gameRoutes(fastify, options) {
 
   const broadcast = (data) => {
     const msg = JSON.stringify(data);
-    for (const client of clients.values()) {
-      if (client.readyState === 1) { // OPEN
-        client.send(msg);
+    for (const { socket } of clients.values()) {
+      if (socket.readyState === 1) { // OPEN
+        socket.send(msg);
+      }
+    }
+  };
+
+  const broadcastRound3Update = async () => {
+    const matches = await getRound3Matches();
+    for (const [userId, { socket, user }] of clients.entries()) {
+      if (socket.readyState === 1) {
+        if (user.role === 'volunteer') {
+          socket.send(JSON.stringify({ type: 'round3_update', matches }));
+        } else {
+          const myMatch = matches.find(m => 
+            m.team1_user1 === userId || m.team1_user2 === userId || 
+            m.team2_user1 === userId || m.team2_user2 === userId
+          );
+          socket.send(JSON.stringify({ type: 'round3_update', matches: myMatch ? [myMatch] : [] }));
+        }
       }
     }
   };
@@ -221,7 +238,8 @@ async function gameRoutes(fastify, options) {
           const { token } = data;
           const decoded = fastify.jwt.verify(token);
           currentUser = decoded;
-          clients.set(currentUser.id, socket);
+          // Store user info in clients map
+          clients.set(currentUser.id, { socket, user: currentUser });
           
           // Send current state
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
@@ -279,8 +297,16 @@ async function gameRoutes(fastify, options) {
           }
           // If round 3 is active, send the match info
           if (stateRes.rows[0].current_round === 3) {
-            const matches = await getRound3Matches();
-            socket.send(JSON.stringify({ type: 'round3_init', matches }));
+            if (currentUser.role === 'volunteer') {
+              socket.send(JSON.stringify({ type: 'round3_init', matches: await getRound3Matches() }));
+            } else {
+              const matches = await getRound3Matches();
+              const myMatch = matches.find(m => 
+                m.team1_user1 === currentUser.id || m.team1_user2 === currentUser.id || 
+                m.team2_user1 === currentUser.id || m.team2_user2 === currentUser.id
+              );
+              socket.send(JSON.stringify({ type: 'round3_init', matches: myMatch ? [myMatch] : [] }));
+            }
           }
         }
 
@@ -420,7 +446,7 @@ async function gameRoutes(fastify, options) {
           
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
           
-          broadcast({ type: 'round3_init', matches: await getRound3Matches() });
+          await broadcastRound3Update();
           console.log('Round 3 started successfully');
         }
 
@@ -433,7 +459,7 @@ async function gameRoutes(fastify, options) {
             [currentUser.id, matchId]
           );
           
-          broadcast({ type: 'round3_update', matches: await getRound3Matches() });
+          await broadcastRound3Update();
         }
 
         if (data.type === 'score_team' && currentUser.role === 'volunteer') {
@@ -480,7 +506,7 @@ async function gameRoutes(fastify, options) {
             }
           }
           
-          broadcast({ type: 'round3_update', matches: await getRound3Matches() });
+          await broadcastRound3Update();
         }
 
         if (data.type === 'select_card' && currentUser.role === 'player') {
