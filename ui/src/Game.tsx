@@ -328,31 +328,43 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
     return (
       <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>FAILED</h1>
-        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team has been eliminated from the Coding Club.</p>
+        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>PATHETIC</h1>
+        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team couldn't even code their way out of a paper bag.</p>
+        <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>WORTHLESS. DISCARDED. FORGOTTEN.</p>
       </div>
     );
   }
   
   if (!session) {
-    return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading...</div>;
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+        <div className="loader-dots"><span></span><span></span><span></span></div>
+        <p>LOADING EVALUATION DATA...</p>
+      </div>
+    );
   }
   
   if (session.status === 'finished') {
     if (session.result === 'pass') {
       return (
-        <div className="victory-screen" style={{ textAlign: 'center', padding: '4rem 2rem', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '12px' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'victoryPulse 1.5s infinite' }}>PASSED</h1>
-          <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>Your team advances to the next round!</p>
+        <div className="card" style={{ 
+          textAlign: 'center', 
+          padding: '4rem 2rem', 
+          border: '3px solid #fff'
+        }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>BARELY ACCEPTABLE</h1>
+          <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>You've proven you're not completely useless. Yet.</p>
+          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. THE REAL TEST BEGINS NOW.</p>
         </div>
       );
     } else {
       return (
         <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
-          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>FAILED</h1>
-          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team has been eliminated.</p>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>INCOMPETENT</h1>
+          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Did you even try? What a waste of oxygen.</p>
+          <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>YOUR MEDIOCRITY IS NO LONGER TOLERATED.</p>
         </div>
       );
     }
@@ -360,25 +372,45 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
   
   if (session.status === 'active') {
     return (
-      <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>CODING CLUB EVALUATION</h2>
-        <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '2rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
-          <p style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Your team is being evaluated by</p>
+      <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+        <div className="loader-dots" style={{ marginBottom: '2rem' }}>
+          <span></span><span></span><span></span>
+        </div>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', letterSpacing: '2px' }}>JUDGMENT IN PROGRESS</h2>
+        <div style={{ 
+          background: 'rgba(255, 255, 255, 0.05)', 
+          border: '2px solid rgba(255, 255, 255, 0.3)',
+          padding: '2rem', 
+          borderRadius: '8px', 
+          marginBottom: '1.5rem' 
+        }}>
+          <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '0.5rem' }}>YOUR FATE IS IN THE HANDS OF</p>
           <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{session.volunteer_name}</p>
         </div>
-        <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Status: IN PROGRESS</p>
+        <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Every keystroke is being scrutinized. Every mistake noted.</p>
+        <p style={{ fontSize: '0.9rem', opacity: 0.5, marginTop: '1rem' }}>PRAY YOU'RE NOT AS USELESS AS YOU LOOK.</p>
       </div>
     );
   }
   
   return (
-    <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>CODING CLUB</h2>
-      <div style={{ background: '#f3f4f6', padding: '2rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
-        <p style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Team: {session.team_name}</p>
-        <p style={{ opacity: 0.7 }}>Members: {session.user1_name}, {session.user2_name}</p>
+    <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', letterSpacing: '2px' }}>FINAL JUDGMENT</h2>
+      <div style={{ 
+        background: 'rgba(255, 255, 255, 0.05)', 
+        padding: '2rem', 
+        borderRadius: '8px', 
+        marginBottom: '1.5rem',
+        border: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
+        <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '0.5rem' }}>TEAM UNDER SCRUTINY</p>
+        <p style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem' }}>{session.team_name}</p>
+        <p style={{ fontSize: '0.85rem', opacity: 0.6 }}>SUSPECTS: {session.user1_name}, {session.user2_name}</p>
       </div>
-      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Waiting for volunteer evaluator...</p>
+      <div className="loader-dots" style={{ marginBottom: '1rem' }}>
+        <span></span><span></span><span></span>
+      </div>
+      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Waiting for someone to decide if you're worth keeping...</p>
     </div>
   );
 }
@@ -393,25 +425,46 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
   
   if (mySession) {
     return (
-      <div className="evaluation-panel" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem', borderRadius: '12px', color: 'white', marginTop: '1rem' }}>
-        <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>EVALUATING: {mySession.team_name}</h2>
-        <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', opacity: 0.9 }}>
-          Members: {mySession.user1_name}, {mySession.user2_name}
+      <div className="card" style={{ 
+        padding: '2rem', 
+        borderRadius: '12px', 
+        border: '3px solid #fff',
+        marginTop: '1rem' 
+      }}>
+        <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', letterSpacing: '2px' }}>DECIDE THEIR FATE</h2>
+        <p style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>{mySession.team_name}</p>
+        <p style={{ fontSize: '1.1rem', marginBottom: '2rem', opacity: 0.8 }}>
+          SUBJECTS: {mySession.user1_name}, {mySession.user2_name}
         </p>
-        <div className="eval-buttons" style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem' }}>
           <button 
-            className="pass-btn"
-            style={{ background: '#10b981', flex: 1, padding: '1rem', fontSize: '1.2rem', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+            className="submit-btn"
+            style={{ 
+              flex: 1, 
+              padding: '1.2rem', 
+              fontSize: '1.3rem', 
+              letterSpacing: '1px'
+            }}
             onClick={() => onEvaluate(mySession.id, 'pass')}
           >
-            ✓ PASS TEAM
+            ✓ APPROVE
           </button>
           <button 
-            className="fail-btn"
-            style={{ background: '#ef4444', flex: 1, padding: '1rem', fontSize: '1.2rem', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ 
+              background: '#ff4444', 
+              color: '#fff',
+              flex: 1, 
+              padding: '1.2rem', 
+              fontSize: '1.3rem', 
+              border: 'none', 
+              borderRadius: '8px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold',
+              letterSpacing: '1px'
+            }}
             onClick={() => onEvaluate(mySession.id, 'fail')}
           >
-            ✗ FAIL TEAM
+            ✗ TERMINATE
           </button>
         </div>
       </div>
@@ -419,40 +472,51 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
   }
   
   return (
-    <div className="session-list" style={{ marginTop: '1rem' }}>
-      <h2 className="section-title">CODING CLUB - TEAM EVALUATIONS</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+    <div style={{ marginTop: '1rem' }}>
+      <h2 className="section-title">JUDGMENT QUEUE - WHO LIVES, WHO DIES</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {sessions.map(s => (
-          <div key={s.id} className="session-card" style={{ background: 'white', border: '2px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+          <div key={s.id} className="card" style={{ 
+            padding: '1.2rem',
+            border: s.status === 'finished' ? '1px solid rgba(255, 255, 255, 0.1)' : '2px solid rgba(255, 255, 255, 0.5)'
+          }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <strong style={{ fontSize: '1.1rem' }}>{s.team_name}</strong>
-                <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.3rem' }}>
+                <strong style={{ fontSize: '1.2rem', letterSpacing: '1px' }}>{s.team_name}</strong>
+                <div style={{ fontSize: '0.9rem', opacity: 0.6, marginTop: '0.4rem' }}>
                   {s.user1_name}, {s.user2_name}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span className={`status-${s.status}`} style={{ 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ 
                   fontSize: '0.85rem', 
                   fontWeight: 'bold',
-                  color: s.status === 'waiting' ? '#f59e0b' : s.status === 'active' ? '#3b82f6' : '#6b7280'
+                  opacity: s.status === 'finished' ? 0.5 : 1,
+                  letterSpacing: '1px'
                 }}>
                   {s.status.toUpperCase()}
                 </span>
                 {s.status === 'waiting' && (
                   <button 
+                    className="submit-btn"
                     onClick={() => onJoinSession(s.id)}
-                    style={{ padding: '0.5rem 1rem', background: '#667eea', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                    style={{ 
+                      padding: '0.6rem 1.2rem', 
+                      fontSize: '0.9rem',
+                      letterSpacing: '1px' 
+                    }}
                   >
-                    EVALUATE
+                    BEGIN EVAL
                   </button>
                 )}
                 {s.status === 'finished' && (
-                  <div className={`result-${s.result}`} style={{ 
+                  <div style={{ 
                     fontWeight: 'bold',
-                    color: s.result === 'pass' ? '#10b981' : '#ef4444'
+                    fontSize: '1rem',
+                    color: s.result === 'pass' ? '#fff' : '#ff4444',
+                    letterSpacing: '1px'
                   }}>
-                    {s.result === 'pass' ? '✓ PASSED' : '✗ FAILED'}
+                    {s.result === 'pass' ? '✓ APPROVED' : '✗ TERMINATED'}
                   </div>
                 )}
               </div>
@@ -460,8 +524,8 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
           </div>
         ))}
         {sessions.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
-            No teams available for evaluation yet.
+          <div className="card" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
+            <p>NO TEAMS IN EVALUATION QUEUE</p>
           </div>
         )}
       </div>
