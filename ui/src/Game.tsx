@@ -142,10 +142,25 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
             </div>
           )}
 
-          {matches.length > 0 && matches.every(m => m.status === 'finished') && (
+          {myMatch && myMatch.status === 'finished' && (
             <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-               <h3 style={{ color: '#00ff00' }}>SAFE</h3>
-               <p style={{ opacity: 0.8 }}>You survived the trials.</p>
+               {(() => {
+                 const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
+                 const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
+                 const isSafe = positives >= 2;
+                 
+                 return isSafe ? (
+                   <>
+                     <h3 style={{ color: '#00ff00', fontSize: '1.8rem' }}>SAFE</h3>
+                     <p style={{ opacity: 0.8 }}>You survived the physical trials.</p>
+                   </>
+                 ) : (
+                   <>
+                     <h3 style={{ color: '#ff4444', fontSize: '1.8rem' }}>ELIMINATED</h3>
+                     <p style={{ opacity: 0.8 }}>Failed to secure 2 wins. Better luck in the next life.</p>
+                   </>
+                 );
+               })()}
             </div>
           )}
         </div>
@@ -341,7 +356,24 @@ export default function Game() {
       } else if (data.type === 'selection_result') {
         setSelectionResult(data.result);
       } else if (data.type === 'round3_init' || data.type === 'round3_update') {
-        setRound3Matches(data.matches);
+        const matches = data.matches as any[];
+        setRound3Matches(matches);
+        
+        // Check if current user is now eliminated based on match results
+        if (user && user.role === 'player') {
+          const myMatch = matches.find(m => 
+            m.team1_user1 === user.id || m.team1_user2 === user.id || 
+            m.team2_user1 === user.id || m.team2_user2 === user.id
+          );
+          if (myMatch && myMatch.status === 'finished') {
+            const isTeam1 = myMatch.team1_user1 === user.id || myMatch.team1_user2 === user.id;
+            const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
+            const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
+            if (positives < 2) {
+               setIsEliminated(true);
+            }
+          }
+        }
       }
     };
 
@@ -932,22 +964,36 @@ export default function Game() {
                     </>
                   )}
 
-                  {volunteerTab === 'round3' && (
+                   {volunteerTab === 'round3' && (
                     <>
                       <h2 className="section-title">R3 STATUS</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
-                          {round3Matches.map(m => (
-                            <div key={m.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                <span>{m.team1_name || 'T1'} vs {m.team2_name || (m.status === 'finished' ? 'BYE' : '???')}</span>
-                                <span style={{ color: m.status === 'active' ? '#00ff00' : (m.status === 'finished' ? '#4444ff' : '#888') }}>{m.status.toUpperCase()}</span>
+                          {round3Matches.map(m => {
+                            const isFinished = m.status === 'finished';
+                            const getStatusColor = (scores: any) => {
+                              if (!isFinished) return 'inherit';
+                              const s = Array.isArray(scores) ? scores : [];
+                              const positives = s.filter((val: any) => val === true).length;
+                              return positives >= 2 ? '#00cc00' : '#ff4444';
+                            };
+
+                            return (
+                              <div key={m.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                    <span style={{ color: getStatusColor(m.team1_scores) }}>{m.team1_name}</span>
+                                    <span style={{ opacity: 0.4 }}>vs</span>
+                                    <span style={{ color: getStatusColor(m.team2_scores) }}>{m.team2_name || 'BYE'}</span>
+                                  </div>
+                                  <span style={{ color: m.status === 'active' ? '#00ff00' : (m.status === 'finished' ? '#4444ff' : '#888'), fontSize: '0.7rem' }}>{m.status.toUpperCase()}</span>
+                                </div>
+                                <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
+                                  Ref: {m.volunteer_name || 'NONE'} | Subround: {m.current_subround}/3
+                                </div>
                               </div>
-                              <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>
-                                Volunteer: {m.volunteer_name || 'NONE'} | Subround: {m.current_subround}/3
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     </>
