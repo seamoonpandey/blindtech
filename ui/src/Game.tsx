@@ -175,16 +175,36 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore }: { volunt
             <div className="score-row">
               <span style={{ fontWeight: 'bold' }}>{myMatch.team1_name}</span>
               <div className="score-btns">
-                <button className="score-btn minus" style={{ background: '#ffebeb' }} onClick={() => onScore(myMatch.id, 1, false)}>-</button>
-                <button className="score-btn plus" style={{ background: '#ebffeb' }} onClick={() => onScore(myMatch.id, 1, true)}>+</button>
+                <button 
+                  className="score-btn minus" 
+                  style={{ background: '#ffebeb', opacity: myMatch.team1_scores.length >= myMatch.current_subround ? 0.3 : 1 }} 
+                  disabled={myMatch.team1_scores.length >= myMatch.current_subround}
+                  onClick={() => onScore(myMatch.id, 1, false)}
+                >-</button>
+                <button 
+                  className="score-btn plus" 
+                  style={{ background: '#ebffeb', opacity: myMatch.team1_scores.length >= myMatch.current_subround ? 0.3 : 1 }} 
+                  disabled={myMatch.team1_scores.length >= myMatch.current_subround}
+                  onClick={() => onScore(myMatch.id, 1, true)}
+                >+</button>
               </div>
             </div>
             {myMatch.team2_id && (
               <div className="score-row">
                 <span style={{ fontWeight: 'bold' }}>{myMatch.team2_name}</span>
                 <div className="score-btns">
-                  <button className="score-btn minus" style={{ background: '#ffebeb' }} onClick={() => onScore(myMatch.id, 2, false)}>-</button>
-                  <button className="score-btn plus" style={{ background: '#ebffeb' }} onClick={() => onScore(myMatch.id, 2, true)}>+</button>
+                  <button 
+                    className="score-btn minus" 
+                    style={{ background: '#ffebeb', opacity: myMatch.team2_scores.length >= myMatch.current_subround ? 0.3 : 1 }} 
+                    disabled={myMatch.team2_scores.length >= myMatch.current_subround}
+                    onClick={() => onScore(myMatch.id, 2, false)}
+                  >-</button>
+                  <button 
+                    className="score-btn plus" 
+                    style={{ background: '#ebffeb', opacity: myMatch.team2_scores.length >= myMatch.current_subround ? 0.3 : 1 }} 
+                    disabled={myMatch.team2_scores.length >= myMatch.current_subround}
+                    onClick={() => onScore(myMatch.id, 2, true)}
+                  >+</button>
                 </div>
               </div>
             )}

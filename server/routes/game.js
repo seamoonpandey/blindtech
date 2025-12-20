@@ -464,20 +464,27 @@ async function gameRoutes(fastify, options) {
 
         if (data.type === 'score_team' && currentUser.role === 'volunteer') {
           const { matchId, teamIndex, score } = data; // teamIndex: 1 or 2, score: true/false
-          console.log(`Volunteer scoring Match ${matchId}, Team ${teamIndex}: ${score}`);
           
           const matchRes = await db.query('SELECT * FROM round3_matches WHERE id = $1', [matchId]);
           const match = matchRes.rows[0];
           
-          if (!match || match.volunteer_id !== currentUser.id) return;
+          if (!match || match.volunteer_id !== currentUser.id || match.status !== 'active') return;
           
           const teamScoresKey = teamIndex === 1 ? 'team1_scores' : 'team2_scores';
           const currentScores = match[teamScoresKey] || [];
+          
+          // CRITICAL FIX: Prevent scoring twice in the same subround
+          if (currentScores.length >= match.current_subround) {
+            console.log(`Rejecting score: Team ${teamIndex} already scored for Round ${match.current_subround}`);
+            return;
+          }
+
+          console.log(`Volunteer scoring Match ${matchId}, Team ${teamIndex} Round ${match.current_subround}: ${score}`);
           currentScores.push(score);
           
           await db.query(`UPDATE round3_matches SET ${teamScoresKey} = $1 WHERE id = $2`, [JSON.stringify(currentScores), matchId]);
           
-          // Check if both teams scored for current subround
+          // Refresh match data
           const updatedMatchRes = await db.query('SELECT * FROM round3_matches WHERE id = $1', [matchId]);
           const updatedMatch = updatedMatchRes.rows[0];
           
