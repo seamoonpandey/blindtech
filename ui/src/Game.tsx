@@ -513,7 +513,7 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
                   <div style={{ 
                     fontWeight: 'bold',
                     fontSize: '1rem',
-                    color: s.result === 'pass' ? '#fff' : '#ff4444',
+                    color: s.result === 'pass' ? '#00ff00' : '#ff4444',
                     letterSpacing: '1px'
                   }}>
                     {s.result === 'pass' ? '✓ APPROVED' : '✗ TERMINATED'}
