@@ -52,11 +52,11 @@ async function reset() {
     const TEAM_NAMES = [
       "The Bug Hunters", "Null Pointers", "Merge Conflict", "Stack Overflow", 
       "Binary Beasts", "Code Ninjas", "Logic Bombs", "The Bit Shifters",
-      "Git Pushers", "Async Avengers"
+      "Git Pushers", "Async Avengers", "The Solo Hackers"
     ];
 
-    // Create 10 Successful Teams
-    for (let i = 0; i < 10; i++) {
+    // Create 11 Successful Teams
+    for (let i = 0; i < 11; i++) {
         const leader = leaders[i];
         const selector = selectors[i];
         const teamName = TEAM_NAMES[i];
@@ -83,9 +83,9 @@ async function reset() {
         "Your silence is your best weapon."
     ];
 
-    for (let i = 10; i < 20; i++) {
+    for (let i = 11; i < 20; i++) {
         const selector = selectors[i];
-        const quote = QUOTES[(i - 10) % QUOTES.length];
+        const quote = QUOTES[(i - 11) % QUOTES.length];
 
         // Add to Lottery Pool
         await client.query(
@@ -98,8 +98,8 @@ async function reset() {
         console.log(`Selector Eliminated: ${selector.name} picked a death card.`);
     }
 
-    // Remaining Leaders who weren't picked (20 - 10 = 10)
-    for (let i = 10; i < 20; i++) {
+    // Remaining Leaders who weren't picked (20 - 11 = 9)
+    for (let i = 11; i < 20; i++) {
         const leader = leaders[i];
         
         // Add untaken leader to pool
@@ -113,8 +113,8 @@ async function reset() {
         console.log(`Leader Eliminated: ${leader.name} was not picked.`);
     }
 
-    // Add 10 untaken quotes to reach 40 cards total
-    for (let i = 0; i < 10; i++) {
+    // Add 9 untaken quotes to reach 40 cards total
+    for (let i = 0; i < 9; i++) {
         const quote = QUOTES[i % QUOTES.length];
         await client.query(
             'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
@@ -129,9 +129,9 @@ async function reset() {
     await client.query('COMMIT');
     console.log('--- RESET COMPLETE ---');
     console.log('Total Players: 40');
-    console.log('Total Teams: 10');
-    console.log('Total Eliminated: 20');
-    console.log('Total Safe: 20 (ready for Round 3)');
+    console.log('Total Teams: 11');
+    console.log('Total Eliminated: 18');
+    console.log('Total Safe: 22 (ready for Round 3)');
 
   } catch (err) {
     await client.query('ROLLBACK');

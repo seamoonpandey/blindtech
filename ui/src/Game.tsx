@@ -110,7 +110,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                     <div className="vs-badge" style={{ transform: 'scale(1.2)' }}>VS</div>
                     <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={!isTeam1 ? { border: '2px solid #00ff00', borderRadius: '8px', padding: '10px' } : {}}>
                        {!isTeam1 && <div style={{ fontSize: '0.7rem', color: '#00cc00', fontWeight: 'bold' }}>YOUR TEAM</div>}
-                       <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team2_name || 'BYE'}</div>
+                       <div style={{ fontWeight: 'bold', fontSize: '1.3rem' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
                        <div className="score-dots">
                           {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
                             <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} />
@@ -147,7 +147,8 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                {(() => {
                  const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
                  const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
-                 const isSafe = positives >= 2;
+                 const hasOpponent = !!myMatch.team2_id;
+                 const isSafe = !hasOpponent || positives >= 2;
                  
                  return isSafe ? (
                    <>
@@ -971,8 +972,10 @@ export default function Game() {
                         <div className="data-items">
                           {round3Matches.map(m => {
                             const isFinished = m.status === 'finished';
-                            const getStatusColor = (scores: any) => {
+                            const getStatusColor = (scores: any, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
                               if (!isFinished) return 'inherit';
+                              if (isLuckyPassSlot) return '#888'; // Neutral grey for the placeholder
+                              if (!hasOpponent) return '#00cc00'; // Solo team with Lucky Pass is always safe
                               const s = Array.isArray(scores) ? scores : [];
                               const positives = s.filter((val: any) => val === true).length;
                               return positives >= 2 ? '#00cc00' : '#ff4444';
@@ -982,9 +985,9 @@ export default function Game() {
                               <div key={m.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                                 <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
                                   <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                    <span style={{ color: getStatusColor(m.team1_scores) }}>{m.team1_name}</span>
+                                    <span style={{ color: getStatusColor(m.team1_scores, false, !!m.team2_id) }}>{m.team1_name}</span>
                                     <span style={{ opacity: 0.4 }}>vs</span>
-                                    <span style={{ color: getStatusColor(m.team2_scores) }}>{m.team2_name || 'BYE'}</span>
+                                    <span style={{ color: getStatusColor(m.team2_scores, !m.team2_id, !!m.team2_id) }}>{m.team2_name || 'LUCKY PASS'}</span>
                                   </div>
                                   <span style={{ color: m.status === 'active' ? '#00ff00' : (m.status === 'finished' ? '#4444ff' : '#888'), fontSize: '0.7rem' }}>{m.status.toUpperCase()}</span>
                                 </div>

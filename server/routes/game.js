@@ -428,16 +428,15 @@ async function gameRoutes(fastify, options) {
             const team1 = teams[i];
             const team2 = teams[i + 1] || null; // Null if odd number of teams
             
+            const isBye = !team2;
+            
             await db.query(
-              'INSERT INTO round3_matches (team1_id, team2_id, status) VALUES ($1, $2, $3)',
-              [team1.id, team2 ? team2.id : null, team2 ? 'waiting' : 'finished']
+              'INSERT INTO round3_matches (team1_id, team2_id, status, team1_scores) VALUES ($1, $2, $3, $4)',
+              [team1.id, team2 ? team2.id : null, isBye ? 'finished' : 'waiting', isBye ? [true, true, true] : []]
             );
             
-            // If team2 is null, it's a "Bye" - team1 is automatically safe
-            if (!team2) {
-              // We'll mark them as safe later, for now they just wait or we can handle bye differently.
-              // Actually, according to user's flow, it's better to match everyone or give a dummy.
-              // For now, if odd, the last team just sits in a 'finished' bye match.
+            if (isBye) {
+              console.log(`Team ${team1.name} got a BYE and is automatically SAFE.`);
             }
           }
 
