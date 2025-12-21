@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "node-pg-migrate",
+    "reset-to-round": "node scripts/reset-to-round.js",
     "start": "node index.js"
   },
   "keywords": [],
