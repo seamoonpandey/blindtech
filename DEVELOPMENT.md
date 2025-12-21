@@ -27,9 +27,8 @@ Initialize a PostgreSQL instance and apply the schema:
 
 ```bash
 # Example
-createdb blindtech
-cd server
-npm install
+cp .env.example .env
+# Edit .env with your local database credentials
 npm run migrate up
 ```
 
@@ -41,6 +40,7 @@ Create a `.env` in `/server`:
 DATABASE_URL=postgres://[user]:[password]@localhost:5432/blindtech
 JWT_SECRET=[secure_key]
 PORT=3000
+# Refer to .env.example for all available variables
 ```
 
 ### 4. CLIENT CONFIGURATION
@@ -48,6 +48,8 @@ PORT=3000
 ```bash
 cd ui
 npm install
+cp .env.example .env
+# Edit .env to point to your backend API URL
 npm run dev
 ```
 

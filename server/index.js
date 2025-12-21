@@ -8,6 +8,10 @@ fastify.register(require('@fastify/cors'), {
   allowedHeaders: ['Content-Type', 'Authorization']
 });
 
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set. Using default insecure secret.');
+}
+
 fastify.register(require('@fastify/jwt'), {
   secret: process.env.JWT_SECRET || 'supersecret'
 });

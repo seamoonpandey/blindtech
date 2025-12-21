@@ -66,7 +66,7 @@ Edit your Nginx config (`/etc/nginx/sites-available/default`):
 ```nginx
 server {
     listen 80;
-    server_name your_vm_ip_or_domain;
+    server_name api.blindtech.ices.edu.np;
 
     # 1. Host the UI
     root /var/www/blindtech/ui/dist;

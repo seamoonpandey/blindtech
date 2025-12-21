@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { API_URL, WS_URL } from './config';
 import {
   DndContext,
   closestCenter,
@@ -1029,7 +1030,7 @@ export default function Game() {
       return;
     }
 
-    const socket = new WebSocket('ws://localhost:3000/ws');
+    const socket = new WebSocket(WS_URL);
     
     socket.onopen = () => {
       socket.send(JSON.stringify({ type: 'auth', token }));
@@ -1152,7 +1153,7 @@ export default function Game() {
     setWs(socket);
 
     // Fetch players
-    fetch('http://localhost:3000/players', {
+    fetch(`${API_URL}/players`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -1227,7 +1228,7 @@ export default function Game() {
     console.log(`Attempting to disqualify match ${matchId} team ${teamIndex}`);
     if (window.confirm("ARE YOU SURE? This will instantly ELIMINATE the team and pass their opponent.")) {
       console.log("Calling DQ API...");
-      fetch('http://localhost:3000/round3/disqualify', {
+      fetch(`${API_URL}/round3/disqualify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

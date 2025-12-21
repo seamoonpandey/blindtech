@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { API_URL } from './config';
 
 interface User {
   id: string;
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (token) {
       console.log('Fetching /me with token:', token);
-      fetch('http://localhost:3000/me', {
+      fetch(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include'
       })
