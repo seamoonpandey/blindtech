@@ -6,7 +6,7 @@ Successfully implemented the Admin-Mastered architecture for Blindtech. The admi
 
 ## Admin Credentials
 
-- **Email**: `moon`
+- **Email**: `moon@admin.com`
 - **Password**: `alisha`
 - **Role**: `admin`
 
