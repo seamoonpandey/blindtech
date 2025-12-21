@@ -1,5 +1,6 @@
 const fp = require('fastify-plugin');
 const db = require('../db');
+const heartsEngine = require('./heartsEngine');
 
 const HARD_QUOTES = [
   "The only way to win is to not play.",
@@ -417,152 +418,32 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
   }
 }
 
-// ROUND 6 HELPERS
+// ROUND 6 HELPERS (THE GAME OF HEARTS)
 async function getRound6State() {
   console.log('Fetching Round 6 State...');
-  const stateRes = await db.query('SELECT * FROM round6_state WHERE id = 1');
-  if (!stateRes.rows[0]) {
-    console.log('Round 6 State row NOT FOUND in database!');
-    return null;
-  }
+  const stateRes = await db.query('SELECT * FROM hearts_game_state WHERE id = 1');
+  if (!stateRes.rows[0]) return null;
   const state = stateRes.rows[0];
-  console.log(`Found R6 State: Subround ${state.current_subround}, Status ${state.subround_status}`);
-  
-  // Attach votes for the current subround (monitor view)
-  const votesRes = await db.query('SELECT * FROM round6_votes WHERE round_number = $1', [state.current_subround]);
-  state.votes = votesRes.rows;
-  
-  // Attach alive players
-  const playersRes = await db.query("SELECT id, name, has_used_safety, is_eliminated FROM users WHERE role = 'player' ORDER BY name ASC");
+
+  // Attach players
+  const playersRes = await db.query(`
+    SELECT hp.*, u.name 
+    FROM hearts_players hp
+    JOIN users u ON hp.user_id = u.id
+    ORDER BY u.name ASC
+  `);
   state.players = playersRes.rows;
 
-  // Attach history
-  const historyRes = await db.query(`
-    SELECT h.*, u1.name as target_name, u2.name as partner_name 
-    FROM round6_history h
-    LEFT JOIN users u1 ON h.target_id = u1.id
-    LEFT JOIN users u2 ON h.partner_id = u2.id
-    ORDER BY subround ASC
-  `);
-  state.history = historyRes.rows;
-  
   return state;
 }
 
 const broadcastRound6Update = async () => {
   const r6State = await getRound6State();
   if (!r6State) return;
-  
+
   console.log('Broadcasting Round 6 Update...');
-  
-  for (const [userId, { socket, user }] of clients.entries()) {
-    if (socket.readyState === 1) {
-      socket.send(JSON.stringify({ type: 'round6_update', state: r6State }));
-    }
-  }
+  broadcast({ type: 'round6_update', state: r6State });
 }
-
-const performR6Resolution = async () => {
-  const r6State = await getRound6State();
-  if (!r6State || r6State.subround_status !== 'voting') return;
-  console.log(`RESOLVING ROUND 6 SUBROUND ${r6State.current_subround}`);
-  const votes = r6State.votes;
-  const tally = {};
-  votes.forEach(v => {
-    tally[v.target_id] = (tally[v.target_id] || 0) + 1;
-  });
-  let maxVotes = -1;
-  let targetId = null;
-  for (const [pid, count] of Object.entries(tally)) {
-    if (count > maxVotes) { maxVotes = count; targetId = pid; }
-    else if (count === maxVotes) { if (Math.random() > 0.5) targetId = pid; }
-  }
-  let eliminatedId = null;
-  let partnerId = null;
-  if (targetId) {
-    const targetVote = votes.find(v => v.voter_id === targetId);
-    if (targetVote && targetVote.used_safety) {
-      console.log(`Player ${targetId} used SAFETY and survived!`);
-    } else {
-      eliminatedId = targetId;
-      console.log(`Player ${targetId} eliminated with ${maxVotes} votes.`);
-      await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [targetId]);
-      const teamRes = await db.query("SELECT * FROM teams WHERE round_formed = 2 AND (user1_id = $1 OR user2_id = $1)", [targetId]);
-      const team = teamRes.rows[0];
-      if (team) {
-        partnerId = team.user1_id === targetId ? team.user2_id : team.user1_id;
-        const pCheck = await db.query("SELECT is_eliminated FROM users WHERE id = $1", [partnerId]);
-        if (pCheck.rows[0] && !pCheck.rows[0].is_eliminated) {
-           console.log(`Partner ${partnerId} also eliminated (Collateral Damage).`);
-           await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [partnerId]);
-        } else {
-          partnerId = null;
-        }
-      }
-    }
-  } else {
-    // If no votes, NO ONE ELIMINATED this round (but timeout logic might kill everyone who didn't vote)
-  }
-  // Record in history
-  if (eliminatedId) {
-    await db.query(`
-      INSERT INTO round6_history (subround, target_id, partner_id, reason)
-      VALUES ($1, $2, $3, 'vote')
-    `, [r6State.current_subround, eliminatedId, partnerId]);
-  }
-
-  await db.query(`UPDATE round6_state SET subround_status = 'result', last_eliminated_id = $1, last_partner_eliminated_id = $2 WHERE id = 1`, [eliminatedId, partnerId]);
-  await broadcastRound6Update();
-}
-
-// Background Timer for Round 6
-setInterval(async () => {
-  try {
-    const r6State = await getRound6State();
-    if (r6State && r6State.subround_status === 'voting') {
-      const elapsed = (Date.now() - new Date(r6State.voting_started_at).getTime()) / 1000;
-      if (elapsed >= 300) {
-        console.log("Round 6 Voting Timeout! Eliminating non-voters...");
-        const voters = r6State.votes.map(v => v.voter_id);
-        const alivePlayers = r6State.players.filter(p => !p.is_eliminated);
-        
-        for (const p of alivePlayers) {
-          if (!voters.includes(p.id)) {
-             console.log(`Player ${p.name} failed to vote. AUTO-ELIMINATED.`);
-             await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [p.id]);
-             
-             // Elimination of non-voter also kills partner
-             const teamRes = await db.query("SELECT * FROM teams WHERE round_formed = 2 AND (user1_id = $1 OR user2_id = $1)", [p.id]);
-             const team = teamRes.rows[0];
-             if (team) {
-               const partnerId = team.user1_id === p.id ? team.user2_id : team.user1_id;
-               const pCheck = await db.query("SELECT is_eliminated FROM users WHERE id = $1", [partnerId]);
-               if (pCheck.rows[0] && !pCheck.rows[0].is_eliminated) {
-                  console.log(`Partner ${partnerId} also eliminated (Collateral Damage for Timeout).`);
-                  await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [partnerId]);
-                  
-                  // Log this timeout elimination in history
-                  await db.query(`
-                    INSERT INTO round6_history (subround, target_id, partner_id, reason)
-                    VALUES ($1, $2, $3, 'timeout')
-                  `, [r6State.current_subround, p.id, partnerId]).catch(e => console.log('History insert error (maybe PK constraint):', e.message));
-               }
-             } else {
-                // No partner? Just log the individual death
-                await db.query(`
-                  INSERT INTO round6_history (subround, target_id, reason)
-                  VALUES ($1, $2, 'timeout')
-                `, [r6State.current_subround, p.id]).catch(e => console.log('History insert error (maybe PK constraint):', e.message));
-             }
-          }
-        }
-        await performR6Resolution();
-      }
-    }
-  } catch (e) {
-    console.error("R6 Timer Error:", e);
-  }
-}, 5000);
 
 const performR5Resolution = async (gameId, isTimeout = false) => {
   const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
@@ -1319,6 +1200,13 @@ const performR5NextRound = async (gameId) => {
           await performR5NextRound(gameId);
         }
 
+        if (data.type === 'r5_end_now' && currentUser.role === 'volunteer') {
+          const { gameId } = data;
+          console.log(`FORCE ENDING R5 Game: ${gameId}`);
+          await db.query('UPDATE round5_games SET status = \'finished\', result = \'manual_stop\' WHERE id = $1', [gameId]);
+          await broadcastRound5Update();
+        }
+
         if (data.type === 'finish_round_5' && currentUser.role === 'volunteer') {
           console.log('Finishing Round 5...');
           await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
@@ -1328,18 +1216,24 @@ const performR5NextRound = async (gameId) => {
         }
 
         if (data.type === 'start_round_6' && currentUser.role === 'volunteer') {
-          console.log('Starting Round 6 (The Pigeon)...');
+          console.log('Starting Round 6 (The Game of Hearts)...');
           
-          // Reset Round 6 State
-          await db.query('DELETE FROM round6_state');
-          await db.query(`
-            INSERT INTO round6_state (id, current_subround, subround_status, voting_started_at)
-            VALUES (1, 1, 'waiting', NULL)
-          `);
+          await db.query('DELETE FROM hearts_players');
+          await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'waiting\', winner_id = NULL WHERE id = 1');
           
-          // Clear votes and history
-          await db.query('DELETE FROM round6_votes');
-          await db.query('DELETE FROM round6_history');
+          // Initialize hearts_players from alive players and teams
+          const alivePlayers = await db.query("SELECT id, name FROM users WHERE role = 'player' AND is_eliminated = false");
+          const teams = await db.query("SELECT * FROM teams WHERE round_formed = 2");
+
+          for (const p of alivePlayers.rows) {
+            const myTeam = teams.rows.find(t => t.user1_id === p.id || t.user2_id === p.id);
+            const teammateId = myTeam ? (myTeam.user1_id === p.id ? myTeam.user2_id : myTeam.user1_id) : null;
+            
+            await db.query(`
+              INSERT INTO hearts_players (user_id, teammate_id, hearts, is_alive)
+              VALUES ($1, $2, 3, true)
+            `, [p.id, teammateId]);
+          }
           
           // Update Game State
           await db.query('UPDATE game_state SET current_round = 6, status = \'active\' WHERE id = 1');
@@ -1347,7 +1241,61 @@ const performR5NextRound = async (gameId) => {
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
           await broadcastRound6Update();
-          console.log('Round 6 initialized and started');
+        }
+
+        if (data.type === 'r6_submit_action') {
+          const { action, targetId } = data;
+          console.log(`Player ${currentUser.name} submitted R6 action: ${action}`);
+          await db.query(`
+            UPDATE hearts_players 
+            SET current_action = $1, target_id = $2 
+            WHERE user_id = $3
+          `, [action, targetId, currentUser.id]);
+          await broadcastRound6Update();
+        }
+
+        if (data.type === 'r6_resolve_cycle' && currentUser.role === 'volunteer') {
+          console.log('Resolving Game of Hearts cycle...');
+          const r6State = await getRound6State();
+          if (!r6State) return;
+
+          const players = r6State.players;
+          const actions = players.filter(p => p.current_action).map(p => ({
+            user_id: p.user_id,
+            action: p.current_action,
+            target_id: p.target_id
+          }));
+
+          const result = heartsEngine.resolveCycle(players, actions);
+          
+          // Update players in DB
+          for (const p of result.updatedPlayers) {
+            await db.query(`
+              UPDATE hearts_players 
+              SET hearts = $1, is_alive = $2, current_action = NULL, target_id = NULL 
+              WHERE user_id = $3
+            `, [p.hearts, p.is_alive, p.user_id]);
+
+            if (!p.is_alive) {
+              await db.query('UPDATE users SET is_eliminated = true WHERE id = $1', [p.user_id]);
+            }
+          }
+
+          // Check for winner
+          if (result.winnerId) {
+            await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
+          } else {
+            await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'waiting\' WHERE id = 1');
+          }
+
+          await broadcastRound6Update();
+          // We could send logs as well, maybe via a separate message or adding to state
+          broadcast({ type: 'r6_cycle_logs', logs: result.logs });
+        }
+
+        if (data.type === 'r6_start_voting' && currentUser.role === 'volunteer') {
+          await db.query("UPDATE hearts_game_state SET status = 'acting' WHERE id = 1");
+          await broadcastRound6Update();
         }
 
 
