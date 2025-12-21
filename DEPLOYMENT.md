@@ -1,61 +1,92 @@
-# 🚢 BLINDTECH: DEPLOYMENT STRATEGY
+# 🚢 BLINDTECH: AZURE VM MONOLITH DEPLOYMENT
 
-For a high-stakes real-time game like Blindtech, stability and low-latency WebSocket connections are paramount. Below is the recommended production architecture.
-
----
-
-## 🏗️ RECOMMENDED STACK
-
-| Component          | Target Environment   | Recommendation                     |
-| :----------------- | :------------------- | :--------------------------------- |
-| **Backend API**    | Virtual Machine (VM) | DigitalOcean Droplet / AWS EC2     |
-| **Real-time (WS)** | Virtual Machine (VM) | (Persistent Process Required)      |
-| **Frontend UI**    | Static Hosting       | **Vercel** or **Cloudflare Pages** |
-| **Database**       | Managed SQL          | **Neon** or **Railway** (Postgres) |
-| **SSL/Proxy**      | Reverse Proxy        | **Nginx** or **Caddy**             |
+This guide outlines how to maximize your Azure VM by hosting the **Backend API**, **Frontend UI**, and **PostgreSQL Database** on a single machine. This is the most cost-effective and highest-performance setup for your current resources.
 
 ---
 
-## 🔧 COMPONENT BREAKDOWN
+## 🏗️ MONOLITHIC ARCHITECTURE
 
-### 1. BACKEND (THE SERVER)
+In this setup, your Azure VM acts as a "Single Source of Truth":
 
-**Best Choice: Virtual Machine (VM)**
+- **Nginx**: Serves the UI and acts as a Reverse Proxy for the API/WebSockets.
+- **PM2**: Manages the persistent Backend process.
+- **Postgres**: Runs locally for ultra-low latency database queries.
 
-- **Why?** Since Blindtech uses **native WebSockets**, it requires a persistent connection. Serverless environments (like Vercel Functions or AWS Lambda) have execution timeouts.
-- **Workflow Options**:
+---
 
-#### Option A: PM2 (Recommended for Process Management)
+## 🔧 SETUP STEPS
 
-1.  **Setup Node**: Install Node.js and PM2 globally on the VM.
-    ```bash
-    npm install -g pm2
-    ```
-2.  **Deploy**:
-    ```bash
-    cd server
-    npm install --production
-    pm2 start index.js --name "bt-server" --env production
-    pm2 save
-    pm2 startup
-    ```
+### 1. Database: Local PostgreSQL
 
-#### Option B: Docker (Containerized)
+Install and configure PostgreSQL directly on the VM.
 
-1.  **Build & Run**:
-    ```bash
-    docker build -t blindtech-server ./server
-    docker run -d -p 3000:3000 --env-file .env --name bt-server blindtech-server
-    ```
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+# Create the database
+sudo -u postgres psql -c "CREATE DATABASE blindtech;"
+# Update your server/.env
+DATABASE_URL=postgres://postgres@localhost:5432/blindtech
+```
 
-#### Reverse Proxy (REQUIRED)
+### 2. Backend: PM2 Management
 
-Install Nginx on the host VM and configure a proxy to handle SSL and WebSockets:
+Run the backend as a persistent service on the VM.
+
+```bash
+cd server
+npm install --production
+npm install -g pm2
+pm2 start index.js --name "bt-server"
+pm2 save
+pm2 startup
+```
+
+### 3. Frontend: Static Build
+
+Build the UI once and host it via Nginx.
+
+```bash
+cd ui
+npm install
+npm run build
+# The 'dist' folder now contains your production UI
+```
+
+### 4. Nginx: The Unified Router
+
+Install Nginx and configure it to handle all traffic. Redirect all paths to the UI, except for specific API/WS routes.
+
+```bash
+sudo apt install nginx
+```
+
+Edit your Nginx config (`/etc/nginx/sites-available/default`):
 
 ```nginx
 server {
-    server_name api.yourdomain.com;
+    listen 80;
+    server_name your_vm_ip_or_domain;
+
+    # 1. Host the UI
+    root /var/www/blindtech/ui/dist;
+    index index.html;
+
     location / {
+        try_files $uri /index.html;
+    }
+
+    # 2. Proxy API and WebSockets
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    # Specific WebSocket handle if needed
+    location /ws {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -65,33 +96,20 @@ server {
 }
 ```
 
-### 2. FRONTEND (THE UI)
+---
 
-**Best Choice: Vercel or Cloudflare Pages**
+## 🏎️ AZURE OPTIMIZATION TIPS
 
-- **Why?** The UI is a Vite-powered SPA. CDN hosting is faster and simplifies SSL/HTTPS management.
-- **Workflow**:
-  - Build Command: `npm run build`
-  - Output Directory: `dist`
-  - **Single Page App Config**: Ensure that all 404s route back to `index.html` to allow React Router to handle navigation.
-
-### 3. DATABASE
-
-**Best Choice: Managed PostgreSQL**
-
-- **Recommendation**: **Neon.tech** or **Railway.app**.
-- **Managed Advantages**: Automated backups, easy scaling, and a high-performance connection string.
-- **Migration**: Run `npm run migrate up` from your local machine (with production DP URL) or from a CI/CD pipeline.
+1.  **Direct Communication**: Use `localhost` for DB connections in your `.env`. This bypasses the network stack and reduces latency to zero.
+2.  **Swap Space**: If your VM is low on RAM (e.g., 1GB), create a **2GB swap file** to prevent the DB or Server from crashing during high-load moments.
+    ```bash
+    sudo fallocate -l 2G /swapfile
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    ```
+3.  **Firewall (Azure NSG)**: Ensure only ports **80 (HTTP)** and **443 (HTTPS)** are open to the public. Database port (5432) should remain closed and accessible only to the VM itself.
 
 ---
 
-## 🛠️ PRODUCTION CHECKLIST
-
-1.  **Environment Sync**: Ensure production `.env` variables match the production database and domain.
-2.  **CORS**: Update `@fastify/cors` in `server/index.js` to only allow your production UI domain.
-3.  **Persistence**: Use `pm2` or Docker's `--restart always` policy on the VM to ensure the server restarts after crashes.
-4.  **Security**: Use `bcrypt` rounds (set to 10-12) and ensure `JWT_SECRET` is at least 32 characters of random entropy.
-
----
-
-_“The system is deployed. The participants are ready.”_
+_“The monolith is efficient. The monolith is stable.”_
