@@ -11,10 +11,10 @@ exports.up = pgm => {
       notNull: true,
       default: pgm.func('current_timestamp'),
     },
-  });
+  }, { ifNotExists: true });
 };
 
 exports.down = pgm => {
-  pgm.dropTable('users');
-  pgm.dropExtension('uuid-ossp');
+  pgm.dropTable('users', { ifExists: true });
+  pgm.dropExtension('uuid-ossp', { ifExists: true });
 };

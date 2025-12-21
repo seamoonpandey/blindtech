@@ -298,6 +298,113 @@ async function gameRoutes(fastify, options) {
     console.log(`Broadcasted R4 to ${count} active clients.`);
   };
 
+async function getRound5Games() {
+  const res = await db.query(`
+    SELECT 
+      g.id, g.team_a_id, g.team_b_id,
+      g.team_a_momentum, g.team_b_momentum,
+      g.team_a_pact_used, g.team_b_pact_used,
+      g.current_round, g.active_team, g.status, g.result,
+      g.team_a_turn_order, g.team_b_turn_order, g.is_sudden_death,
+      ta.name as team_a_name, tb.name as team_b_name,
+      ta.user1_id as team_a_user1, ta.user2_id as team_a_user2,
+      tb.user1_id as team_b_user1, tb.user2_id as team_b_user2
+    FROM round5_games g
+    JOIN teams ta ON g.team_a_id = ta.id
+    LEFT JOIN teams tb ON g.team_b_id = tb.id
+  `);
+  
+  // Fetch turns for each game
+  for (const game of res.rows) {
+    const turnsRes = await db.query(`
+      SELECT round_number, player_id, team, card_selected, is_revealed, pact_used
+      FROM round5_turns
+      WHERE game_id = $1
+      ORDER BY created_at ASC
+    `, [game.id]);
+    game.turns = turnsRes.rows;
+  }
+  
+  return res.rows;
+}
+
+const broadcastRound5Update = async () => {
+  console.log('Broadcasting Round 5 Update...');
+  const games = await getRound5Games();
+  let count = 0;
+  for (const [userId, { socket, user }] of clients.entries()) {
+    if (socket.readyState === 1) {
+      count++;
+      if (user.role === 'volunteer') {
+        socket.send(JSON.stringify({ type: 'round5_update', games }));
+      } else {
+        const myGame = games.find(g => 
+          g.team_a_user1 === userId || g.team_a_user2 === userId || 
+          g.team_b_user1 === userId || g.team_b_user2 === userId
+        );
+        if (myGame) {
+          socket.send(JSON.stringify({ type: 'round5_update', games: [myGame] }));
+        }
+      }
+    }
+  }
+  console.log(`Broadcasted R5 to ${count} active clients.`);
+};
+
+function calculateMomentumChange(cardA, cardB) {
+  // Momentum matrix: [Team A change, Team B change]
+  const matrix = {
+    ATTACK: {
+      ATTACK: [-2, -2],
+      FORTIFY: [2, -1],
+      CONVERGE: [-3, 1]
+    },
+    FORTIFY: {
+      ATTACK: [-1, 1],
+      FORTIFY: [0, 0],
+      CONVERGE: [1, -1]
+    },
+    CONVERGE: {
+      ATTACK: [1, -3],
+      FORTIFY: [-1, 1],
+      CONVERGE: [2, 2]
+    }
+  };
+  return matrix[cardA][cardB];
+}
+
+function checkGameEnd(momentumA, momentumB, currentRound) {
+  if (momentumA >= 9 && momentumB < 9) return { ended: true, result: 'team_a_win' };
+  if (momentumB >= 9 && momentumA < 9) return { ended: true, result: 'team_b_win' };
+  if (momentumA >= 9 && momentumB >= 9) return { ended: true, result: 'both_win' };
+  if (momentumA <= 6 && momentumB <= 6) return { ended: true, result: 'both_lose' };
+  
+  // End of Round 6 check
+  if (currentRound === 6) {
+    if (momentumA >= 9 || momentumB >= 9) {
+      // Handled above
+    } else if (momentumA >= 7 && momentumA <= 8 && momentumB >= 7 && momentumB <= 8) {
+      return { ended: false, suddenDeath: true };
+    } else {
+      // If no one is in sudden death range but no one reached 9?
+      // Matrix usually keeps them in range, but if they are e.g. 7 vs 6?
+      // Both lose if they underperformed.
+      if (momentumA > momentumB) return { ended: true, result: 'team_a_win' };
+      if (momentumB > momentumA) return { ended: true, result: 'team_b_win' };
+      return { ended: true, result: 'both_lose' };
+    }
+  }
+
+  // Sudden Death resolution (Round 7)
+  if (currentRound >= 7) {
+    if (momentumA > momentumB) return { ended: true, result: 'team_a_win' };
+    if (momentumB > momentumA) return { ended: true, result: 'team_b_win' };
+    return { ended: true, result: 'both_lose' }; // Tie in sudden death = both lose
+  }
+  
+  return { ended: false };
+}
+
   // Helper to calculate leaderboard
   const calculateLeaderboard = async () => {
     // Round 1 logic
@@ -451,6 +558,19 @@ async function gameRoutes(fastify, options) {
                 s.user1_id === currentUser.id || s.user2_id === currentUser.id
               );
               socket.send(JSON.stringify({ type: 'round4_init', sessions: mySession ? [mySession] : [] }));
+            }
+          }
+          // If round 5 is active, send the game info
+          if (stateRes.rows[0].current_round === 5) {
+            if (currentUser.role === 'volunteer') {
+              socket.send(JSON.stringify({ type: 'round5_init', games: await getRound5Games() }));
+            } else {
+              const games = await getRound5Games();
+              const myGame = games.find(g => 
+                g.team_a_user1 === currentUser.id || g.team_a_user2 === currentUser.id || 
+                g.team_b_user1 === currentUser.id || g.team_b_user2 === currentUser.id
+              );
+              socket.send(JSON.stringify({ type: 'round5_init', games: myGame ? [myGame] : [] }));
             }
           }
         }
@@ -688,6 +808,241 @@ async function gameRoutes(fastify, options) {
           
           await broadcastRound4Update();
         }
+
+        if (data.type === 'start_round_5' && currentUser.role === 'volunteer') {
+          console.log('Starting Round 5 (Paradox)...');
+          
+          // Get all surviving teams
+          const teamsRes = await db.query(`
+            SELECT DISTINCT t.* 
+            FROM teams t
+            JOIN users u1 ON t.user1_id = u1.id
+            JOIN users u2 ON t.user2_id = u2.id
+            WHERE t.round_formed = 2 
+            AND u1.is_eliminated = false 
+            AND u2.is_eliminated = false
+          `);
+          
+          const teams = teamsRes.rows;
+          console.log(`Found ${teams.length} surviving teams for Round 5`);
+          
+          // Shuffle teams
+          for (let i = teams.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [teams[i], teams[j]] = [teams[j], teams[i]];
+          }
+          
+          // Clear old games
+          await db.query('DELETE FROM round5_games');
+          
+          // Create games (pair teams)
+          for (let i = 0; i < teams.length; i += 2) {
+            const teamA = teams[i];
+            const teamB = teams[i + 1] || null;
+            
+            // Randomize turn order within each team
+            const teamATurnOrder = Math.random() > 0.5 
+              ? [teamA.user1_id, teamA.user2_id] 
+              : [teamA.user2_id, teamA.user1_id];
+            
+            const teamBTurnOrder = teamB 
+              ? (Math.random() > 0.5 
+                ? [teamB.user1_id, teamB.user2_id] 
+                : [teamB.user2_id, teamB.user1_id])
+              : null;
+            
+            const isBye = !teamB;
+            
+            await db.query(`
+              INSERT INTO round5_games (
+                team_a_id, team_b_id, team_a_turn_order, team_b_turn_order,
+                status, result
+              ) VALUES ($1, $2, $3, $4, $5, $6)
+            `, [
+              teamA.id, 
+              teamB ? teamB.id : null,
+              JSON.stringify(teamATurnOrder),
+              teamBTurnOrder ? JSON.stringify(teamBTurnOrder) : null,
+              isBye ? 'finished' : 'active',
+              isBye ? 'team_a_win' : null
+            ]);
+            
+            if (isBye) {
+              console.log(`Team ${teamA.name} got a BYE and auto-wins`);
+            } else {
+              console.log(`Created game: ${teamA.name} vs ${teamB.name}`);
+            }
+          }
+          
+          await db.query('UPDATE game_state SET current_round = 5, status = \'active\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          await broadcastRound5Update();
+          console.log('Round 5 started successfully');
+        }
+
+        if (data.type === 'r5_select_card') {
+          const { gameId, card, pact } = data;
+          const gameRes = await db.query(`
+            SELECT g.*, 
+                   ta.user1_id as team_a_user1, ta.user2_id as team_a_user2,
+                   tb.user1_id as team_b_user1, tb.user2_id as team_b_user2
+            FROM round5_games g
+            JOIN teams ta ON g.team_a_id = ta.id
+            LEFT JOIN teams tb ON g.team_b_id = tb.id
+            WHERE g.id = $1
+          `, [gameId]);
+          const game = gameRes.rows[0];
+          
+          if (!game || game.status !== 'active') return;
+
+          const isTeamA = game.team_a_user1 === currentUser.id || game.team_a_user2 === currentUser.id;
+          const turnOrder = isTeamA ? game.team_a_turn_order : game.team_b_turn_order;
+          const myTeam = isTeamA ? 'A' : 'B';
+          const teamPactUsed = isTeamA ? game.team_a_pact_used : game.team_b_pact_used;
+
+          // Current turn in Round 5 is 1-6. Internal turn index 0 or 1.
+          const currentPlayerIndex = game.current_round <= 3 ? 0 : 1;
+          const expectedPlayerId = turnOrder[currentPlayerIndex];
+
+          if (expectedPlayerId !== currentUser.id) return;
+
+          const existingTurnRes = await db.query(`
+            SELECT id FROM round5_turns WHERE game_id = $1 AND round_number = $2 AND player_id = $3
+          `, [gameId, game.current_round, currentUser.id]);
+
+          if (existingTurnRes.rows.length === 0) {
+            let finalCard = card;
+            let pactToUse = null;
+
+            if (pact && !teamPactUsed) {
+              pactToUse = pact;
+              // If copy_opponent, we need to find what the opponent played in the PREVIOUS round
+              if (pact === 'copy_opponent' && game.current_round > 1) {
+                const prevRound = game.current_round - 1;
+                const oppTeam = myTeam === 'A' ? 'B' : 'A';
+                const prevOppTurnRes = await db.query(`
+                  SELECT card_selected FROM round5_turns 
+                  WHERE game_id = $1 AND round_number = $2 AND team = $3
+                `, [gameId, prevRound, oppTeam]);
+                
+                if (prevOppTurnRes.rows[0]) {
+                  finalCard = prevOppTurnRes.rows[0].card_selected;
+                }
+              }
+            }
+
+            await db.query(`
+              INSERT INTO round5_turns (game_id, round_number, player_id, team, card_selected, is_revealed, pact_used)
+              VALUES ($1, $2, $3, $4, $5, false, $6)
+            `, [gameId, game.current_round, currentUser.id, myTeam, finalCard, pactToUse]);
+            
+            if (pactToUse) {
+              const pactField = isTeamA ? 'team_a_pact_used' : 'team_b_pact_used';
+              await db.query(`UPDATE round5_games SET ${pactField} = true WHERE id = $1`, [gameId]);
+            }
+            
+            console.log(`Player ${currentUser.name} (Team ${myTeam}) selected ${finalCard} (Pact: ${pactToUse || 'None'}) for sub-round ${game.current_round}`);
+            await broadcastRound5Update();
+          }
+        }
+
+        if (data.type === 'r5_resolve_turn' && currentUser.role === 'volunteer') {
+          const { gameId } = data;
+          const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
+          const game = gameRes.rows[0];
+          if (!game || game.status !== 'active') return;
+
+          const turnsRes = await db.query(`
+            SELECT * FROM round5_turns WHERE game_id = $1 AND round_number = $2
+          `, [gameId, game.current_round]);
+
+          if (turnsRes.rows.length === 2) {
+            const turnA = turnsRes.rows.find(t => t.team === 'A');
+            const turnB = turnsRes.rows.find(t => t.team === 'B');
+            
+            // Both reveal simultaneously -> cancel if both used pacts? 
+            // The rules say "If both teams reveal simultaneously -> cancel". 
+            // This probably refers to the Pact itself if both use it in the same sub-round.
+            const bothUsedPact = turnA.pact_used && turnB.pact_used;
+            
+            let [deltaA, deltaB] = calculateMomentumChange(turnA.card_selected, turnB.card_selected);
+            
+            if (!bothUsedPact) {
+              // Apply Pact A
+              if (turnA.pact_used === 'reduce_penalty' && deltaA === -3) deltaA = -1;
+              if (turnA.pact_used === 'ignore_negative' && deltaA < 0) deltaA = 0;
+              
+              // Apply Pact B
+              if (turnB.pact_used === 'reduce_penalty' && deltaB === -3) deltaB = -1;
+              if (turnB.pact_used === 'ignore_negative' && deltaB < 0) deltaB = 0;
+            } else {
+               console.log("Both teams used Pacts in the same turn - PACTS CANCELLED");
+               // We need to revert the card if it was 'copy_opponent'? 
+               // Actually the pact_used is already recorded. We just don't apply the bonus effects.
+            }
+
+            const newMomentumA = game.team_a_momentum + deltaA;
+            const newMomentumB = game.team_b_momentum + deltaB;
+
+            await db.query('UPDATE round5_turns SET is_revealed = true WHERE game_id = $1 AND round_number = $2', [gameId, game.current_round]);
+            await db.query('UPDATE round5_games SET team_a_momentum = $1, team_b_momentum = $2 WHERE id = $3', [newMomentumA, newMomentumB, gameId]);
+            
+            const endCheck = checkGameEnd(newMomentumA, newMomentumB, game.current_round);
+            if (endCheck.ended) {
+              await db.query('UPDATE round5_games SET status = \'finished\', result = $1 WHERE id = $2', [endCheck.result, gameId]);
+              // Handle eliminations
+              const fullGame = (await db.query(`
+                SELECT g.*, ta.user1_id as a1, ta.user2_id as a2, tb.user1_id as b1, tb.user2_id as b2
+                FROM round5_games g JOIN teams ta ON g.team_a_id = ta.id LEFT JOIN teams tb ON g.team_b_id = tb.id
+                WHERE g.id = $1
+              `, [gameId])).rows[0];
+              
+              if (endCheck.result === 'team_a_win') {
+                await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.b1, fullGame.b2]);
+              } else if (endCheck.result === 'team_b_win') {
+                await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.a1, fullGame.a2]);
+              } else if (endCheck.result === 'both_lose') {
+                await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2, $3, $4)', [fullGame.a1, fullGame.a2, fullGame.b1, fullGame.b2]);
+              } else if (endCheck.result === 'both_win') {
+                 // Both advance, no elimination
+              }
+            } else if (endCheck.suddenDeath) {
+              await db.query('UPDATE round5_games SET status = \'sudden_death\', is_sudden_death = true WHERE id = $1', [gameId]);
+            }
+            await broadcastRound5Update();
+          }
+        }
+
+        if (data.type === 'r5_next_turn' && currentUser.role === 'volunteer') {
+          const { gameId } = data;
+          const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
+          const game = gameRes.rows[0];
+          if (!game || game.status !== 'active') return;
+
+          const nextRound = game.current_round + 1;
+          const nextActiveTeam = game.active_team === 'A' ? 'B' : 'A';
+          await db.query('UPDATE round5_games SET current_round = $1, active_team = $2 WHERE id = $3', [nextRound, nextActiveTeam, gameId]);
+          await broadcastRound5Update();
+        }
+
+        if (data.type === 'finish_round_5' && currentUser.role === 'volunteer') {
+          console.log('Finishing Round 5...');
+          await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          console.log('Round 5 finished');
+        }
+
+        if (data.type === 'start_round_6' && currentUser.role === 'volunteer') {
+          console.log('Starting Round 6 (Final Lottery)...');
+          await db.query('UPDATE game_state SET current_round = 6, status = \'active\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          console.log('Round 6 started');
+        }
+
 
         if (data.type === 'join_match' && currentUser.role === 'volunteer') {
           const { matchId } = data;

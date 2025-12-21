@@ -4,9 +4,9 @@ exports.up = pgm => {
     current_round: { type: 'integer', notNull: true, default: 0 },
     status: { type: 'text', notNull: true, default: 'waiting' }, // waiting, active, finished
     updated_at: { type: 'timestamp', notNull: true, default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
-  pgm.sql("INSERT INTO game_state (id, current_round, status) VALUES (1, 0, 'waiting')");
+  pgm.sql("INSERT INTO game_state (id, current_round, status) VALUES (1, 0, 'waiting') ON CONFLICT (id) DO NOTHING");
 
   pgm.createTable('submissions', {
     id: { type: 'uuid', default: pgm.func('uuid_generate_v4()'), primaryKey: true },
@@ -14,7 +14,7 @@ exports.up = pgm => {
     round: { type: 'integer', notNull: true },
     payload: { type: 'jsonb', notNull: true }, // e.g., [{target_id: '...', rank: 1}, ...]
     created_at: { type: 'timestamp', notNull: true, default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   pgm.addConstraint('submissions', 'unique_user_round', {
     unique: ['user_id', 'round']
@@ -22,6 +22,6 @@ exports.up = pgm => {
 };
 
 exports.down = pgm => {
-  pgm.dropTable('submissions');
-  pgm.dropTable('game_state');
+  pgm.dropTable('submissions', { ifExists: true });
+  pgm.dropTable('game_state', { ifExists: true });
 };

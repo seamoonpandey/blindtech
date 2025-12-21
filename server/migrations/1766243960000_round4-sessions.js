@@ -6,9 +6,9 @@ exports.up = (pgm) => {
     status: { type: 'varchar(20)', default: 'waiting' },
     result: { type: 'varchar(10)', notNull: false },
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') }
-  });
+  }, { ifNotExists: true });
 };
 
 exports.down = (pgm) => {
-  pgm.dropTable('round4_sessions');
+  pgm.dropTable('round4_sessions', { ifExists: true });
 };

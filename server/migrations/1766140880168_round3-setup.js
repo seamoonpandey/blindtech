@@ -9,9 +9,9 @@ exports.up = (pgm) => {
     current_subround: { type: 'integer', default: 1 },
     status: { type: 'varchar(20)', default: 'waiting' }, // 'waiting', 'active', 'finished'
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') }
-  });
+  }, { ifNotExists: true });
 };
 
 exports.down = (pgm) => {
-  pgm.dropTable('round3_matches');
+  pgm.dropTable('round3_matches', { ifExists: true });
 };
