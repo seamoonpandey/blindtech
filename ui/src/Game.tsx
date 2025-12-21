@@ -895,6 +895,8 @@ function AdminView({
   onStartRound6
 }: any) {
   const [activeTab, setActiveTab] = useState('control');
+  const [leaderboardPage, setLeaderboardPage] = useState(1);
+  const [dataSubTab, setDataSubTab] = useState('r3');
   const surviversCount = adminUsers.filter((u: any) => !u.is_eliminated && u.role === 'player').length;
 
   return (
@@ -939,9 +941,22 @@ function AdminView({
                 <h3>TRANSITIONS</h3>
                 <div className="btn-group-vertical">
                    <button onClick={onStartRound2} className="admin-btn" disabled={gameState.current_round !== 1 || gameState.status !== 'finished'}>ACTIVATE R2: LOTTERY</button>
-                   <button onClick={onStartRound3} className="admin-btn" disabled={gameState.current_round !== 2 || gameState.status !== 'active'}>ACTIVATE R3: DUELS</button>
-                   <button onClick={onStartRound4} className="admin-btn" disabled={gameState.current_round !== 3 || gameState.status !== 'waiting'}>ACTIVATE R4: CODING CLUB</button>
-                   <button onClick={onStartRound5} className="admin-btn" disabled={gameState.current_round !== 4 || gameState.status !== 'waiting'}>ACTIVATE R5: PARADOX</button>
+                   
+                   <div className="btn-row">
+                     <button onClick={onStartRound3} className="admin-btn" disabled={gameState.current_round !== 2 || gameState.status !== 'active'}>ACTIVATE R3: DUELS</button>
+                     <button onClick={onFinishRound3} className="admin-btn-sm" disabled={gameState.current_round !== 3 || gameState.status !== 'active'}>FINISH R3</button>
+                   </div>
+
+                   <div className="btn-row">
+                     <button onClick={onStartRound4} className="admin-btn" disabled={gameState.current_round !== 3 || gameState.status !== 'waiting'}>ACTIVATE R4: CODING</button>
+                     <button onClick={onFinishRound4} className="admin-btn-sm" disabled={gameState.current_round !== 4 || gameState.status !== 'active'}>FINISH R4</button>
+                   </div>
+
+                   <div className="btn-row">
+                     <button onClick={onStartRound5} className="admin-btn" disabled={gameState.current_round !== 4 || gameState.status !== 'waiting'}>ACTIVATE R5: PARADOX</button>
+                     <button onClick={onFinishRound5} className="admin-btn-sm" disabled={gameState.current_round !== 5 || gameState.status !== 'active'}>FINISH R5</button>
+                   </div>
+
                    <button onClick={onStartRound6} className="admin-btn" disabled={gameState.current_round !== 5 || gameState.status !== 'waiting'}>ACTIVATE R6: HEARTS</button>
                 </div>
               </div>
@@ -950,17 +965,61 @@ function AdminView({
         )}
 
         {activeTab === 'leaderboard' && (
-          <div className="admin-tab-pane fullscreen-pane">
-            <h1 className="admin-pane-title">LIVE LEADERBOARD (R1)</h1>
-            <div className="admin-leaderboard-list">
-              {leaderboard.map((entry: any, i: number) => (
-                <div key={entry.id} className={`admin-entry ${entry.is_eliminated ? 'eliminated' : ''}`}>
-                  <span className="rank">#{i + 1}</span>
-                  <span className="name">{entry.name}</span>
-                  <span className="score">{entry.score} pts</span>
-                  {entry.is_eliminated && <span className="status-tag">ELIMINATED</span>}
+          <div className="admin-tab-pane">
+            <div className="admin-leaderboard">
+              <h2>LIVE LEADERBOARD (R1)</h2>
+              <div className="leaderboard-table-wrapper">
+                <table className="leaderboard-table">
+                  <thead>
+                    <tr>
+                      <th>RANK</th>
+                      <th>PLAYER</th>
+                      <th>SCORE</th>
+                      <th>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard
+                      .slice((leaderboardPage - 1) * 10, leaderboardPage * 10)
+                      .map((entry: any, i: number) => (
+                      <tr key={entry.id} className={entry.is_eliminated ? 'eliminated' : ''}>
+                        <td className="leaderboard-rank">#{((leaderboardPage - 1) * 10) + i + 1}</td>
+                        <td className="leaderboard-name">{entry.name}</td>
+                        <td className="leaderboard-score">{entry.score} pts</td>
+                        <td className="leaderboard-status">
+                          {entry.is_eliminated ? (
+                            <span className="status-badge eliminated">ELIMINATED</span>
+                          ) : (
+                            <span className="status-badge active">ACTIVE</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {Math.ceil(leaderboard.length / 10) > 1 && (
+                <div className="pagination">
+                  <button 
+                    onClick={() => setLeaderboardPage(p => Math.max(1, p - 1))}
+                    disabled={leaderboardPage === 1}
+                    className="pagination-btn"
+                  >
+                    ← PREV
+                  </button>
+                  <span className="pagination-info">
+                    Page {leaderboardPage} of {Math.ceil(leaderboard.length / 10)}
+                  </span>
+                  <button 
+                    onClick={() => setLeaderboardPage(p => Math.min(Math.ceil(leaderboard.length / 10), p + 1))}
+                    disabled={leaderboardPage === Math.ceil(leaderboard.length / 10)}
+                    className="pagination-btn"
+                  >
+                    NEXT →
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -1006,22 +1065,60 @@ function AdminView({
         {activeTab === 'data' && (
           <div className="admin-tab-pane">
             <h1 className="admin-pane-title">GAME DATA HISTORY</h1>
-            <div className="admin-history-tabs">
-               <button onClick={() => setActiveTab('data-r3')}>R3 MATCHES</button>
-               <button onClick={() => setActiveTab('data-r4')}>R4 SESSIONS</button>
-               <button onClick={() => setActiveTab('data-r5')}>R5 GAMES</button>
+            <div className="admin-data-history-tabs">
+              <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
+              <button className={dataSubTab === 'r4' ? 'active' : ''} onClick={() => setDataSubTab('r4')}>R4 SESSIONS</button>
+              <button className={dataSubTab === 'r5' ? 'active' : ''} onClick={() => setDataSubTab('r5')}>R5 GAMES</button>
             </div>
             
             <div className="admin-data-content">
-               {/* Simplified data view for brevity, can be expanded */}
-               <h3>ROUND 3 DUELS</h3>
-               <div className="admin-user-scroll">
-                 {round3Matches.map((m: any) => (
-                   <div key={m.id} className="admin-data-row">
-                     {m.team1_name} vs {m.team2_name} | STATUS: {m.status} | WINNER: {m.winner_team_id || 'NONE'}
-                   </div>
-                 ))}
-               </div>
+              {dataSubTab === 'r3' && (
+                <>
+                  <h4>ROUND 3: PHYSICAL DUELS</h4>
+                  <div className="admin-user-list">
+                    {round3Matches.length > 0 ? round3Matches.map((m: any) => (
+                      <div key={m.id} className="admin-user-item">
+                        <div className="admin-user-info">
+                          <strong>{m.team1_name} vs {m.team2_name}</strong>
+                          <small>Status: {m.status} | Winner: {m.winner_name || m.winner_team_id || 'PENDING'}</small>
+                        </div>
+                      </div>
+                    )) : <p className="empty">No Round 3 match data available.</p>}
+                  </div>
+                </>
+              )}
+
+              {dataSubTab === 'r4' && (
+                <>
+                  <h4>ROUND 4: BUG BOUNTY SESSIONS</h4>
+                  <div className="admin-user-list">
+                    {round4Sessions.length > 0 ? round4Sessions.map((s: any) => (
+                      <div key={s.id} className="admin-user-item">
+                        <div className="admin-user-info">
+                          <strong>{s.team_name} (Session #{s.id.slice(0, 8)})</strong>
+                          <small>Status: {s.status} | Bugs Found: {s.bugs_found} | Score: {s.score}</small>
+                        </div>
+                      </div>
+                    )) : <p className="empty">No Round 4 session data available.</p>}
+                  </div>
+                </>
+              )}
+
+              {dataSubTab === 'r5' && (
+                <>
+                  <h4>ROUND 5: THE PARADOX GAMES</h4>
+                  <div className="admin-user-list">
+                    {round5Games.length > 0 ? round5Games.map((g: any) => (
+                      <div key={g.id} className="admin-user-item">
+                        <div className="admin-user-info">
+                          <strong>{g.team_a_name} vs {g.team_b_name}</strong>
+                          <small>Status: {g.status} | Result: {g.result || 'IN PROGRESS'}</small>
+                        </div>
+                      </div>
+                    )) : <p className="empty">No Round 5 game data available.</p>}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

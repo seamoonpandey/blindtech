@@ -159,3 +159,480 @@ select:focus {
 .pulse {
   animation: pulse 1.5s infinite;
 }
+
+/* ==================== ADMIN VIEW STYLES ==================== */
+
+.admin-view-root {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.admin-nav-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 4px solid black;
+  background: white;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+.admin-nav-tabs button {
+  flex: 1;
+  padding: 1.2rem 1.5rem;
+  border: none;
+  border-right: 3px solid black;
+  box-shadow: none;
+  font-size: 1rem;
+  font-weight: 900;
+  background: white;
+  color: #666;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-nav-tabs button:last-child {
+  border-right: none;
+}
+
+.admin-nav-tabs button.active {
+  background: black;
+  color: white;
+  transform: none;
+}
+
+.admin-nav-tabs button:hover:not(.active) {
+  background: #f0f0f0;
+  color: black;
+}
+
+.admin-content-area {
+  padding: 0 2rem 2rem 2rem;
+}
+
+.admin-tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Admin Summary Cards */
+.admin-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.admin-summary-card {
+  background: white;
+  border: 3px solid black;
+  padding: 1.5rem;
+  box-shadow: 6px 6px 0px black;
+}
+
+.admin-summary-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #666;
+  font-weight: 700;
+}
+
+.admin-summary-card .value {
+  font-size: 2.5rem;
+  font-weight: 900;
+  margin: 0;
+  color: black;
+}
+
+/* Admin Control Section */
+.admin-control-section {
+  background: white;
+  border: 3px solid black;
+  padding: 2rem;
+  box-shadow: 6px 6px 0px black;
+  margin-bottom: 2rem;
+}
+
+.admin-control-section h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  border-bottom: 3px solid black;
+  padding-bottom: 0.75rem;
+  font-weight: 900;
+}
+
+.admin-control-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.admin-control-buttons button {
+  padding: 1.2rem 1.5rem;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  background: white;
+  border: 3px solid black;
+  box-shadow: 4px 4px 0px black;
+  font-weight: 900;
+  transition: all 0.15s;
+}
+
+.admin-control-buttons button:hover {
+  background: black;
+  color: white;
+}
+
+.admin-control-buttons button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+.admin-control-buttons button:disabled:hover {
+  background: #f5f5f5;
+  color: black;
+}
+
+.btn-group-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-row .admin-btn {
+  flex: 3;
+}
+
+.btn-row .admin-btn-sm {
+  flex: 1;
+  padding: 0.8rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Leaderboard in Admin */
+.admin-leaderboard {
+  background: white;
+  border: 3px solid black;
+  box-shadow: 6px 6px 0px black;
+}
+
+.admin-leaderboard h2 {
+  margin: 0;
+  padding: 1.5rem;
+  background: black;
+  color: white;
+  font-size: 1.8rem;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.admin-leaderboard-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.admin-leaderboard-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px;
+  align-items: center;
+  padding: 1.2rem 1.5rem;
+  border-bottom: 2px solid #e0e0e0;
+  gap: 1rem;
+}
+
+.admin-leaderboard-item:last-child {
+  border-bottom: none;
+}
+
+.admin-leaderboard-item:nth-child(1) {
+  background: #fff9c4;
+}
+
+.admin-leaderboard-item:nth-child(2) {
+  background: #f5f5f5;
+}
+
+.admin-leaderboard-item:nth-child(3) {
+  background: #ffe0b2;
+}
+
+.leaderboard-rank {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: black;
+}
+
+.leaderboard-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.leaderboard-score {
+  font-size: 1.3rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.leaderboard-table th {
+  background: #f0f0f0;
+  padding: 1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 3px solid black;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.leaderboard-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  font-size: 1rem;
+}
+
+.leaderboard-table tr:hover {
+  background: #fafafa;
+}
+
+.leaderboard-table tr.eliminated {
+  background: #fff5f5;
+  color: #a0a0a0;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 2px solid black;
+}
+
+.status-badge.active {
+  background: #e6fffa;
+  color: #2c7a7b;
+}
+
+.status-badge.eliminated {
+  background: #fff5f5;
+  color: #c53030;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: white;
+}
+
+.pagination-btn {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  box-shadow: 3px 3px 0px black;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.3;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-weight: 900;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.admin-management-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+.admin-user-scroll {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+/* Management Lists */
+.admin-management-section {
+  background: white;
+  border: 3px solid black;
+  padding: 2rem;
+  box-shadow: 6px 6px 0px black;
+  margin-bottom: 2rem;
+}
+
+.admin-management-section h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  border-bottom: 3px solid black;
+  padding-bottom: 0.75rem;
+  font-weight: 900;
+}
+
+.admin-user-list,
+.admin-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-user-item,
+.admin-team-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.2rem;
+  background: #fafafa;
+  border: 2px solid black;
+  gap: 1rem;
+}
+
+.admin-user-item.eliminated,
+.admin-team-item.eliminated {
+  background: #ffebee;
+  opacity: 0.7;
+}
+
+.admin-user-info,
+.admin-team-info {
+  flex: 1;
+}
+
+.admin-user-info strong,
+.admin-team-info strong {
+  font-size: 1.05rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.admin-user-info small,
+.admin-team-info small {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.admin-item-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-item-actions button {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  box-shadow: 2px 2px 0px black;
+}
+
+.admin-item-actions button.revive {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+}
+
+.admin-item-actions button.eliminate {
+  background: #ffcdd2;
+  border-color: #c62828;
+}
+
+/* Data History */
+.admin-data-history-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-data-history-tabs button {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: white;
+  border: 2px solid black;
+  box-shadow: 3px 3px 0px black;
+}
+
+.admin-data-history-tabs button.active {
+  background: black;
+  color: white;
+}
+
+.admin-data-content {
+  background: white;
+  border: 3px solid black;
+  padding: 2rem;
+  box-shadow: 6px 6px 0px black;
+  min-height: 300px;
+}
+
+.admin-data-content h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.admin-data-content .empty {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-nav-tabs {
+    flex-wrap: wrap;
+  }
+
+  .admin-nav-tabs button {
+    flex: 1 1 50%;
+    border-right: none;
+    border-bottom: 2px solid black;
+  }
+
+  .admin-summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-control-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-content-area {
+    padding: 0 1rem 1rem 1rem;
+  }
+
+  .leaderboard-rank {
+    font-size: 1.4rem;
+  }
+
+  .leaderboard-name {
+    font-size: 0.95rem;
+  }
+
+  .leaderboard-score {
+    font-size: 1.1rem;
+  }
+}
