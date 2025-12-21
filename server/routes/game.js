@@ -113,10 +113,10 @@ async function gameRoutes(fastify, options) {
         
         const secondsElapsed = (Date.now() - new Date(game.subround_started_at).getTime()) / 1000;
         
-        if (!revealed && secondsElapsed >= 60) {
-          console.log(`AUTO-RESOLVING ROUND 5 Game ${game.id} Turn ${game.current_round}`);
-          await performR5Resolution(game.id);
-        } else if (revealed && secondsElapsed >= 65) {
+        if (!revealed && secondsElapsed >= 600) {
+          console.log(`AUTO-RESOLVING ROUND 5 Game ${game.id} Turn ${game.current_round} (TIMEOUT)`);
+          await performR5Resolution(game.id, true); // Pass true to indicate timeout/elimination
+        } else if (revealed && secondsElapsed >= 605) {
           console.log(`AUTO-ADVANCING ROUND 5 Game ${game.id} to Turn ${game.current_round + 1}`);
           await performR5NextRound(game.id);
         }
@@ -420,7 +420,7 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
   }
 }
 
-const performR5Resolution = async (gameId) => {
+const performR5Resolution = async (gameId, isTimeout = false) => {
   const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
   const game = gameRes.rows[0];
   if (!game || game.status !== 'active') return;
@@ -429,12 +429,21 @@ const performR5Resolution = async (gameId) => {
     SELECT * FROM round5_turns WHERE game_id = $1 AND round_number = $2
   `, [gameId, game.current_round]);
 
-  // If missing turns, add default
+  // If missing turns, handle differently based on timeout
   const teams = ['A', 'B'];
+  let teamEliminated = null;
+
   for (const t of teams) {
     const existing = turnsRes.rows.find(tr => tr.team === t);
     if (!existing) {
-       console.log(`Auto-playing for Team ${t} in Game ${gameId} Sub-round ${game.current_round}`);
+       console.log(`Missing turn for Team ${t} in Game ${gameId} Sub-round ${game.current_round}`);
+       
+       if (isTimeout) {
+         teamEliminated = t;
+         // We can stop checking if we found a missing one, we'll DQ this team.
+         // If both are missing, we might DQ both or just A (handled below)
+       }
+
        let player;
        const order = t === 'A' ? game.team_a_turn_order : game.team_b_turn_order;
        if (!order) {
@@ -443,6 +452,8 @@ const performR5Resolution = async (gameId) => {
        } else {
           player = order[(game.current_round - 1) % 2];
        }
+       // On timeout, we still insert a dummy turn to satisfy the matrix logic below, 
+       // but we will override the game result to DQ them.
        await db.query(`INSERT INTO round5_turns (game_id, round_number, player_id, team, card_selected, is_revealed) VALUES ($1, $2, $3, $4, 'FORTIFY', false)`, [gameId, game.current_round, player, t]);
     }
   }
@@ -468,7 +479,15 @@ const performR5Resolution = async (gameId) => {
   await db.query('UPDATE round5_turns SET is_revealed = true WHERE game_id = $1 AND round_number = $2', [gameId, game.current_round]);
   await db.query('UPDATE round5_games SET team_a_momentum = $1, team_b_momentum = $2 WHERE id = $3', [newMomentumA, newMomentumB, gameId]);
   
-  const endCheck = checkGameEnd(newMomentumA, newMomentumB, game.current_round);
+  let endCheck = checkGameEnd(newMomentumA, newMomentumB, game.current_round);
+  
+  // Override for timeout elimination
+  if (teamEliminated) {
+     const result = teamEliminated === 'A' ? 'team_b_win' : 'team_a_win';
+     endCheck = { ended: true, result };
+     console.log(`TIMEOUT ELIMINATION: Team ${teamEliminated} eliminated. Result: ${result}`);
+  }
+
   if (endCheck.ended) {
     console.log(`GAME OVER for Game ${gameId}: ${endCheck.result}`);
     await db.query('UPDATE round5_games SET status = \'finished\', result = $1 WHERE id = $2', [endCheck.result, gameId]);

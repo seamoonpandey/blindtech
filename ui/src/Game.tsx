@@ -550,9 +550,9 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: any) => t.is_revealed);
       
       if (revealed) {
-        setSecondsLeft(Math.max(0, 65 - elapsed));
+        setSecondsLeft(Math.max(0, 605 - elapsed));
       } else {
-        setSecondsLeft(Math.max(0, 60 - elapsed));
+        setSecondsLeft(Math.max(0, 600 - elapsed));
       }
     };
 
@@ -813,7 +813,10 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       <div style={{ marginTop: '2.5rem', borderTop: '4px solid black', paddingTop: '1.5rem' }}>
         <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>BATTLE HISTORY</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {([...(game.turns || [])]).filter((t: any) => t.is_revealed).sort((a: any, b: any) => b.round_number - a.round_number).map((t: any, _: number, arr: any[]) => {
+          {Array.isArray(game.turns) && game.turns
+            .filter((t:any) => t && t.is_revealed)
+            .sort((a:any, b:any) => (b.round_number || 0) - (a.round_number || 0))
+            .map((t: any, _: number, arr: any[]) => {
             // Group turns by round
             if (t.team === 'B') return null; // We'll process A and find B
             const roundNum = t.round_number;
@@ -821,12 +824,9 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
             const turnB = arr.find((alt: any) => alt.round_number === roundNum && alt.team === 'B');
             if (!turnB) return null;
 
-            const matrixEntry = MATRIX[turnA.card_selected];
-            if (!matrixEntry) return null; // Safety check
-            const outcome = matrixEntry[turnB.card_selected];
-            if (!outcome) return null; // Safety check
+            if (!MATRIX[turnA.card_selected] || !MATRIX[turnA.card_selected][turnB.card_selected]) return null;
 
-            const [dA, dB] = outcome;
+            const [dA, dB] = MATRIX[turnA.card_selected][turnB.card_selected];
             const isMeA = isTeamA;
             const myDelta = isMeA ? dA : dB;
             const oppDelta = isMeA ? dB : dA;
@@ -859,7 +859,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               </div>
             );
           })}
-          {(!game.turns || game.turns.filter((t: any) => t.is_revealed).length === 0) && (
+          {(!Array.isArray(game.turns) || game.turns.filter((t: any) => t.is_revealed).length === 0) && (
             <p style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>No history yet. The battle has just begun.</p>
           )}
         </div>
@@ -882,7 +882,7 @@ function Round5VolunteerView({ games, onFinish, onDisqualify }: {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
-        {games.map(g => {
+        {(games || []).map(g => {
           const currentRoundTurns = g.turns?.filter((t: any) => t.round_number === g.current_round) || [];
           const bothSubmitted = currentRoundTurns.length === 2;
           const isRevealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
@@ -1593,11 +1593,22 @@ export default function Game() {
                 g.team_a_user1 === user.id || g.team_a_user2 === user.id || 
                 g.team_b_user1 === user.id || g.team_b_user2 === user.id
               );
+              
+              if (!myGame) {
+                return (
+                  <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+                    <div className="loader-dots"><span></span><span></span><span></span></div>
+                    <h3>SEARCHING FOR GAME DATA...</h3>
+                    <p style={{ opacity: 0.6 }}>Synchronizing with the Paradox server.</p>
+                  </div>
+                );
+              }
+
               return (
                 <Round5PlayerView 
                   game={myGame}
                   userId={user.id}
-                  onSelectCard={(card, pact) => selectCard5(myGame?.id, card, pact)}
+                  onSelectCard={(card, pact) => selectCard5(myGame.id, card, pact)}
                 />
               );
             })()
