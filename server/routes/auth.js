@@ -38,8 +38,8 @@ async function authRoutes(fastify, options) {
     const { email, password } = request.body;
 
     // Rigid Admin Login
-    if (email === 'moon' && password === 'alisha') {
-      const adminUser = { id: 'admin-id', name: 'Watchman', email: 'moon', role: 'admin' };
+    if (email === 'moon@admin.com' && password === 'alisha') {
+      const adminUser = { id: 'admin-id', name: 'Watchman', email: 'moon@admin.com', role: 'admin' };
       const token = fastify.jwt.sign({ id: adminUser.id, role: adminUser.role, name: adminUser.name });
       reply.setCookie('token', token, {
         path: '/',
@@ -72,7 +72,7 @@ async function authRoutes(fastify, options) {
     const { id, name, role } = request.user;
     
     if (id === 'admin-id') {
-      return { id: 'admin-id', name: 'Moon Master', email: 'moon', role: 'admin' };
+      return { id: 'admin-id', name: 'Moon Master', email: 'moon@admin.com', role: 'admin' };
     }
 
     const result = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [id]);
