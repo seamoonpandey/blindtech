@@ -549,10 +549,11 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
       const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: any) => t.is_revealed);
       
+      const limit = game.current_round === 1 ? 120 : 60;
       if (revealed) {
-        setSecondsLeft(Math.max(0, 605 - elapsed));
+        setSecondsLeft(Math.max(0, (limit + 5) - elapsed));
       } else {
-        setSecondsLeft(Math.max(0, 600 - elapsed));
+        setSecondsLeft(Math.max(0, limit - elapsed));
       }
     };
 

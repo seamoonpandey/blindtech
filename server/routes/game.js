@@ -113,10 +113,12 @@ async function gameRoutes(fastify, options) {
         
         const secondsElapsed = (Date.now() - new Date(game.subround_started_at).getTime()) / 1000;
         
-        if (!revealed && secondsElapsed >= 600) {
+        const limit = game.current_round === 1 ? 120 : 60;
+        
+        if (!revealed && secondsElapsed >= limit) {
           console.log(`AUTO-RESOLVING ROUND 5 Game ${game.id} Turn ${game.current_round} (TIMEOUT)`);
           await performR5Resolution(game.id, true); // Pass true to indicate timeout/elimination
-        } else if (revealed && secondsElapsed >= 605) {
+        } else if (revealed && secondsElapsed >= (limit + 5)) {
           console.log(`AUTO-ADVANCING ROUND 5 Game ${game.id} to Turn ${game.current_round + 1}`);
           await performR5NextRound(game.id);
         }
