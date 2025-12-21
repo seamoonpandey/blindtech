@@ -113,12 +113,7 @@ async function gameRoutes(fastify, options) {
         
         const secondsElapsed = (Date.now() - new Date(game.subround_started_at).getTime()) / 1000;
         
-        const limit = game.current_round === 1 ? 120 : 60;
-        
-        if (!revealed && secondsElapsed >= limit) {
-          console.log(`AUTO-RESOLVING ROUND 5 Game ${game.id} Turn ${game.current_round} (TIMEOUT)`);
-          await performR5Resolution(game.id, true); // Pass true to indicate timeout/elimination
-        } else if (revealed && secondsElapsed >= (limit + 5)) {
+        if (revealed && secondsElapsed >= 5) {
           console.log(`AUTO-ADVANCING ROUND 5 Game ${game.id} to Turn ${game.current_round + 1}`);
           await performR5NextRound(game.id);
         }
@@ -1127,6 +1122,14 @@ const performR5NextRound = async (gameId) => {
             }
             
             console.log(`Player ${currentUser.name} (Team ${myTeam}) selected ${finalCard} (Pact: ${pactToUse || 'None'}) for sub-round ${game.current_round}`);
+            
+            // Check if both teams have submitted for this round
+            const currentTurns = await db.query(`SELECT id FROM round5_turns WHERE game_id = $1 AND round_number = $2`, [gameId, game.current_round]);
+            if (currentTurns.rows.length >= 2) {
+              console.log(`Both teams submitted for Game ${gameId} Round ${game.current_round}. Auto-resolving!`);
+              await performR5Resolution(gameId);
+            }
+            
             await broadcastRound5Update();
           }
         }
