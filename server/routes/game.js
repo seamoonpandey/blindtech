@@ -417,6 +417,153 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
   }
 }
 
+// ROUND 6 HELPERS
+async function getRound6State() {
+  console.log('Fetching Round 6 State...');
+  const stateRes = await db.query('SELECT * FROM round6_state WHERE id = 1');
+  if (!stateRes.rows[0]) {
+    console.log('Round 6 State row NOT FOUND in database!');
+    return null;
+  }
+  const state = stateRes.rows[0];
+  console.log(`Found R6 State: Subround ${state.current_subround}, Status ${state.subround_status}`);
+  
+  // Attach votes for the current subround (monitor view)
+  const votesRes = await db.query('SELECT * FROM round6_votes WHERE round_number = $1', [state.current_subround]);
+  state.votes = votesRes.rows;
+  
+  // Attach alive players
+  const playersRes = await db.query("SELECT id, name, has_used_safety, is_eliminated FROM users WHERE role = 'player' ORDER BY name ASC");
+  state.players = playersRes.rows;
+
+  // Attach history
+  const historyRes = await db.query(`
+    SELECT h.*, u1.name as target_name, u2.name as partner_name 
+    FROM round6_history h
+    LEFT JOIN users u1 ON h.target_id = u1.id
+    LEFT JOIN users u2 ON h.partner_id = u2.id
+    ORDER BY subround ASC
+  `);
+  state.history = historyRes.rows;
+  
+  return state;
+}
+
+const broadcastRound6Update = async () => {
+  const r6State = await getRound6State();
+  if (!r6State) return;
+  
+  console.log('Broadcasting Round 6 Update...');
+  
+  for (const [userId, { socket, user }] of clients.entries()) {
+    if (socket.readyState === 1) {
+      socket.send(JSON.stringify({ type: 'round6_update', state: r6State }));
+    }
+  }
+}
+
+const performR6Resolution = async () => {
+  const r6State = await getRound6State();
+  if (!r6State || r6State.subround_status !== 'voting') return;
+  console.log(`RESOLVING ROUND 6 SUBROUND ${r6State.current_subround}`);
+  const votes = r6State.votes;
+  const tally = {};
+  votes.forEach(v => {
+    tally[v.target_id] = (tally[v.target_id] || 0) + 1;
+  });
+  let maxVotes = -1;
+  let targetId = null;
+  for (const [pid, count] of Object.entries(tally)) {
+    if (count > maxVotes) { maxVotes = count; targetId = pid; }
+    else if (count === maxVotes) { if (Math.random() > 0.5) targetId = pid; }
+  }
+  let eliminatedId = null;
+  let partnerId = null;
+  if (targetId) {
+    const targetVote = votes.find(v => v.voter_id === targetId);
+    if (targetVote && targetVote.used_safety) {
+      console.log(`Player ${targetId} used SAFETY and survived!`);
+    } else {
+      eliminatedId = targetId;
+      console.log(`Player ${targetId} eliminated with ${maxVotes} votes.`);
+      await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [targetId]);
+      const teamRes = await db.query("SELECT * FROM teams WHERE round_formed = 2 AND (user1_id = $1 OR user2_id = $1)", [targetId]);
+      const team = teamRes.rows[0];
+      if (team) {
+        partnerId = team.user1_id === targetId ? team.user2_id : team.user1_id;
+        const pCheck = await db.query("SELECT is_eliminated FROM users WHERE id = $1", [partnerId]);
+        if (pCheck.rows[0] && !pCheck.rows[0].is_eliminated) {
+           console.log(`Partner ${partnerId} also eliminated (Collateral Damage).`);
+           await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [partnerId]);
+        } else {
+          partnerId = null;
+        }
+      }
+    }
+  } else {
+    // If no votes, NO ONE ELIMINATED this round (but timeout logic might kill everyone who didn't vote)
+  }
+  // Record in history
+  if (eliminatedId) {
+    await db.query(`
+      INSERT INTO round6_history (subround, target_id, partner_id, reason)
+      VALUES ($1, $2, $3, 'vote')
+    `, [r6State.current_subround, eliminatedId, partnerId]);
+  }
+
+  await db.query(`UPDATE round6_state SET subround_status = 'result', last_eliminated_id = $1, last_partner_eliminated_id = $2 WHERE id = 1`, [eliminatedId, partnerId]);
+  await broadcastRound6Update();
+}
+
+// Background Timer for Round 6
+setInterval(async () => {
+  try {
+    const r6State = await getRound6State();
+    if (r6State && r6State.subround_status === 'voting') {
+      const elapsed = (Date.now() - new Date(r6State.voting_started_at).getTime()) / 1000;
+      if (elapsed >= 300) {
+        console.log("Round 6 Voting Timeout! Eliminating non-voters...");
+        const voters = r6State.votes.map(v => v.voter_id);
+        const alivePlayers = r6State.players.filter(p => !p.is_eliminated);
+        
+        for (const p of alivePlayers) {
+          if (!voters.includes(p.id)) {
+             console.log(`Player ${p.name} failed to vote. AUTO-ELIMINATED.`);
+             await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [p.id]);
+             
+             // Elimination of non-voter also kills partner
+             const teamRes = await db.query("SELECT * FROM teams WHERE round_formed = 2 AND (user1_id = $1 OR user2_id = $1)", [p.id]);
+             const team = teamRes.rows[0];
+             if (team) {
+               const partnerId = team.user1_id === p.id ? team.user2_id : team.user1_id;
+               const pCheck = await db.query("SELECT is_eliminated FROM users WHERE id = $1", [partnerId]);
+               if (pCheck.rows[0] && !pCheck.rows[0].is_eliminated) {
+                  console.log(`Partner ${partnerId} also eliminated (Collateral Damage for Timeout).`);
+                  await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [partnerId]);
+                  
+                  // Log this timeout elimination in history
+                  await db.query(`
+                    INSERT INTO round6_history (subround, target_id, partner_id, reason)
+                    VALUES ($1, $2, $3, 'timeout')
+                  `, [r6State.current_subround, p.id, partnerId]).catch(e => console.log('History insert error (maybe PK constraint):', e.message));
+               }
+             } else {
+                // No partner? Just log the individual death
+                await db.query(`
+                  INSERT INTO round6_history (subround, target_id, reason)
+                  VALUES ($1, $2, 'timeout')
+                `, [r6State.current_subround, p.id]).catch(e => console.log('History insert error (maybe PK constraint):', e.message));
+             }
+          }
+        }
+        await performR6Resolution();
+      }
+    }
+  } catch (e) {
+    console.error("R6 Timer Error:", e);
+  }
+}, 5000);
+
 const performR5Resolution = async (gameId, isTimeout = false) => {
   const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
   const game = gameRes.rows[0];
@@ -599,12 +746,15 @@ const performR5NextRound = async (gameId) => {
           
           const userRes = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
           
+          const r6State = stateRes.rows[0].current_round >= 6 ? await getRound6State() : null;
+
           socket.send(JSON.stringify({ 
             type: 'init', 
             state: stateRes.rows[0],
             leaderboard,
             submission: submissionRes.rows[0]?.payload || null,
-            isEliminated: userRes.rows[0]?.is_eliminated || false
+            isEliminated: userRes.rows[0]?.is_eliminated || false,
+            round6_state: r6State
           }));
 
           // Send historical data for volunteers
@@ -1178,11 +1328,26 @@ const performR5NextRound = async (gameId) => {
         }
 
         if (data.type === 'start_round_6' && currentUser.role === 'volunteer') {
-          console.log('Starting Round 6 (Final Lottery)...');
+          console.log('Starting Round 6 (The Pigeon)...');
+          
+          // Reset Round 6 State
+          await db.query('DELETE FROM round6_state');
+          await db.query(`
+            INSERT INTO round6_state (id, current_subround, subround_status, voting_started_at)
+            VALUES (1, 1, 'waiting', NULL)
+          `);
+          
+          // Clear votes and history
+          await db.query('DELETE FROM round6_votes');
+          await db.query('DELETE FROM round6_history');
+          
+          // Update Game State
           await db.query('UPDATE game_state SET current_round = 6, status = \'active\' WHERE id = 1');
+          
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
-          console.log('Round 6 started');
+          await broadcastRound6Update();
+          console.log('Round 6 initialized and started');
         }
 
 
@@ -1313,6 +1478,72 @@ const performR5NextRound = async (gameId) => {
               }));
             }
           }
+        }
+
+        if (data.type === 'r6_start_timer' && currentUser.role === 'volunteer') {
+          console.log('Starting Round 6 Voting Timer...');
+          await db.query(`
+            UPDATE round6_state 
+            SET subround_status = 'voting', 
+                voting_started_at = CURRENT_TIMESTAMP,
+                last_eliminated_id = null,
+                last_partner_eliminated_id = null
+            WHERE id = 1
+          `);
+          await broadcastRound6Update();
+        }
+
+        if (data.type === 'r6_vote' && currentUser.role === 'player') {
+           const { targetId, useSafety } = data;
+           
+           // Check if player is eliminated
+           const playerCheck = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
+           if (playerCheck.rows[0]?.is_eliminated) {
+             console.log(`Eliminated player ${currentUser.name} tried to vote. Blocked.`);
+             return;
+           }
+
+           const r6State = await getRound6State();
+           if (!r6State || r6State.subround_status !== 'voting') return;
+           
+           if (useSafety) {
+             const userRes = await db.query("SELECT has_used_safety FROM users WHERE id = $1", [currentUser.id]);
+             if (userRes.rows[0].has_used_safety) {
+               console.log(`Player ${currentUser.name} tried to use safety again. Denied.`);
+               return; // Cheat attempt
+             }
+           }
+           
+           try {
+             await db.query(`
+               INSERT INTO round6_votes (round_number, voter_id, target_id, used_safety)
+               VALUES ($1, $2, $3, $4)
+             `, [r6State.current_subround, currentUser.id, targetId, useSafety]);
+             
+             if (useSafety) {
+               await db.query("UPDATE users SET has_used_safety = true WHERE id = $1", [currentUser.id]);
+             }
+             
+             console.log(`Player ${currentUser.name} voted for ${targetId} (Safety: ${useSafety})`);
+             await broadcastRound6Update();  
+           } catch (e) {
+             console.log('Vote error (duplicate?):', e.message);
+           }
+        }
+
+        if (data.type === 'r6_resolve' && currentUser.role === 'volunteer') {
+           await performR6Resolution();
+        }
+
+        if (data.type === 'r6_next_subround' && currentUser.role === 'volunteer') {
+           await db.query("UPDATE round6_state SET current_subround = current_subround + 1, subround_status = 'waiting' WHERE id = 1");
+           await broadcastRound6Update();
+        }
+        
+        if (data.type === 'r6_finish' && currentUser.role === 'volunteer') {
+           console.log('Finishing Round 6...');
+           await db.query("UPDATE game_state SET status = 'finished' WHERE id = 1");
+           broadcast({ type: 'state_update', state: (await db.query("SELECT * FROM game_state WHERE id = 1")).rows[0] });
         }
 
         if (data.type === 'select_card' && currentUser.role === 'player') {
