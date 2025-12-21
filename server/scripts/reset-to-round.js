@@ -12,8 +12,10 @@ async function resetToRound(targetRound) {
         await client.query('BEGIN');
 
         // 1. Update Game State
-        await client.query("UPDATE game_state SET current_round = $1, status = 'active' WHERE id = 1", [targetRound]);
-        console.log(`Game state updated: Round ${targetRound}, Status: active`);
+        // For rounds >= 2, we set to 'waiting' so the volunteer can trigger the official start/seeding logic.
+        const status = targetRound === 1 ? 'active' : 'waiting';
+        await client.query("UPDATE game_state SET current_round = $1, status = $2 WHERE id = 1", [targetRound, status]);
+        console.log(`Game state updated: Round ${targetRound}, Status: ${status}`);
 
         // 2. Clear data for target round and subsequent rounds
         
