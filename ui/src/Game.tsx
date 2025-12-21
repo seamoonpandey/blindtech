@@ -535,6 +535,33 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   userId: string;
   onSelectCard: (card: 'ATTACK' | 'FORTIFY' | 'CONVERGE', pact?: string) => void;
 }) {
+  const [secondsLeft, setSecondsLeft] = useState(60);
+
+  useEffect(() => {
+    if (!game || game.status !== 'active') return;
+    
+    // Force set to 60/5 on round/revealed change
+    const updateTimer = () => {
+      const start = new Date(game.subround_started_at).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - start) / 1000);
+      
+      const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
+      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: any) => t.is_revealed);
+      
+      if (revealed) {
+        setSecondsLeft(Math.max(0, 65 - elapsed));
+      } else {
+        setSecondsLeft(Math.max(0, 60 - elapsed));
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [game, game.current_round, game.subround_started_at]);
+
   if (!game) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
@@ -550,7 +577,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   const opponentMomentum = isTeamA ? game.team_b_momentum : game.team_a_momentum;
   const turnOrder = isTeamA ? game.team_a_turn_order : game.team_b_turn_order;
   
-  const isMyTurn = game.current_round === 1 || turnOrder[(game.current_round - 1) % 2] === userId;
+  const isMyTurn = game.current_round === 1 || (turnOrder && turnOrder[(game.current_round - 1) % 2] === userId);
   
   const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
   const myTurn = currentRoundTurns.find((t: any) => t.player_id === userId);
@@ -599,6 +626,17 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   return (
     <div className="card" style={{ padding: '2rem' }}>
       <div style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: `${(secondsLeft / (revealed ? 5 : 60)) * 100}%`,
+        height: '8px',
+        background: revealed ? '#4a5568' : (secondsLeft < 10 ? '#ef4444' : '#000'),
+        transition: 'width 1s linear',
+        zIndex: 1000
+      }} />
+
+      <div style={{ 
         background: '#000', 
         color: '#ff4444', 
         padding: '1.5rem', 
@@ -611,11 +649,25 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         ⚠️ ABSOLUTE SILENCE - COMMUNICATING WITH YOUR PARTNER = INSTANT ELIMINATION ⚠️
       </div>
       
-      <h2 style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '1.5rem', borderBottom: '4px solid black', paddingBottom: '0.5rem' }}>ROUND 5: THE PARADOX</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '2rem', fontWeight: '900', borderBottom: '4px solid black', paddingBottom: '0.5rem', margin: 0 }}>ROUND 5: THE PARADOX</h2>
+        <div style={{ 
+          background: secondsLeft < 10 ? '#fee2e2' : '#f3f4f6', 
+          color: secondsLeft < 10 ? '#ef4444' : '#000',
+          padding: '0.5rem 1rem',
+          borderRadius: '8px',
+          fontWeight: '900',
+          fontFamily: 'monospace',
+          fontSize: '1.5rem',
+          border: '2px solid black'
+        }}>
+          00:{secondsLeft.toString().padStart(2, '0')}
+        </div>
+      </div>
       
       <div style={{ background: 'rgba(0,0,0,0.05)', padding: '1rem', marginBottom: '1.5rem', border: '2px solid black' }}>
         <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}><strong>OBJECTIVE:</strong> Survive 9 turns. If your momentum hits 0, you **DIE** instantly.</p>
-        <p style={{ fontSize: '0.9rem' }}><strong>TURNS:</strong> Players alternate every turn. Turn 1 determines the order. No talking.</p>
+        <p style={{ fontSize: '0.9rem' }}><strong>TURNS:</strong> Players alternate every turn. 1 minute per round.</p>
       </div>
 
       <button 
@@ -676,26 +728,26 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       </div>
       
       {revealed ? (
-        <div style={{ textAlign: 'center', background: '#222', color: 'white', padding: '1.5rem', borderRadius: '8px' }}>
-          <h3 style={{ color: '#aaa', fontSize: '0.9rem' }}>LAST TURN RESULT</h3>
+        <div style={{ textAlign: 'center', background: '#222', color: 'white', padding: '1.5rem', borderRadius: '8px', border: '4px solid #00ff00', animation: 'pulse 2s infinite' }}>
+          <h3 style={{ color: '#00ff00', fontSize: '1.2rem', fontWeight: 'bold' }}>REVEALED!</h3>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1rem' }}>
             <div>
-              <div style={{ fontSize: '0.7rem' }}>TEAM A</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'A')?.card_selected}</div>
+              <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM A</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'A')?.card_selected}</div>
               {currentRoundTurns.find((t: any) => t.team === 'A')?.pact_used && (
                 <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'A').pact_used}</div>
               )}
             </div>
-            <div style={{ fontSize: '1.5rem' }}>VS</div>
+            <div style={{ fontSize: '2rem', color: '#444' }}>VS</div>
             <div>
-              <div style={{ fontSize: '0.7rem' }}>TEAM B</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'B')?.card_selected}</div>
+              <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM B</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'B')?.card_selected}</div>
               {currentRoundTurns.find((t: any) => t.team === 'B')?.pact_used && (
                 <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'B').pact_used}</div>
               )}
             </div>
           </div>
-          <p style={{ marginTop: '1rem', fontStyle: 'italic', opacity: 0.8 }}>Waiting for referee to start next turn...</p>
+          <p style={{ marginTop: '1rem', fontStyle: 'italic', opacity: 0.8, color: '#00ff00' }}>AUTO-ADVANCING IN {secondsLeft}s...</p>
         </div>
       ) : isMyTurn && !myTurn ? (
         <>
@@ -740,17 +792,20 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
           )}
         </>
       ) : bothSubmitted ? (
-        <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.7 }}>
-          <p>Both players have submitted. Waiting for referee to reveal...</p>
+        <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.7, border: '2px dashed black' }}>
+          <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>BOTH SUBMITTED</p>
+          <p>Revealing result in {secondsLeft}s...</p>
         </div>
       ) : myTurn ? (
-        <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.7 }}>
+        <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.7, border: '2px dashed black' }}>
           <p>Card selected ({myTurn.card_selected}). Waiting for opponent...</p>
           {myTurn.pact_used && <p style={{ color: '#ff4444', fontWeight: 'bold' }}>SECRET PACT ACTIVATED: {myTurn.pact_used}</p>}
+          <p style={{ fontSize: '0.8rem', marginTop: '1rem' }}>Auto-resolve in {secondsLeft}s</p>
         </div>
       ) : (
-        <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.7 }}>
+        <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.7, border: '2px dashed black' }}>
           <p>Waiting for your teammate or opponent to play...</p>
+          <p style={{ fontSize: '0.8rem', marginTop: '1rem' }}>Auto-resolve in {secondsLeft}s</p>
         </div>
       )}
 
@@ -758,15 +813,20 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       <div style={{ marginTop: '2.5rem', borderTop: '4px solid black', paddingTop: '1.5rem' }}>
         <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>BATTLE HISTORY</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {[...game.turns].filter(t => t.is_revealed).sort((a, b) => b.round_number - a.round_number).map((t, _, arr) => {
+          {([...(game.turns || [])]).filter((t: any) => t.is_revealed).sort((a: any, b: any) => b.round_number - a.round_number).map((t: any, _: number, arr: any[]) => {
             // Group turns by round
             if (t.team === 'B') return null; // We'll process A and find B
             const roundNum = t.round_number;
             const turnA = t;
-            const turnB = arr.find(alt => alt.round_number === roundNum && alt.team === 'B');
+            const turnB = arr.find((alt: any) => alt.round_number === roundNum && alt.team === 'B');
             if (!turnB) return null;
 
-            const [dA, dB] = MATRIX[turnA.card_selected][turnB.card_selected];
+            const matrixEntry = MATRIX[turnA.card_selected];
+            if (!matrixEntry) return null; // Safety check
+            const outcome = matrixEntry[turnB.card_selected];
+            if (!outcome) return null; // Safety check
+
+            const [dA, dB] = outcome;
             const isMeA = isTeamA;
             const myDelta = isMeA ? dA : dB;
             const oppDelta = isMeA ? dB : dA;
@@ -808,54 +868,75 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   );
 }
 
-function Round5VolunteerView({ games, onFinish, onResolve, onNext }: {
+function Round5VolunteerView({ games, onFinish, onDisqualify }: {
   games: any[];
   onFinish: () => void;
-  onResolve: (gameId: string) => void;
-  onNext: (gameId: string) => void;
+  onDisqualify: (gameId: string, team: 'A' | 'B') => void;
 }) {
   return (
     <div style={{ marginTop: '1rem' }}>
       <h2 className="section-title">ROUND 5: PARADOX MONITORING</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ background: '#fff3cd', padding: '1rem', marginBottom: '2rem', border: '2px solid #856404', borderRadius: '4px' }}>
+        <h3 style={{ color: '#856404', marginTop: 0 }}>JUDGE'S PROTOCOL</h3>
+        <p style={{ fontSize: '0.9rem' }}>Automation is active. Intervene ONLY for rules violations (talking, signaling). Use the <strong>DQ</strong> buttons to instantly eliminate a team.</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
         {games.map(g => {
           const currentRoundTurns = g.turns?.filter((t: any) => t.round_number === g.current_round) || [];
           const bothSubmitted = currentRoundTurns.length === 2;
           const isRevealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
 
           return (
-            <div key={g.id} className="card" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <div>
-                  <strong>{g.team_a_name}</strong>
-                  <span style={{ margin: '0 1rem' }}>vs</span>
-                  <strong>{g.team_b_name || 'BYE'}</strong>
-                </div>
-                <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>{g.status.toUpperCase()}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem' }}>
-                <div>Momentum A: {g.team_a_momentum}</div>
-                <div>Momentum B: {g.team_b_momentum}</div>
-                <div>Round: {g.current_round}/9</div>
+            <div key={g.id} className="card" style={{ padding: '1.5rem', border: g.status === 'finished' ? '2px solid #ddd' : '4px solid black' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '2px solid black', paddingBottom: '0.5rem' }}>
+                <span style={{ fontWeight: '900', fontSize: '1.1rem' }}>GAME MONITOR</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: g.status === 'active' ? '#00cc00' : '#666' }}>{g.status.toUpperCase()}</span>
               </div>
               
-              {g.status === 'active' && (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {bothSubmitted && !isRevealed && (
-                    <button className="primary-btn" onClick={() => onResolve(g.id)}>👁️ REVEAL & RESOLVE</button>
-                  )}
-                  {isRevealed && g.current_round < 6 && (
-                    <button className="primary-btn" style={{ background: '#4a5568' }} onClick={() => onNext(g.id)}>➡️ NEXT TURN</button>
-                  )}
-                  {!bothSubmitted && (
-                    <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>Waiting for players ({currentRoundTurns.length}/2)</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{g.team_a_name}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{g.team_a_momentum}</div>
+                  <div style={{ fontSize: '0.7rem' }}>MOMENTUM</div>
+                  {g.status === 'active' && (
+                    <button 
+                      onClick={() => onDisqualify(g.id, 'A')}
+                      style={{ marginTop: '1rem', background: '#c53030', color: 'white', padding: '5px 10px', fontSize: '0.7rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    > RULE VIOLATION: DQ </button>
                   )}
                 </div>
-              )}
+                <div style={{ opacity: 0.3, fontWeight: 'bold', textAlign: 'center' }}>VS</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{g.team_b_name || 'BYE'}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{g.team_b_momentum}</div>
+                  <div style={{ fontSize: '0.7rem' }}>MOMENTUM</div>
+                  {g.status === 'active' && g.team_b_id && (
+                    <button 
+                      onClick={() => onDisqualify(g.id, 'B')}
+                      style={{ marginTop: '1rem', background: '#c53030', color: 'white', padding: '5px 10px', fontSize: '0.7rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    > RULE VIOLATION: DQ </button>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '4px', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                  <strong>SUB-ROUND:</strong> {g.current_round}/9 
+                  {g.is_sudden_death && <span style={{ color: '#c53030', fontWeight: 'bold' }}> (SUDDEN DEATH)</span>}
+                </div>
+                {g.status === 'active' && (
+                  <div style={{ fontSize: '0.8rem' }}>
+                    <strong>STATUS:</strong> {isRevealed ? 'REVEALED - AUTO-NEXT SOON' : (bothSubmitted ? 'BOTH READY' : `WAITING (${currentRoundTurns.length}/2)`)}
+                  </div>
+                )}
+              </div>
+              
+
 
               {g.status === 'finished' && (
-                <div style={{ marginTop: '1rem', fontWeight: 'bold', color: '#10b981' }}>
-                  Result: {g.result}
+                <div style={{ marginTop: '1rem', padding: '1rem', background: '#000', color: '#fff', textAlign: 'center', fontWeight: 'bold', borderRadius: '4px' }}>
+                  RESULT: {g.result?.replace('_', ' ').toUpperCase()}
                 </div>
               )}
             </div>
@@ -867,9 +948,9 @@ function Round5VolunteerView({ games, onFinish, onResolve, onNext }: {
         <button 
           onClick={onFinish}
           className="submit-btn" 
-          style={{ width: '100%', marginTop: '1.5rem', fontSize: '1.2rem', background: games.every(g => g.status === 'finished') ? '#2d333b' : '#c53030' }}
+          style={{ width: '100%', marginTop: '2.5rem', fontSize: '1.2rem', padding: '1.5rem', background: '#000', color: '#fff', border: '4px solid #fff', boxShadow: '0 0 15px rgba(0,0,0,0.2)' }}
         >
-          {games.every(g => g.status === 'finished') ? '⏹️ FINISH ROUND 5' : '🚨 FORCE FINISH ROUND 5'}
+          {games.every(g => g.status === 'finished') ? '⏹️ OFFICIALLY CLOSE ROUND 5' : '🚨 EMERGENCY SHUTDOWN ROUND 5'}
         </button>
       )}
     </div>
@@ -1192,12 +1273,12 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'finish_round_5' }));
   };
 
-  const resolveTurn5 = (gameId: string) => {
-    ws?.send(JSON.stringify({ type: 'r5_resolve_turn', gameId }));
-  };
 
-  const nextTurn5 = (gameId: string) => {
-    ws?.send(JSON.stringify({ type: 'r5_next_turn', gameId }));
+
+  const disqualifyTeam5 = (gameId: string, team: 'A' | 'B') => {
+    if (window.confirm(`Are you sure you want to disqualify Team ${team} from game ${gameId}? This will eliminate them.`)) {
+      ws?.send(JSON.stringify({ type: 'r5_disqualify_team', gameId, team }));
+    }
   };
 
   const startRound6 = () => {
@@ -1516,20 +1597,18 @@ export default function Game() {
                 <Round5PlayerView 
                   game={myGame}
                   userId={user.id}
-                  onSelectCard={(card) => selectCard5(myGame?.id, card)}
+                  onSelectCard={(card, pact) => selectCard5(myGame?.id, card, pact)}
                 />
               );
             })()
           )}
 
-          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 5 && (
-            <Round5VolunteerView 
-              games={round5Games}
-              onFinish={finishRound5}
-              onResolve={resolveTurn5}
-              onNext={nextTurn5}
-            />
-          )}
+          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 5 &&                <Round5VolunteerView 
+                  games={round5Games} 
+                  onFinish={finishRound5}
+                  onDisqualify={disqualifyTeam5}
+                />
+          }
 
           {gameState.status === 'finished' && (
             <div className="card finished-card">
@@ -1972,16 +2051,6 @@ export default function Game() {
                                   {g.status.toUpperCase()}
                                 </span>
                               </div>
-                              {g.status === 'active' && (
-                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                  {g.turns?.filter((t: any) => t.round_number === g.current_round).length === 2 && !g.turns?.every((t: any) => t.round_number === g.current_round && t.is_revealed) && (
-                                    <button onClick={() => resolveTurn5(g.id)} style={{ fontSize: '0.7rem' }}>RESOLVE</button>
-                                  )}
-                                  {g.turns?.every((t: any) => t.round_number === g.current_round && t.is_revealed) && g.current_round < 6 && (
-                                    <button onClick={() => nextTurn5(g.id)} style={{ fontSize: '0.7rem' }}>NEXT</button>
-                                  )}
-                                </div>
-                              )}
                               {g.status === 'finished' && (
                                 <div style={{ 
                                   fontSize: '0.8rem', 

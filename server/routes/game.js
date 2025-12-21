@@ -103,6 +103,29 @@ const TEAM_NAMES = [
 async function gameRoutes(fastify, options) {
   const clients = new Map(); // userId -> socket
 
+  // BACKGROUND WORKER FOR ROUND 5 TIMERS
+  setInterval(async () => {
+    try {
+      const activeGames = await db.query("SELECT id, status, current_round, subround_started_at FROM round5_games WHERE status = 'active'");
+      for (const game of activeGames.rows) {
+        const turnsRes = await db.query("SELECT id FROM round5_turns WHERE game_id = $1 AND round_number = $2 AND is_revealed = true", [game.id, game.current_round]);
+        const revealed = turnsRes.rows.length > 0;
+        
+        const secondsElapsed = (Date.now() - new Date(game.subround_started_at).getTime()) / 1000;
+        
+        if (!revealed && secondsElapsed >= 60) {
+          console.log(`AUTO-RESOLVING ROUND 5 Game ${game.id} Turn ${game.current_round}`);
+          await performR5Resolution(game.id);
+        } else if (revealed && secondsElapsed >= 65) {
+          console.log(`AUTO-ADVANCING ROUND 5 Game ${game.id} to Turn ${game.current_round + 1}`);
+          await performR5NextRound(game.id);
+        }
+      }
+    } catch (e) {
+      console.error("Timer check error:", e);
+    }
+  }, 2000);
+
   // REST API for Disqualification (as requested for better visibility/reliability)
   fastify.post('/round3/disqualify', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const { matchId, teamIndex } = request.body;
@@ -306,6 +329,7 @@ async function getRound5Games() {
       g.team_a_pact_used, g.team_b_pact_used,
       g.current_round, g.active_team, g.status, g.result,
       g.team_a_turn_order, g.team_b_turn_order, g.is_sudden_death,
+      g.subround_started_at,
       ta.name as team_a_name, tb.name as team_b_name,
       ta.user1_id as team_a_user1, ta.user2_id as team_a_user2,
       tb.user1_id as team_b_user1, tb.user2_id as team_b_user2
@@ -395,6 +419,86 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
     return { ended: true, result: 'both_win' };
   }
 }
+
+const performR5Resolution = async (gameId) => {
+  const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
+  const game = gameRes.rows[0];
+  if (!game || game.status !== 'active') return;
+
+  const turnsRes = await db.query(`
+    SELECT * FROM round5_turns WHERE game_id = $1 AND round_number = $2
+  `, [gameId, game.current_round]);
+
+  // If missing turns, add default
+  const teams = ['A', 'B'];
+  for (const t of teams) {
+    const existing = turnsRes.rows.find(tr => tr.team === t);
+    if (!existing) {
+       console.log(`Auto-playing for Team ${t} in Game ${gameId} Sub-round ${game.current_round}`);
+       let player;
+       const order = t === 'A' ? game.team_a_turn_order : game.team_b_turn_order;
+       if (!order) {
+          const gFull = (await db.query(`SELECT ta.user1_id as a1, tb.user1_id as b1 FROM round5_games g JOIN teams ta ON g.team_a_id = ta.id LEFT JOIN teams tb ON g.team_b_id = tb.id WHERE g.id = $1`, [gameId])).rows[0];
+          player = t === 'A' ? gFull.a1 : gFull.b1;
+       } else {
+          player = order[(game.current_round - 1) % 2];
+       }
+       await db.query(`INSERT INTO round5_turns (game_id, round_number, player_id, team, card_selected, is_revealed) VALUES ($1, $2, $3, $4, 'FORTIFY', false)`, [gameId, game.current_round, player, t]);
+    }
+  }
+
+  // Reload turns after potential inserts
+  const finalTurns = await db.query(`SELECT * FROM round5_turns WHERE game_id = $1 AND round_number = $2`, [gameId, game.current_round]);
+  const turnA = finalTurns.rows.find(t => t.team === 'A');
+  const turnB = finalTurns.rows.find(t => t.team === 'B');
+  
+  const bothUsedPact = turnA.pact_used && turnB.pact_used;
+  let [deltaA, deltaB] = calculateMomentumChange(turnA.card_selected, turnB.card_selected);
+  
+  if (!bothUsedPact) {
+    if (turnA.pact_used === 'reduce_penalty' && deltaA <= -2) deltaA = -1;
+    if (turnA.pact_used === 'ignore_negative' && deltaA < 0) deltaA = 0;
+    if (turnB.pact_used === 'reduce_penalty' && deltaB <= -2) deltaB = -1;
+    if (turnB.pact_used === 'ignore_negative' && deltaB < 0) deltaB = 0;
+  }
+
+  const newMomentumA = game.team_a_momentum + deltaA;
+  const newMomentumB = game.team_b_momentum + deltaB;
+
+  await db.query('UPDATE round5_turns SET is_revealed = true WHERE game_id = $1 AND round_number = $2', [gameId, game.current_round]);
+  await db.query('UPDATE round5_games SET team_a_momentum = $1, team_b_momentum = $2 WHERE id = $3', [newMomentumA, newMomentumB, gameId]);
+  
+  const endCheck = checkGameEnd(newMomentumA, newMomentumB, game.current_round);
+  if (endCheck.ended) {
+    console.log(`GAME OVER for Game ${gameId}: ${endCheck.result}`);
+    await db.query('UPDATE round5_games SET status = \'finished\', result = $1 WHERE id = $2', [endCheck.result, gameId]);
+    const fullGame = (await db.query(`
+      SELECT g.*, ta.user1_id as a1, ta.user2_id as a2, tb.user1_id as b1, tb.user2_id as b2
+      FROM round5_games g JOIN teams ta ON g.team_a_id = ta.id LEFT JOIN teams tb ON g.team_b_id = tb.id
+      WHERE g.id = $1
+    `, [gameId])).rows[0];
+    
+    if (endCheck.result === 'team_a_win') {
+      await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.b1, fullGame.b2]);
+    } else if (endCheck.result === 'team_b_win') {
+      await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.a1, fullGame.a2]);
+    } else if (endCheck.result === 'both_lose') {
+      await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2, $3, $4)', [fullGame.a1, fullGame.a2, fullGame.b1, fullGame.b2]);
+    }
+  }
+  await broadcastRound5Update();
+};
+
+const performR5NextRound = async (gameId) => {
+  const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
+  const game = gameRes.rows[0];
+  if (!game || game.status !== 'active') return;
+
+  const nextRound = game.current_round + 1;
+  const nextActiveTeam = game.active_team === 'A' ? 'B' : 'A';
+  await db.query('UPDATE round5_games SET current_round = $1, active_team = $2, subround_started_at = CURRENT_TIMESTAMP WHERE id = $3', [nextRound, nextActiveTeam, gameId]);
+  await broadcastRound5Update();
+};
 
   // Helper to calculate leaderboard
   const calculateLeaderboard = async () => {
@@ -486,6 +590,21 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
             submission: submissionRes.rows[0]?.payload || null,
             isEliminated: userRes.rows[0]?.is_eliminated || false
           }));
+
+          // Send historical data for volunteers
+          if (currentUser.role === 'volunteer') {
+            const cr = stateRes.rows[0].current_round;
+            if (cr > 2) {
+               const pool = await getDetailedPool();
+               socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
+            }
+            if (cr > 3) {
+               socket.send(JSON.stringify({ type: 'round3_init', matches: await getRound3Matches() }));
+            }
+            if (cr > 4) {
+               socket.send(JSON.stringify({ type: 'round4_init', sessions: await getRound4Sessions() }));
+            }
+          }
 
           // If round 2 is active, send the pool
           if (stateRes.rows[0].current_round === 2) {
@@ -875,8 +994,8 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
             await db.query(`
               INSERT INTO round5_games (
                 team_a_id, team_b_id, team_a_turn_order, team_b_turn_order,
-                status, result, team_a_momentum, team_b_momentum
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                status, result, team_a_momentum, team_b_momentum, subround_started_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
             `, [
               teamA.id, 
               teamB ? teamB.id : null,
@@ -993,86 +1112,37 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
 
         if (data.type === 'r5_resolve_turn' && currentUser.role === 'volunteer') {
           const { gameId } = data;
-          const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
-          const game = gameRes.rows[0];
-          if (!game || game.status !== 'active') return;
+          await performR5Resolution(gameId);
+        }
 
-          const turnsRes = await db.query(`
-            SELECT * FROM round5_turns WHERE game_id = $1 AND round_number = $2
-          `, [gameId, game.current_round]);
-
-          if (turnsRes.rows.length === 2) {
-            const turnA = turnsRes.rows.find(t => t.team === 'A');
-            const turnB = turnsRes.rows.find(t => t.team === 'B');
-            
-            // Both reveal simultaneously -> cancel if both used pacts? 
-            // The rules say "If both teams reveal simultaneously -> cancel". 
-            // This probably refers to the Pact itself if both use it in the same sub-round.
-            const bothUsedPact = turnA.pact_used && turnB.pact_used;
-            
-            let [deltaA, deltaB] = calculateMomentumChange(turnA.card_selected, turnB.card_selected);
-            
-            if (!bothUsedPact) {
-              // Apply Pact A
-              if (turnA.pact_used === 'reduce_penalty' && deltaA <= -2) deltaA = -1;
-              if (turnA.pact_used === 'ignore_negative' && deltaA < 0) deltaA = 0;
-              
-              // Apply Pact B
-              if (turnB.pact_used === 'reduce_penalty' && deltaB <= -2) deltaB = -1;
-              if (turnB.pact_used === 'ignore_negative' && deltaB < 0) deltaB = 0;
-            } else {
-               console.log("Both teams used Pacts in the same turn - PACTS CANCELLED");
-               // We need to revert the card if it was 'copy_opponent'? 
-               // Actually the pact_used is already recorded. We just don't apply the bonus effects.
-            }
-
-            const newMomentumA = game.team_a_momentum + deltaA;
-            const newMomentumB = game.team_b_momentum + deltaB;
-
-            console.log(`RESOLVING PARADOX Turn ${game.current_round} [Game ${gameId}]:`);
-            console.log(` - Team A: ${turnA.card_selected} (Pact: ${turnA.pact_used || 'N/A'}) -> Momentum ${game.team_a_momentum} -> ${newMomentumA} (Delta: ${deltaA})`);
-            console.log(` - Team B: ${turnB.card_selected} (Pact: ${turnB.pact_used || 'N/A'}) -> Momentum ${game.team_b_momentum} -> ${newMomentumB} (Delta: ${deltaB})`);
-
-            await db.query('UPDATE round5_turns SET is_revealed = true WHERE game_id = $1 AND round_number = $2', [gameId, game.current_round]);
-            await db.query('UPDATE round5_games SET team_a_momentum = $1, team_b_momentum = $2 WHERE id = $3', [newMomentumA, newMomentumB, gameId]);
-            
-            const endCheck = checkGameEnd(newMomentumA, newMomentumB, game.current_round);
-            if (endCheck.ended) {
-              console.log(`GAME OVER for Game ${gameId}: ${endCheck.result}`);
-              await db.query('UPDATE round5_games SET status = \'finished\', result = $1 WHERE id = $2', [endCheck.result, gameId]);
-              // Handle eliminations
-              const fullGame = (await db.query(`
-                SELECT g.*, ta.user1_id as a1, ta.user2_id as a2, tb.user1_id as b1, tb.user2_id as b2
-                FROM round5_games g JOIN teams ta ON g.team_a_id = ta.id LEFT JOIN teams tb ON g.team_b_id = tb.id
-                WHERE g.id = $1
-              `, [gameId])).rows[0];
-              
-              if (endCheck.result === 'team_a_win') {
-                await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.b1, fullGame.b2]);
-              } else if (endCheck.result === 'team_b_win') {
-                await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.a1, fullGame.a2]);
-              } else if (endCheck.result === 'both_lose') {
-                await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2, $3, $4)', [fullGame.a1, fullGame.a2, fullGame.b1, fullGame.b2]);
-              } else if (endCheck.result === 'both_win') {
-                 // Both advance, no elimination
-              }
-            } else if (endCheck.suddenDeath) {
-              await db.query('UPDATE round5_games SET status = \'sudden_death\', is_sudden_death = true WHERE id = $1', [gameId]);
-            }
-            await broadcastRound5Update();
+        if (data.type === 'r5_disqualify_team' && currentUser.role === 'volunteer') {
+          const { gameId, team } = data; // team: 'A' or 'B'
+          console.log(`Volunteer ${currentUser.name} DISQUALIFYING Team ${team} in Round 5 Game ${gameId}`);
+          
+          const result = team === 'A' ? 'team_b_win' : 'team_a_win';
+          await db.query("UPDATE round5_games SET status = 'finished', result = $1 WHERE id = $2", [result, gameId]);
+          
+          // Handle eliminations
+          const fullGame = (await db.query(`
+            SELECT g.*, ta.user1_id as a1, ta.user2_id as a2, tb.user1_id as b1, tb.user2_id as b2
+            FROM round5_games g JOIN teams ta ON g.team_a_id = ta.id LEFT JOIN teams tb ON g.team_b_id = tb.id
+            WHERE g.id = $1
+          `, [gameId])).rows[0];
+          
+          if (result === 'team_b_win') {
+            await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.a1, fullGame.a2]);
+            await db.query('UPDATE users SET is_eliminated = false WHERE id IN ($1, $2)', [fullGame.b1, fullGame.b2]);
+          } else {
+            await db.query('UPDATE users SET is_eliminated = true WHERE id IN ($1, $2)', [fullGame.b1, fullGame.b2]);
+            await db.query('UPDATE users SET is_eliminated = false WHERE id IN ($1, $2)', [fullGame.a1, fullGame.a2]);
           }
+          
+          await broadcastRound5Update();
         }
 
         if (data.type === 'r5_next_turn' && currentUser.role === 'volunteer') {
           const { gameId } = data;
-          const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
-          const game = gameRes.rows[0];
-          if (!game || game.status !== 'active') return;
-
-          const nextRound = game.current_round + 1;
-          const nextActiveTeam = game.active_team === 'A' ? 'B' : 'A';
-          await db.query('UPDATE round5_games SET current_round = $1, active_team = $2 WHERE id = $3', [nextRound, nextActiveTeam, gameId]);
-          await broadcastRound5Update();
+          await performR5NextRound(gameId);
         }
 
         if (data.type === 'finish_round_5' && currentUser.role === 'volunteer') {
