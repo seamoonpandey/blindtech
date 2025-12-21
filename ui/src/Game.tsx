@@ -426,41 +426,27 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
     return (
       <div className="card" style={{ 
         padding: '2rem', 
-        borderRadius: '12px', 
-        border: '3px solid #fff',
-        marginTop: '1rem' 
+        borderRadius: '0px', 
+        border: '3px solid black',
+        marginTop: '1rem',
+        background: '#fff'
       }}>
-        <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', letterSpacing: '2px' }}>DECIDE THEIR FATE</h2>
-        <p style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>{mySession.team_name}</p>
-        <p style={{ fontSize: '1.1rem', marginBottom: '2rem', opacity: 0.8 }}>
-          SUBJECTS: {mySession.user1_name}, {mySession.user2_name}
+        <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', letterSpacing: '2px', fontWeight: '900' }}>DECIDE THEIR FATE</h2>
+        <p style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '1rem' }}>{mySession.team_name}</p>
+        <p style={{ fontSize: '1.1rem', marginBottom: '2rem', opacity: 0.8, fontWeight: 'bold' }}>
+          SUBJECTS: {mySession.user1_name.toUpperCase()}, {mySession.user2_name.toUpperCase()}
         </p>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button 
-            className="submit-btn"
-            style={{ 
-              flex: 1, 
-              padding: '1.2rem', 
-              fontSize: '1.3rem', 
-              letterSpacing: '1px'
-            }}
+            className="approve-btn"
+            style={{ flex: 1, fontSize: '1.2rem' }}
             onClick={() => onEvaluate(mySession.id, 'pass')}
           >
             ✓ APPROVE
           </button>
           <button 
-            style={{ 
-              background: '#ff4444', 
-              color: '#fff',
-              flex: 1, 
-              padding: '1.2rem', 
-              fontSize: '1.3rem', 
-              border: 'none', 
-              borderRadius: '8px', 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              letterSpacing: '1px'
-            }}
+            className="terminate-btn"
+            style={{ flex: 1, fontSize: '1.2rem' }}
             onClick={() => onEvaluate(mySession.id, 'fail')}
           >
             ✗ TERMINATE
@@ -2238,6 +2224,40 @@ export default function Game() {
         }
 
         .submit-btn:active {
+          transform: translate(2px, 2px);
+          box-shadow: 2px 2px 0px 0px black;
+        }
+
+        .approve-btn {
+          background: #00ff00;
+          color: black;
+          border: 3px solid black;
+          padding: 12px;
+          font-weight: 900;
+          box-shadow: 4px 4px 0px 0px black;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.1s;
+        }
+
+        .approve-btn:active {
+          transform: translate(2px, 2px);
+          box-shadow: 2px 2px 0px 0px black;
+        }
+
+        .terminate-btn {
+          background: #ff4444;
+          color: white;
+          border: 3px solid black;
+          padding: 12px;
+          font-weight: 900;
+          box-shadow: 4px 4px 0px 0px black;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.1s;
+        }
+
+        .terminate-btn:active {
           transform: translate(2px, 2px);
           box-shadow: 2px 2px 0px 0px black;
         }
