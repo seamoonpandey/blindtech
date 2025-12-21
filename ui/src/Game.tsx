@@ -2865,7 +2865,6 @@ function Round6PlayerView({ state, userId, onAction, logs }: {
     );
   }
 
-  const isFinalTwo = alivePlayers.length === 2;
 
   return (
     <div className="card" style={{ padding: '2rem', border: '4px solid black' }}>
@@ -2907,16 +2906,20 @@ function Round6PlayerView({ state, userId, onAction, logs }: {
         <div>
           <h3 style={{ fontWeight: '900', marginBottom: '1.5rem', borderBottom: '2px solid black', display: 'inline-block' }}>CHOOSE YOUR ACTION</h3>
           
-          {isFinalTwo ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <button 
-                onClick={() => onAction('FINAL_SACRIFICE')}
-                style={{ padding: '2rem 1rem', background: 'black', color: 'white', fontWeight: '900', cursor: 'pointer' }}
-              > FINAL SACRIFICE </button>
-              <button 
-                onClick={() => onAction('REFUSE')}
-                style={{ padding: '2rem 1rem', background: 'white', color: 'black', border: '3px solid black', fontWeight: '900', cursor: 'pointer' }}
-              > REFUSE </button>
+          {others.length === 1 && state.players.filter((p:any)=>p.is_alive).length === 2 ? (
+            <div style={{ textAlign: 'center', background: 'black', color: 'white', padding: '2rem' }}>
+              <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>FINAL DUEL</h1>
+              <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                <button 
+                  onClick={() => onAction('PROTECT', others[0].user_id)}
+                  style={{ padding: '2rem', border: '4px solid white', background: 'transparent', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                > PROTECT OTHER FRIEND </button>
+                <button 
+                  onClick={() => onAction('BETRAY', others[0].user_id)}
+                  style={{ padding: '2rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                > BETRAY </button>
+              </div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -2949,7 +2952,16 @@ function Round6PlayerView({ state, userId, onAction, logs }: {
                 <>
                   <button 
                     onClick={() => onAction('SACRIFICE', me.teammate_id)}
-                    style={{ padding: '1rem', background: '#c53030', color: 'white', border: 'none', fontWeight: '900', cursor: 'pointer' }}
+                    disabled={me.hearts < 2}
+                    style={{ 
+                      padding: '1rem', 
+                      background: me.hearts < 2 ? '#feb2b2' : '#c53030', 
+                      color: 'white', 
+                      border: 'none', 
+                      fontWeight: '900', 
+                      cursor: me.hearts < 2 ? 'not-allowed' : 'pointer',
+                      opacity: me.hearts < 2 ? 0.7 : 1
+                    }}
                   > SACRIFICE PARTNER (Cost: 2 ❤️) </button>
                   <button 
                     onClick={() => onAction('QUIT')}

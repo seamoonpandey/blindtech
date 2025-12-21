@@ -1,4 +1,4 @@
-export type Action = 'PROTECT' | 'BETRAY' | 'SACRIFICE' | 'QUIT' | 'FINAL_SACRIFICE' | 'REFUSE';
+export type Action = 'PROTECT' | 'BETRAY' | 'SACRIFICE' | 'QUIT';
 
 export interface PlayerState {
   id: string;
@@ -6,12 +6,15 @@ export interface PlayerState {
   hearts: number;
   isAlive: boolean;
   teammateId?: string;
+  [key: string]: any;
 }
 
 export interface CycleAction {
-  playerId: string;
+  playerId?: string;
+  user_id?: string;
   action: Action;
-  targetId?: string; // For PROTECT, BETRAY, SACRIFICE
+  targetId?: string; 
+  target_id?: string;
 }
 
 export interface CycleResult {
@@ -21,24 +24,49 @@ export interface CycleResult {
 }
 
 export function resolveCycle(players: PlayerState[], actions: CycleAction[]): CycleResult {
-  const updatedPlayers = players.map(p => ({ ...p }));
+  const updatedPlayers = players.map(p => ({ ...p, hearts: Number(p.hearts), isAlive: !!p.isAlive }));
   const logs: string[] = [];
 
-  const getPlayer = (id: string) => updatedPlayers.find(p => p.id === id);
-  const getAction = (id: string) => actions.find(a => a.playerId === id);
+  const getPid = (p: any): string => {
+    const raw = p.id || p.user_id || p.playerId;
+    return raw ? String(raw).toLowerCase() : '';
+  };
+  const getPlayer = (id: string) => {
+    const sid = String(id).toLowerCase();
+    return updatedPlayers.find(p => getPid(p) === sid);
+  };
+  const getAction = (id: string) => {
+    const sid = String(id).toLowerCase();
+    return actions.find(a => getPid(a) === sid);
+  };
+
+  const aliveAtStart = updatedPlayers.filter(p => p.isAlive);
+  const isFinalTwo = aliveAtStart.length === 2;
+
+  if (isFinalTwo) {
+    logs.push("THE FINAL DUEL. HEARTS BALANCED TO ONE. BLEED SUSPENDED.");
+    updatedPlayers.forEach(p => {
+      if (p.isAlive) p.hearts = 1;
+    });
+  }
+
+  const fedPlayers = new Set<string>();
 
   // 1. QUIT
   const quitters = actions.filter(a => a.action === 'QUIT');
   for (const q of quitters) {
-    const player = getPlayer(q.playerId);
+    const attackerId = getPid(q);
+    if (!attackerId) continue;
+    const player = getPlayer(attackerId);
     if (!player || !player.isAlive) continue;
 
     logs.push(`${player.name} chose QUIT. Terminating team.`);
     player.isAlive = false;
     player.hearts = 0;
 
-    if (player.teammateId) {
-      const teammate = getPlayer(player.teammateId);
+    const teammateId = player.teammateId;
+    if (teammateId) {
+      const teammate = getPlayer(teammateId);
       if (teammate && teammate.isAlive) {
         logs.push(`${teammate.name} was dragged down by their partner.`);
         teammate.isAlive = false;
@@ -48,7 +76,8 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
 
     // Opponents gain 1 Heart each
     updatedPlayers.forEach(p => {
-      if (p.isAlive && p.id !== player.id && p.id !== player.teammateId) {
+      const pid = getPid(p);
+      if (p.isAlive && pid !== attackerId && pid !== teammateId) {
         p.hearts += 1;
         logs.push(`${p.name} gained 1 Heart from the cowardice of others.`);
       }
@@ -58,15 +87,18 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
   // 2. SACRIFICE
   const sacrifices = actions.filter(a => a.action === 'SACRIFICE');
   for (const s of sacrifices) {
-    const player = getPlayer(s.playerId);
+    const attackerId = getPid(s);
+    if (!attackerId) continue;
+    const player = getPlayer(attackerId);
     if (!player || !player.isAlive) continue;
 
-    if (!s.targetId || s.targetId !== player.teammateId) {
+    const targetId = s.targetId || s.target_id;
+    if (!targetId || targetId !== player.teammateId) {
       logs.push(`${player.name} tried to SACRIFICE invalid target. Action failed.`);
       continue;
     }
 
-    const teammate = getPlayer(s.targetId);
+    const teammate = getPlayer(targetId);
     if (!teammate || !teammate.isAlive) {
       logs.push(`${player.name} tried to SACRIFICE a dead teammate. Action failed.`);
       continue;
@@ -84,107 +116,92 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
   }
 
   // 3. BETRAY & PROTECT RESOLUTION
-  const betrays = actions.filter(a => a.action === 'BETRAY' && a.targetId);
-  const protects = actions.filter(a => a.action === 'PROTECT' && a.targetId);
+  const betrays = actions.filter(a => a.action === 'BETRAY' && (a.targetId || a.target_id));
+  const protects = actions.filter(a => a.action === 'PROTECT' && (a.targetId || a.target_id));
 
   // Check which players are protected
   const protectedPlayers = new Set<string>();
   for (const p of protects) {
-    const protector = getPlayer(p.playerId);
+    const attackerId = getPid(p);
+    if (!attackerId) continue;
+    const protector = getPlayer(attackerId);
     if (!protector || !protector.isAlive) continue;
 
-    if (protector.hearts < 1) {
+    if (protector.hearts < 1 && !isFinalTwo) {
       logs.push(`${protector.name} lacked the Heart to PROTECT.`);
       continue;
     }
 
-    protector.hearts -= 1;
-    protectedPlayers.add(p.targetId!);
-    logs.push(`${protector.name} is PROTECTING ${getPlayer(p.targetId!)?.name}.`);
+    if (!isFinalTwo) protector.hearts -= 1;
+    const targetId = p.targetId || p.target_id || '';
+    protectedPlayers.add(targetId);
+    logs.push(`${protector.name} is PROTECTING ${getPlayer(targetId)?.name}.`);
   }
 
   // Handle Mutual BETRAY
   const processedBetrays = new Set<string>();
   for (const b of betrays) {
-    if (processedBetrays.has(b.playerId)) continue;
+    const attackerId = getPid(b);
+    if (!attackerId || processedBetrays.has(attackerId)) continue;
 
-    const attacker = getPlayer(b.playerId);
-    const target = getPlayer(b.targetId!);
+    const attacker = getPlayer(attackerId);
+    const targetId = b.targetId || b.target_id || '';
+    const target = getPlayer(targetId);
     if (!attacker || !attacker.isAlive || !target || !target.isAlive) continue;
 
-    // Check if target is also betraying attacker (Mutual)
-    const counterAction = getAction(target.id);
-    if (counterAction && counterAction.action === 'BETRAY' && counterAction.targetId === attacker.id) {
-      logs.push(`MUTUAL BETRAY between ${attacker.name} and ${target.name}. Both lose 1 Heart.`);
+    const counterAction = getAction(targetId);
+    if (counterAction && counterAction.action === 'BETRAY' && (counterAction.targetId === attackerId || counterAction.target_id === attackerId)) {
+      logs.push(`CRITICAL COLLISION: ${attacker.name} and ${target.name} betrayed each other! Mutual damage: Both lose 1 Heart (plus 1 to Bleed).`);
       attacker.hearts -= 1;
       target.hearts -= 1;
-      processedBetrays.add(attacker.id);
-      processedBetrays.add(target.id);
+      processedBetrays.add(attackerId);
+      processedBetrays.add(targetId);
       continue;
     }
 
-    // Check if target is protected
-    if (protectedPlayers.has(target.id)) {
+    if (protectedPlayers.has(targetId)) {
       logs.push(`${attacker.name} tried to BETRAY ${target.name}, but they were PROTECTED.`);
-      processedBetrays.add(attacker.id);
+      processedBetrays.add(attackerId);
       continue;
     }
 
     // Successful betrayal
-    logs.push(`${attacker.name} BETRAYED ${target.name} and stole 1 Heart.`);
+    logs.push(`${attacker.name} BETRAYED ${target.name} and stole 1 Heart. Feed successful: Bleed prevented for ${attacker.name}.`);
     attacker.hearts += 1;
     target.hearts -= 1;
-    processedBetrays.add(attacker.id);
+    fedPlayers.add(attackerId);
+    processedBetrays.add(attackerId);
+    logs.push(`DEBUG: ${attacker.name} now has ${attacker.hearts}, ${target.name} now has ${target.hearts}`);
   }
 
-  // 4. BLEED RULE
-  updatedPlayers.forEach(p => {
-    if (p.isAlive) {
-      p.hearts -= 1;
-      if (p.hearts <= 0) {
-        logs.push(`${p.name} BLED OUT.`);
-        p.isAlive = false;
-        p.hearts = 0;
+  // 4. BLEED RULE (Suspended in Final Two or for Fed Players)
+  if (!isFinalTwo) {
+    updatedPlayers.forEach(p => {
+      if (p.isAlive) {
+        const pid = getPid(p);
+        if (fedPlayers.has(pid)) {
+           logs.push(`FEED STATUS: ${p.name} is satiated. Skipping bleed.`);
+        } else {
+           logs.push(`FEED STATUS: ${p.name} is hungry. Bleeding 1 Heart.`);
+           p.hearts -= 1;
+           if (p.hearts <= 0) {
+             logs.push(`${p.name} BLED OUT.`);
+             p.isAlive = false;
+             p.hearts = 0;
+           } else {
+             logs.push(`${p.name} now has ${p.hearts} Heart(s).`);
+           }
+        }
       }
-    }
-  });
+    });
+  }
 
-  // 5. Final Eliminations check
-  // (Already handled by bleeding out, but ensure we return correct state)
-
-  // Winner check
-  const alivePlayers = updatedPlayers.filter(p => p.isAlive);
-  if (alivePlayers.length === 1) {
-    return { updatedPlayers, logs, winnerId: alivePlayers[0].id };
-  } else if (alivePlayers.length === 0) {
-    return { updatedPlayers, logs, winnerId: undefined }; // No one survives
+  const aliveFinal = updatedPlayers.filter(p => p.isAlive);
+  if (aliveFinal.length === 1) {
+    return { updatedPlayers, logs, winnerId: getPid(aliveFinal[0]) };
+  } else if (aliveFinal.length === 0) {
+    return { updatedPlayers, logs };
   }
 
   return { updatedPlayers, logs };
-}
-
-export function resolveFinalSacrifice(players: PlayerState[], choices: { playerId: string, choice: 'FINAL_SACRIFICE' | 'REFUSE' }[]): CycleResult {
-  const updatedPlayers = players.map(p => ({ ...p }));
-  const logs: string[] = [];
-
-  const p1 = choices[0];
-  const p2 = choices[1];
-
-  if (p1.choice === 'FINAL_SACRIFICE' && p2.choice === 'REFUSE') {
-    logs.push(`${getPlayerName(players, p1.playerId)} SACRIFICED. They WIN.`);
-    return { updatedPlayers, logs, winnerId: p1.playerId };
-  } else if (p2.choice === 'FINAL_SACRIFICE' && p1.choice === 'REFUSE') {
-    logs.push(`${getPlayerName(players, p2.playerId)} SACRIFICED. They WIN.`);
-    return { updatedPlayers, logs, winnerId: p2.playerId };
-  } else if (p1.choice === 'FINAL_SACRIFICE' && p2.choice === 'FINAL_SACRIFICE') {
-    logs.push(`BOTH SACRIFICED. NO WINNER.`);
-    return { updatedPlayers, logs };
-  } else {
-    logs.push(`BOTH REFUSED. NO WINNER.`);
-    return { updatedPlayers, logs };
-  }
-}
-
-function getPlayerName(players: PlayerState[], id: string) {
-  return players.find(p => p.id === id)?.name || 'Unknown';
 }
