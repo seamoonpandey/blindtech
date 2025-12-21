@@ -414,11 +414,12 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
   );
 }
 
-function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
+function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate, onFinishRound4 }: {
   sessions: any[];
   volunteerId: string;
   onJoinSession: (sessionId: string) => void;
   onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
+  onFinishRound4?: () => void;
 }) {
   const mySession = sessions.find(s => s.volunteer_id === volunteerId && s.status === 'active');
   
@@ -492,7 +493,7 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
                     }}
                   >
                     BEGIN EVAL
-                  </button>
+                </button>
                 )}
                 {s.status === 'finished' && (
                   <div style={{ 
@@ -513,10 +514,21 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
             <p>NO TEAMS IN EVALUATION QUEUE</p>
           </div>
         )}
+
+        {sessions.length > 0 && sessions.every(s => s.status === 'finished') && onFinishRound4 && (
+          <button 
+            onClick={onFinishRound4}
+            className="submit-btn" 
+            style={{ width: '100%', marginTop: '1.5rem', background: '#ff9800', fontSize: '1.2rem', padding: '1rem' }}
+          >
+            ⏹️ FINISH ROUND 4
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
 
 function Round5PlayerView({ game, userId, onSelectCard }: { 
   game: any; 
@@ -1058,6 +1070,10 @@ export default function Game() {
       console.log('Message sent');
     }
   };
+  const finishRound4 = () => {
+    console.log('Finishing Round 4...');
+    ws?.send(JSON.stringify({ type: 'finish_round_4' }));
+  };
 
   const joinSession = (sessionId: string) => {
     ws?.send(JSON.stringify({ type: 'volunteer_session', sessionId }));
@@ -1317,6 +1333,20 @@ export default function Game() {
             </div>
           )}
 
+          {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 4 && (
+            <div className="card waiting-card">
+              <h2 className="section-title">ROUND 4 COMPLETE</h2>
+              <p style={{ marginBottom: '1.5rem' }}>All evaluations have been finished. Survivors are ready for the Paradox.</p>
+              <button 
+                onClick={startRound5} 
+                className="submit-btn" 
+                style={{ width: '100%', background: '#8b5cf6', fontSize: '1.2rem', padding: '1rem' }}
+              >
+                🔮 ACTIVATE PARADOX (ROUND 5)
+              </button>
+            </div>
+          )}
+
           {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 1 && (
             <div className="card admin-card">
               <h2 className="section-title">ROUND 1 ACTIVE</h2>
@@ -1377,6 +1407,7 @@ export default function Game() {
               volunteerId={user.id}
               onJoinSession={joinSession}
               onEvaluate={evaluateTeam}
+              onFinishRound4={finishRound4}
             />
           )}
 

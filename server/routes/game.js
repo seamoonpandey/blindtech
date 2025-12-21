@@ -830,6 +830,13 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
           await broadcastRound4Update();
         }
 
+        if (data.type === 'finish_round_4' && currentUser.role === 'volunteer') {
+          console.log('Finishing Round 4...');
+          await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+        }
+
         if (data.type === 'start_round_5' && currentUser.role === 'volunteer') {
           console.log('Starting Round 5 (Paradox)...');
           
