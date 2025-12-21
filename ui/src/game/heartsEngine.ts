@@ -133,9 +133,12 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
     }
 
     if (!isFinalTwo) protector.hearts -= 1;
-    const targetId = p.targetId || p.target_id || '';
-    protectedPlayers.add(targetId);
-    logs.push(`${protector.name} is PROTECTING ${getPlayer(targetId)?.name}.`);
+    const targetIdRaw = p.targetId || p.target_id;
+    const targetId = targetIdRaw ? String(targetIdRaw).toLowerCase() : '';
+    if (targetId) {
+      protectedPlayers.add(targetId);
+      logs.push(`${protector.name} is PROTECTING ${getPlayer(targetId)?.name}.`);
+    }
   }
 
   // Handle Mutual BETRAY
@@ -145,12 +148,17 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
     if (!attackerId || processedBetrays.has(attackerId)) continue;
 
     const attacker = getPlayer(attackerId);
-    const targetId = b.targetId || b.target_id || '';
+    const targetIdRaw = b.targetId || b.target_id;
+    const targetId = targetIdRaw ? String(targetIdRaw).toLowerCase() : '';
     const target = getPlayer(targetId);
+    
     if (!attacker || !attacker.isAlive || !target || !target.isAlive) continue;
 
     const counterAction = getAction(targetId);
-    if (counterAction && counterAction.action === 'BETRAY' && (counterAction.targetId === attackerId || counterAction.target_id === attackerId)) {
+    const counterTargetIdRaw = counterAction ? (counterAction.targetId || counterAction.target_id) : null;
+    const normalizedCounterTargetId = counterTargetIdRaw ? String(counterTargetIdRaw).toLowerCase() : null;
+
+    if (counterAction && counterAction.action === 'BETRAY' && normalizedCounterTargetId === attackerId) {
       logs.push(`CRITICAL COLLISION: ${attacker.name} and ${target.name} betrayed each other! Mutual damage: Both lose 1 Heart (plus 1 to Bleed).`);
       attacker.hearts -= 1;
       target.hearts -= 1;
@@ -171,7 +179,7 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
     target.hearts -= 1;
     fedPlayers.add(attackerId);
     processedBetrays.add(attackerId);
-    logs.push(`DEBUG: ${attacker.name} now has ${attacker.hearts}, ${target.name} now has ${target.hearts}`);
+    logs.push(`DEBUG: ${attacker.name} (+1 stolen) now has ${attacker.hearts}, ${target.name} (-1 stolen) now has ${target.hearts}`);
   }
 
   // 4. BLEED RULE (Suspended in Final Two or for Fed Players)
