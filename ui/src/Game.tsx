@@ -173,13 +173,12 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, onStartRound4, onFinishRound3 }: { 
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, onFinishRound3 }: { 
   volunteerId: string; 
   matches: any[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
-  onStartRound4?: () => void;
   onFinishRound3?: () => void;
 }) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
@@ -863,7 +862,10 @@ export default function Game() {
           setSubmitted(true);
         }
       } else if (data.type === 'state_update') {
+        console.log('RECEIVED STATE UPDATE:', data.state);
         setGameState(data.state);
+      } else if (data.type === 'error') {
+        alert('SYSTEM ERROR: ' + data.message);
       } else if (data.type === 'leaderboard_update') {
         setLeaderboard(data.leaderboard);
       } else if (data.type === 'round_finished') {
@@ -1004,7 +1006,9 @@ export default function Game() {
   };
 
   const startRound3 = () => {
-    ws?.send(JSON.stringify({ type: 'start_round_3' }));
+    if (ws) {
+      ws.send(JSON.stringify({ type: 'start_round_3' }));
+    }
   };
 
   const joinMatch = (matchId: string) => {
@@ -1370,7 +1374,6 @@ export default function Game() {
               onJoin={joinMatch}
               onScore={scoreTeam}
               onDisqualify={disqualifyTeam}
-              onStartRound4={startRound4}
               onFinishRound3={finishRound3}
             />
           )}

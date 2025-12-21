@@ -575,7 +575,12 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
           }
         }
 
-        if (!currentUser) return;
+        if (!currentUser && data.type !== 'auth') {
+          console.log('WS: Unauthenticated message:', data.type);
+          return;
+        }
+        
+        console.log(`WS: Received ${data.type} from ${currentUser?.name || 'unknown'}`);
 
         if (data.type === 'start_round' && currentUser.role === 'volunteer') {
           await db.query('UPDATE game_state SET current_round = 1, status = \'active\' WHERE id = 1');
@@ -673,45 +678,61 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
         }
 
         if (data.type === 'start_round_3' && currentUser.role === 'volunteer') {
-          console.log('Starting Round 3...');
-          
-          // Get all teams from Round 2
-          const teamsRes = await db.query('SELECT * FROM teams WHERE round_formed = 2');
-          let teams = teamsRes.rows;
-          
-          // Shuffle teams
-          for (let i = teams.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [teams[i], teams[j]] = [teams[j], teams[i]];
-          }
-          
-          // Clear old matches
-          await db.query('DELETE FROM round3_matches');
-          
-          // Match teams
-          for (let i = 0; i < teams.length; i += 2) {
-            const team1 = teams[i];
-            const team2 = teams[i + 1] || null; // Null if odd number of teams
+          try {
+            console.log('Starting Round 3...');
             
-            const isBye = !team2;
+            // Get all teams from Round 2
+            const teamsRes = await db.query('SELECT * FROM teams WHERE round_formed = 2');
+            let teams = teamsRes.rows;
+            console.log(`Found ${teams.length} teams for Round 3`);
             
-            await db.query(
-              'INSERT INTO round3_matches (team1_id, team2_id, status, team1_scores) VALUES ($1, $2, $3, $4)',
-              [team1.id, team2 ? team2.id : null, isBye ? 'finished' : 'waiting', isBye ? [true, true, true] : []]
-            );
-            
-            if (isBye) {
-              console.log(`Team ${team1.name} got a BYE and is automatically SAFE.`);
+            if (teams.length === 0) {
+              socket.send(JSON.stringify({ type: 'error', message: 'No teams found. Round 2 must be completed first.' }));
+              return;
             }
-          }
+            
+            // Shuffle teams
+            for (let i = teams.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [teams[i], teams[j]] = [teams[j], teams[i]];
+            }
+            
+            // Clear old matches
+            await db.query('DELETE FROM round3_matches');
+            
+            // Match teams
+            for (let i = 0; i < teams.length; i += 2) {
+              const team1 = teams[i];
+              const team2 = teams[i + 1] || null; 
+              const isBye = !team2;
+              
+              const scores1 = isBye ? '[true,true,true]' : '[]';
+              const scores2 = '[]';
+              
+              await db.query(
+                'INSERT INTO round3_matches (team1_id, team2_id, status, team1_scores, team2_scores) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)',
+                [
+                  team1.id, 
+                  team2 ? team2.id : null, 
+                  isBye ? 'finished' : 'waiting', 
+                  scores1,
+                  scores2
+                ]
+              );
+              
+              if (isBye) console.log(`Team ${team1.name} got a BYE.`);
+            }
 
-          await db.query('UPDATE game_state SET current_round = 3, status = \'active\' WHERE id = 1');
-          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
-          
-          broadcast({ type: 'state_update', state: stateRes.rows[0] });
-          
-          await broadcastRound3Update();
-          console.log('Round 3 started successfully');
+            await db.query('UPDATE game_state SET current_round = 3, status = \'active\' WHERE id = 1');
+            const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+            
+            broadcast({ type: 'state_update', state: stateRes.rows[0] });
+            await broadcastRound3Update();
+            console.log('Round 3 started successfully');
+          } catch (err) {
+            console.error('CRITICAL ERROR starting Round 3:', err);
+            socket.send(JSON.stringify({ type: 'error', message: 'Failed to start Round 3: ' + err.message }));
+          }
         }
 
         if (data.type === 'finish_round_3' && currentUser.role === 'volunteer') {
