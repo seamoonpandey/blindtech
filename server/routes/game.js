@@ -224,8 +224,8 @@ async function gameRoutes(fastify, options) {
     for (const [userId, { socket, user }] of clients.entries()) {
       if (socket.readyState === 1) {
         count++;
-        if (user.role === 'volunteer') {
-          console.log(`Sending R3 update to VOLUNTEER: ${user.name}`);
+        if (user.role === 'volunteer' || user.role === 'admin') {
+          console.log(`Sending R3 update to ${user.role.toUpperCase()}: ${user.name}`);
           socket.send(JSON.stringify({ type: 'round3_update', matches }));
         } else {
           const myMatch = matches.find(m => 
@@ -302,8 +302,8 @@ async function gameRoutes(fastify, options) {
     for (const [userId, { socket, user }] of clients.entries()) {
       if (socket.readyState === 1) {
         count++;
-        if (user.role === 'volunteer') {
-          console.log(`Sending R4 update to VOLUNTEER: ${user.name}`);
+        if (user.role === 'volunteer' || user.role === 'admin') {
+          console.log(`Sending R4 update to ${user.role.toUpperCase()}: ${user.name}`);
           socket.send(JSON.stringify({ type: 'round4_update', sessions }));
         } else {
           const mySession = sessions.find(s => 
@@ -357,7 +357,7 @@ const broadcastRound5Update = async () => {
   for (const [userId, { socket, user }] of clients.entries()) {
     if (socket.readyState === 1) {
       count++;
-      if (user.role === 'volunteer') {
+      if (user.role === 'volunteer' || user.role === 'admin') {
         socket.send(JSON.stringify({ type: 'round5_update', games }));
       } else {
         const myGame = games.find(g => 
@@ -638,18 +638,24 @@ const performR5NextRound = async (gameId) => {
             round6_state: r6State
           }));
 
-          // Send historical data for volunteers
-          if (currentUser.role === 'volunteer') {
+          // Send historical data for volunteers and admin
+          if (currentUser.role === 'volunteer' || currentUser.role === 'admin') {
             const cr = stateRes.rows[0].current_round;
-            if (cr > 2) {
+            if (cr > 0 || currentUser.role === 'admin') {
                const pool = await getDetailedPool();
                socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
-            }
-            if (cr > 3) {
-               socket.send(JSON.stringify({ type: 'round3_init', matches: await getRound3Matches() }));
-            }
-            if (cr > 4) {
-               socket.send(JSON.stringify({ type: 'round4_init', sessions: await getRound4Sessions() }));
+               
+               const matches = await getRound3Matches();
+               socket.send(JSON.stringify({ type: 'round3_init', matches }));
+               
+               const sessions = await getRound4Sessions();
+               socket.send(JSON.stringify({ type: 'round4_init', sessions }));
+               
+               const games = await getRound5Games();
+               socket.send(JSON.stringify({ type: 'round5_init', games }));
+               
+               const usersRes = await db.query('SELECT id, name, email, role, is_eliminated FROM users ORDER BY name ASC');
+               socket.send(JSON.stringify({ type: 'admin_users', users: usersRes.rows }));
             }
           }
 
@@ -739,13 +745,13 @@ const performR5NextRound = async (gameId) => {
         
         console.log(`WS: Received ${data.type} from ${currentUser?.name || 'unknown'}`);
 
-        if (data.type === 'start_round' && currentUser.role === 'volunteer') {
+        if (data.type === 'start_round' && currentUser.role === 'admin') {
           await db.query('UPDATE game_state SET current_round = 1, status = \'active\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
-        if (data.type === 'stop_round' && currentUser.role === 'volunteer') {
+        if (data.type === 'stop_round' && currentUser.role === 'admin') {
           console.log('Stopping round...');
           const stateResBefore = await db.query('SELECT current_round FROM game_state WHERE id = 1');
           const currentRound = stateResBefore.rows[0].current_round;
@@ -773,7 +779,7 @@ const performR5NextRound = async (gameId) => {
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
-        if (data.type === 'finish_round' && currentUser.role === 'volunteer') {
+        if (data.type === 'finish_round' && currentUser.role === 'admin') {
           console.log('Finishing round...');
           await db.query('UPDATE game_state SET status = \'finished\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
@@ -781,7 +787,7 @@ const performR5NextRound = async (gameId) => {
           broadcast({ type: 'round_finished', round: stateRes.rows[0].current_round });
         }
 
-        if (data.type === 'start_round_2' && currentUser.role === 'volunteer') {
+        if (data.type === 'start_round_2' && currentUser.role === 'admin') {
           console.log('Starting Round 2...');
           const leaderboard = await calculateLeaderboard();
           console.log('Leaderboard calculated, size:', leaderboard.length);
@@ -834,7 +840,7 @@ const performR5NextRound = async (gameId) => {
           console.log('Round 2 started successfully');
         }
 
-        if (data.type === 'start_round_3' && currentUser.role === 'volunteer') {
+        if (data.type === 'start_round_3' && currentUser.role === 'admin') {
           try {
             console.log('Starting Round 3...');
             
@@ -892,7 +898,7 @@ const performR5NextRound = async (gameId) => {
           }
         }
 
-        if (data.type === 'finish_round_3' && currentUser.role === 'volunteer') {
+        if (data.type === 'finish_round_3' && currentUser.role === 'admin') {
           console.log('Finishing Round 3...');
           
           // Set game state to waiting (Round 3 finished, waiting for Round 4)
@@ -903,7 +909,7 @@ const performR5NextRound = async (gameId) => {
           console.log('Round 3 finished - players can now see their elimination status');
         }
 
-        if (data.type === 'start_round_4' && currentUser.role === 'volunteer') {
+        if (data.type === 'start_round_4' && currentUser.role === 'admin') {
           console.log('Starting Round 4 (Coding Club)...');
           
           // Get all surviving teams (users who are not eliminated and are in teams)
@@ -987,14 +993,14 @@ const performR5NextRound = async (gameId) => {
           await broadcastRound4Update();
         }
 
-        if (data.type === 'finish_round_4' && currentUser.role === 'volunteer') {
+        if (data.type === 'finish_round_4' && currentUser.role === 'admin') {
           console.log('Finishing Round 4...');
           await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
-        if (data.type === 'start_round_5' && currentUser.role === 'volunteer') {
+        if (data.type === 'start_round_5' && currentUser.role === 'admin') {
           console.log('Starting Round 5 (Paradox)...');
           
           // Get all surviving teams
@@ -1207,7 +1213,7 @@ const performR5NextRound = async (gameId) => {
           await broadcastRound5Update();
         }
 
-        if (data.type === 'finish_round_5' && currentUser.role === 'volunteer') {
+        if (data.type === 'finish_round_5' && currentUser.role === 'admin') {
           console.log('Finishing Round 5...');
           await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
@@ -1215,7 +1221,7 @@ const performR5NextRound = async (gameId) => {
           console.log('Round 5 finished');
         }
 
-        if (data.type === 'start_round_6' && currentUser.role === 'volunteer') {
+        if (data.type === 'start_round_6' && currentUser.role === 'admin') {
           console.log('Starting Round 6 (The Game of Hearts)...');
           
           await db.query('DELETE FROM hearts_players');
@@ -1488,7 +1494,7 @@ const performR5NextRound = async (gameId) => {
            await broadcastRound6Update();
         }
         
-        if (data.type === 'r6_finish' && currentUser.role === 'volunteer') {
+        if (data.type === 'r6_finish' && currentUser.role === 'admin') {
            console.log('Finishing Round 6...');
            await db.query("UPDATE game_state SET status = 'finished' WHERE id = 1");
            broadcast({ type: 'state_update', state: (await db.query("SELECT * FROM game_state WHERE id = 1")).rows[0] });
@@ -1590,13 +1596,55 @@ const performR5NextRound = async (gameId) => {
           broadcast({ type: 'leaderboard_update', leaderboard });
         }
 
-      } catch (e) {
-        fastify.log.error(e);
+        // ADMIN MANAGEMENT: ELIMINATE / REVIVE
+        if (data.type === 'admin_manage_user' && currentUser.role === 'admin') {
+          const { userId, isEliminated } = data;
+          await db.query('UPDATE users SET is_eliminated = $1 WHERE id = $2', [isEliminated, userId]);
+          console.log(`ADMIN: ${isEliminated ? 'ELIMINATED' : 'REVIVED'} user ${userId}`);
+          
+          // Broadcast update to all admins
+          const usersRes = await db.query('SELECT id, name, email, role, is_eliminated FROM users ORDER BY name ASC');
+          for (const [uid, client] of clients.entries()) {
+            if (client.user.role === 'admin' && client.socket.readyState === 1) {
+              client.socket.send(JSON.stringify({ type: 'admin_users', users: usersRes.rows }));
+            }
+            // Send to the specific user too so they see their status change
+            if (uid === userId && client.socket.readyState === 1) {
+              client.socket.send(JSON.stringify({ type: 'status_update', isEliminated }));
+            }
+          }
+        }
+
+        if (data.type === 'admin_manage_team' && currentUser.role === 'admin') {
+          const { teamId, isEliminated } = data;
+          const teamRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [teamId]);
+          if (teamRes.rows[0]) {
+            const { user1_id, user2_id } = teamRes.rows[0];
+            await db.query('UPDATE users SET is_eliminated = $1 WHERE id IN ($2, $3)', [isEliminated, user1_id, user2_id]);
+            console.log(`ADMIN: ${isEliminated ? 'ELIMINATED' : 'REVIVED'} team ${teamId} (${user1_id}, ${user2_id})`);
+            
+            // Broadcast update
+            const usersRes = await db.query('SELECT id, name, email, role, is_eliminated FROM users ORDER BY name ASC');
+            for (const [uid, client] of clients.entries()) {
+               if (client.user.role === 'admin' && client.socket.readyState === 1) {
+                 client.socket.send(JSON.stringify({ type: 'admin_users', users: usersRes.rows }));
+               }
+               if ((uid === user1_id || uid === user2_id) && client.socket.readyState === 1) {
+                 client.socket.send(JSON.stringify({ type: 'status_update', isEliminated }));
+               }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('WS Processing Error:', err);
       }
     });
 
     socket.on('close', () => {
-      if (currentUser) clients.delete(currentUser.id);
+      if (currentUser) {
+        clients.delete(currentUser.id);
+      }
+      fastify.log.info('Client disconnected');
     });
   });
 

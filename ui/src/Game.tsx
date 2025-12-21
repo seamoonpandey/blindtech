@@ -870,6 +870,166 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   );
 }
 
+function AdminView({ 
+  gameState, 
+  leaderboard, 
+  adminUsers, 
+  lotteryPool, 
+  round3Matches, 
+  round4Sessions, 
+  round5Games,
+  onEliminateUser,
+  onReviveUser,
+  onEliminateTeam,
+  onReviveTeam,
+  onStartRound,
+  onStopRound,
+  onFinishRound,
+  onStartRound2,
+  onStartRound3,
+  onFinishRound3,
+  onStartRound4,
+  onFinishRound4,
+  onStartRound5,
+  onFinishRound5,
+  onStartRound6
+}: any) {
+  const [activeTab, setActiveTab] = useState('control');
+  const surviversCount = adminUsers.filter((u: any) => !u.is_eliminated && u.role === 'player').length;
+
+  return (
+    <div className="admin-view-root">
+      <div className="admin-nav-tabs">
+        <button className={activeTab === 'control' ? 'active' : ''} onClick={() => setActiveTab('control')}>CONTROL</button>
+        <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => setActiveTab('leaderboard')}>LEADERBOARD</button>
+        <button className={activeTab === 'management' ? 'active' : ''} onClick={() => setActiveTab('management')}>MANAGEMENT</button>
+        <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>DATA HISTORY</button>
+      </div>
+
+      <div className="admin-content-area">
+        {activeTab === 'control' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">MISSION CONTROL</h1>
+            <div className="admin-summary-cards">
+              <div className="admin-sum-card">
+                <span className="label">ROUND</span>
+                <span className="value">{gameState.current_round}</span>
+              </div>
+              <div className="admin-sum-card">
+                <span className="label">STATUS</span>
+                <span className="value">{gameState.status.toUpperCase()}</span>
+              </div>
+              <div className="admin-sum-card">
+                <span className="label">SURVIVORS</span>
+                <span className="value">{surviversCount}</span>
+              </div>
+            </div>
+
+            <div className="admin-control-grid">
+              <div className="card control-card">
+                <h3>GLOBAL CONTROLS</h3>
+                <div className="btn-group-vertical">
+                   <button onClick={onStartRound} className="admin-btn primary" disabled={gameState.current_round !== 0}>START ROUND 1</button>
+                   <button onClick={onStopRound} className="admin-btn danger">EMERGENCY STOP</button>
+                   <button onClick={onFinishRound} className="admin-btn">FINISH CURRENT ROUND</button>
+                </div>
+              </div>
+
+              <div className="card control-card">
+                <h3>TRANSITIONS</h3>
+                <div className="btn-group-vertical">
+                   <button onClick={onStartRound2} className="admin-btn" disabled={gameState.current_round !== 1 || gameState.status !== 'finished'}>ACTIVATE R2: LOTTERY</button>
+                   <button onClick={onStartRound3} className="admin-btn" disabled={gameState.current_round !== 2 || gameState.status !== 'active'}>ACTIVATE R3: DUELS</button>
+                   <button onClick={onStartRound4} className="admin-btn" disabled={gameState.current_round !== 3 || gameState.status !== 'waiting'}>ACTIVATE R4: CODING CLUB</button>
+                   <button onClick={onStartRound5} className="admin-btn" disabled={gameState.current_round !== 4 || gameState.status !== 'waiting'}>ACTIVATE R5: PARADOX</button>
+                   <button onClick={onStartRound6} className="admin-btn" disabled={gameState.current_round !== 5 || gameState.status !== 'waiting'}>ACTIVATE R6: HEARTS</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <div className="admin-tab-pane fullscreen-pane">
+            <h1 className="admin-pane-title">LIVE LEADERBOARD (R1)</h1>
+            <div className="admin-leaderboard-list">
+              {leaderboard.map((entry: any, i: number) => (
+                <div key={entry.id} className={`admin-entry ${entry.is_eliminated ? 'eliminated' : ''}`}>
+                  <span className="rank">#{i + 1}</span>
+                  <span className="name">{entry.name}</span>
+                  <span className="score">{entry.score} pts</span>
+                  {entry.is_eliminated && <span className="status-tag">ELIMINATED</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'management' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">USER MANAGEMENT</h1>
+            <div className="admin-management-grid">
+              <div className="card">
+                <h3>PLAYERS LIST</h3>
+                <div className="admin-user-scroll">
+                  {adminUsers.filter((u: any) => u.role === 'player').map((u: any) => (
+                    <div key={u.id} className="admin-user-item">
+                      <span>{u.name} ({u.email})</span>
+                      {u.is_eliminated ? (
+                        <button className="admin-btn-sm revive" onClick={() => onReviveUser(u.id)}>REVIVE</button>
+                      ) : (
+                        <button className="admin-btn-sm eliminate" onClick={() => onEliminateUser(u.id)}>ELIMINATE</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <h3>TEAMS MANAGEMENT (R2+)</h3>
+                <div className="admin-user-scroll">
+                  {/* Logic to show teams if available */}
+                  {lotteryPool.filter((c: any) => c.is_taken && c.team_id).map((c: any) => (
+                    <div key={c.team_id} className="admin-user-item">
+                      <span>TEAM: {c.team_name}</span>
+                      <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(c.team_id)}>ELIMINATE TEAM</button>
+                      <button className="admin-btn-sm revive" onClick={() => onReviveTeam(c.team_id)}>REVIVE TEAM</button>
+                    </div>
+                  ))}
+                  {lotteryPool.filter((c: any) => c.is_taken && c.team_id).length === 0 && <p>No teams formed yet.</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'data' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">GAME DATA HISTORY</h1>
+            <div className="admin-history-tabs">
+               <button onClick={() => setActiveTab('data-r3')}>R3 MATCHES</button>
+               <button onClick={() => setActiveTab('data-r4')}>R4 SESSIONS</button>
+               <button onClick={() => setActiveTab('data-r5')}>R5 GAMES</button>
+            </div>
+            
+            <div className="admin-data-content">
+               {/* Simplified data view for brevity, can be expanded */}
+               <h3>ROUND 3 DUELS</h3>
+               <div className="admin-user-scroll">
+                 {round3Matches.map((m: any) => (
+                   <div key={m.id} className="admin-data-row">
+                     {m.team1_name} vs {m.team2_name} | STATUS: {m.status} | WINNER: {m.winner_team_id || 'NONE'}
+                   </div>
+                 ))}
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
   games: any[];
   onFinish: () => void;
@@ -991,6 +1151,7 @@ export default function Game() {
   const [round5Games, setRound5Games] = useState<any[]>([]);
   const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE
   const [r6Logs, setR6Logs] = useState<string[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1147,6 +1308,10 @@ export default function Game() {
         setRound6State(data.state);
       } else if (data.type === 'r6_cycle_logs') {
         setR6Logs(data.logs);
+      } else if (data.type === 'admin_users') {
+        setAdminUsers(data.users);
+      } else if (data.type === 'status_update') {
+        setIsEliminated(data.isEliminated);
       }
     };
 
@@ -1338,6 +1503,22 @@ export default function Game() {
     setPendingCardId(null);
   };
 
+  const eliminateUser = (userId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_user', userId, isEliminated: true }));
+  };
+
+  const reviveUser = (userId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_user', userId, isEliminated: false }));
+  };
+
+  const eliminateTeam = (teamId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: true }));
+  };
+
+  const reviveTeam = (teamId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: false }));
+  };
+
   const togglePlayer = (player: Player) => {
     if (selectedPlayers.find(p => p.id === player.id)) {
       setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
@@ -1383,6 +1564,48 @@ export default function Game() {
   };
 
   if (!user || !gameState) return <div className="container">Loading...</div>;
+
+  // Admin View
+  if (user.role === 'admin') {
+    return (
+      <div className="container" style={{ minHeight: '100vh', padding: '0' }}>
+        <div className="nav" style={{ padding: '0.5rem 1rem' }}>
+          <div className="logo">BLINDTECH.EXE - ADMIN</div>
+          <div className="user-info">
+            <div className="user-meta">
+              <div className="user-name">{user.name.toUpperCase()}</div>
+              <div className="user-role" style={{ color: '#ff4444' }}>GAME MASTER</div>
+            </div>
+            <button onClick={logout} className="exit-btn">EXIT</button>
+          </div>
+        </div>
+        <AdminView 
+          gameState={gameState}
+          leaderboard={leaderboard}
+          adminUsers={adminUsers}
+          lotteryPool={lotteryPool}
+          round3Matches={round3Matches}
+          round4Sessions={round4Sessions}
+          round5Games={round5Games}
+          onEliminateUser={eliminateUser}
+          onReviveUser={reviveUser}
+          onEliminateTeam={eliminateTeam}
+          onReviveTeam={reviveTeam}
+          onStartRound={startRound}
+          onStopRound={stopRound}
+          onFinishRound={finishRound}
+          onStartRound2={startRound2}
+          onStartRound3={startRound3}
+          onFinishRound3={finishRound3}
+          onStartRound4={startRound4}
+          onFinishRound4={finishRound4}
+          onStartRound5={startRound5}
+          onFinishRound5={finishRound5}
+          onStartRound6={startRound6}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container" style={{ maxWidth: '1200px', padding: '10px' }}>
