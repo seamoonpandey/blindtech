@@ -623,9 +623,17 @@ const performR5NextRound = async (gameId) => {
           // Send current state
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           const leaderboard = await calculateLeaderboard();
-          const submissionRes = await db.query('SELECT payload FROM submissions WHERE user_id = $1 AND round = 1', [currentUser.id]);
           
-          const userRes = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
+          // Admin doesn't need submission or elimination status from DB
+          let submission = null;
+          let isEliminated = false;
+          
+          if (currentUser.id !== 'admin-id') {
+            const submissionRes = await db.query('SELECT payload FROM submissions WHERE user_id = $1 AND round = 1', [currentUser.id]);
+            const userRes = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
+            submission = submissionRes.rows[0]?.payload || null;
+            isEliminated = userRes.rows[0]?.is_eliminated || false;
+          }
           
           const r6State = stateRes.rows[0].current_round >= 6 ? await getRound6State() : null;
 
@@ -633,32 +641,31 @@ const performR5NextRound = async (gameId) => {
             type: 'init', 
             state: stateRes.rows[0],
             leaderboard,
-            submission: submissionRes.rows[0]?.payload || null,
-            isEliminated: userRes.rows[0]?.is_eliminated || false,
+            submission,
+            isEliminated,
             round6_state: r6State
           }));
 
-          // Send historical data for volunteers and admin
+          // If volunteer or admin, send additional data
           if (currentUser.role === 'volunteer' || currentUser.role === 'admin') {
-            const cr = stateRes.rows[0].current_round;
-            if (cr > 0 || currentUser.role === 'admin') {
-               const pool = await getDetailedPool();
-               socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
-               
-               const matches = await getRound3Matches();
-               socket.send(JSON.stringify({ type: 'round3_init', matches }));
-               
-               const sessions = await getRound4Sessions();
-               socket.send(JSON.stringify({ type: 'round4_init', sessions }));
-               
-               const games = await getRound5Games();
-               socket.send(JSON.stringify({ type: 'round5_init', games }));
-               
-               const usersRes = await db.query('SELECT id, name, email, role, is_eliminated FROM users ORDER BY name ASC');
-               socket.send(JSON.stringify({ type: 'admin_users', users: usersRes.rows }));
-            }
+            const lotteryRes = await db.query('SELECT * FROM lottery_pool ORDER BY id');
+            socket.send(JSON.stringify({ type: 'lottery_pool', pool: lotteryRes.rows }));
+            
+            const r3Res = await db.query('SELECT * FROM round3_matches ORDER BY id');
+            socket.send(JSON.stringify({ type: 'round3_matches', matches: r3Res.rows }));
+            
+            const r4Res = await db.query('SELECT * FROM round4_sessions ORDER BY id');
+            socket.send(JSON.stringify({ type: 'round4_sessions', sessions: r4Res.rows }));
+            
+            const r5Res = await db.query('SELECT * FROM round5_games ORDER BY id');
+            socket.send(JSON.stringify({ type: 'round5_games', games: r5Res.rows }));
           }
 
+          // If admin, send all users for management
+          if (currentUser.role === 'admin') {
+            const allUsersRes = await db.query('SELECT id, name, email, role, is_eliminated FROM users ORDER BY name');
+            socket.send(JSON.stringify({ type: 'admin_users', users: allUsersRes.rows }));
+          }
           // If round 2 is active, send the pool
           if (stateRes.rows[0].current_round === 2) {
             if (currentUser.role === 'volunteer') {
@@ -1649,6 +1656,11 @@ const performR5NextRound = async (gameId) => {
   });
 
   fastify.get('/players', { onRequest: [fastify.authenticate] }, async (request, reply) => {
+    // Admin should get all players, regular users should exclude themselves
+    if (request.user.id === 'admin-id') {
+      const result = await db.query('SELECT id, name FROM users WHERE role = \'player\'');
+      return result.rows;
+    }
     const result = await db.query('SELECT id, name FROM users WHERE role = \'player\' AND id != $1', [request.user.id]);
     return result.rows;
   });
