@@ -353,56 +353,47 @@ const broadcastRound5Update = async () => {
 
 function calculateMomentumChange(cardA, cardB) {
   // Momentum matrix: [Team A change, Team B change]
+  // More balanced for a 10-round game
   const matrix = {
     ATTACK: {
-      ATTACK: [-2, -2],
+      ATTACK: [-1, -1],
       FORTIFY: [2, -1],
-      CONVERGE: [-3, 1]
+      CONVERGE: [-2, 2]
     },
     FORTIFY: {
-      ATTACK: [-1, 1],
+      ATTACK: [-1, 2],
       FORTIFY: [0, 0],
       CONVERGE: [1, -1]
     },
     CONVERGE: {
-      ATTACK: [1, -3],
+      ATTACK: [2, -2],
       FORTIFY: [-1, 1],
-      CONVERGE: [2, 2]
+      CONVERGE: [3, 3]
     }
   };
   return matrix[cardA][cardB];
 }
 
 function checkGameEnd(momentumA, momentumB, currentRound) {
-  if (momentumA >= 9 && momentumB < 9) return { ended: true, result: 'team_a_win' };
-  if (momentumB >= 9 && momentumA < 9) return { ended: true, result: 'team_b_win' };
-  if (momentumA >= 9 && momentumB >= 9) return { ended: true, result: 'both_win' };
-  if (momentumA <= 6 && momentumB <= 6) return { ended: true, result: 'both_lose' };
-  
-  // End of Round 6 check
-  if (currentRound === 6) {
-    if (momentumA >= 9 || momentumB >= 9) {
-      // Handled above
-    } else if (momentumA >= 7 && momentumA <= 8 && momentumB >= 7 && momentumB <= 8) {
-      return { ended: false, suddenDeath: true };
-    } else {
-      // If no one is in sudden death range but no one reached 9?
-      // Matrix usually keeps them in range, but if they are e.g. 7 vs 6?
-      // Both lose if they underperformed.
-      if (momentumA > momentumB) return { ended: true, result: 'team_a_win' };
-      if (momentumB > momentumA) return { ended: true, result: 'team_b_win' };
-      return { ended: true, result: 'both_lose' };
-    }
+  // Instant Death at Zero
+  if (momentumA <= 0 && momentumB <= 0) return { ended: true, result: 'both_lose' };
+  if (momentumA <= 0) return { ended: true, result: 'team_b_win' };
+  if (momentumB <= 0) return { ended: true, result: 'team_a_win' };
+
+  // Paradox goes for 9 sub-rounds (alternating turns)
+  if (currentRound < 9) {
+    return { ended: false };
   }
 
-  // Sudden Death resolution (Round 7)
-  if (currentRound >= 7) {
-    if (momentumA > momentumB) return { ended: true, result: 'team_a_win' };
-    if (momentumB > momentumA) return { ended: true, result: 'team_b_win' };
-    return { ended: true, result: 'both_lose' }; // Tie in sudden death = both lose
+  // Final Resolution at Round 9
+  if (momentumA > momentumB) {
+    return { ended: true, result: 'team_a_win' };
+  } else if (momentumB > momentumA) {
+    return { ended: true, result: 'team_b_win' };
+  } else {
+    // Tie at the end? Both teams proved their worth.
+    return { ended: true, result: 'both_win' };
   }
-  
-  return { ended: false };
 }
 
   // Helper to calculate leaderboard
@@ -884,15 +875,17 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
             await db.query(`
               INSERT INTO round5_games (
                 team_a_id, team_b_id, team_a_turn_order, team_b_turn_order,
-                status, result
-              ) VALUES ($1, $2, $3, $4, $5, $6)
+                status, result, team_a_momentum, team_b_momentum
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `, [
               teamA.id, 
               teamB ? teamB.id : null,
               JSON.stringify(teamATurnOrder),
               teamBTurnOrder ? JSON.stringify(teamBTurnOrder) : null,
               isBye ? 'finished' : 'active',
-              isBye ? 'team_a_win' : null
+              isBye ? 'team_a_win' : null,
+              15, // Initial Momentum increased to 15
+              15
             ]);
             
             if (isBye) {
@@ -925,16 +918,29 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
           
           if (!game || game.status !== 'active') return;
 
+          // Current turn in Round 5 is 1-9. 
+          // If sub-round 1, any player from the team can play. 
+          // The first person to play in sub-round 1 determines the order (0, 1, 0, 1...)
           const isTeamA = game.team_a_user1 === currentUser.id || game.team_a_user2 === currentUser.id;
-          const turnOrder = isTeamA ? game.team_a_turn_order : game.team_b_turn_order;
           const myTeam = isTeamA ? 'A' : 'B';
           const teamPactUsed = isTeamA ? game.team_a_pact_used : game.team_b_pact_used;
+          
+          let turnOrder = isTeamA ? game.team_a_turn_order : game.team_b_turn_order;
+          let currentPlayerId;
 
-          // Current turn in Round 5 is 1-6. Internal turn index 0 or 1.
-          const currentPlayerIndex = game.current_round <= 3 ? 0 : 1;
-          const expectedPlayerId = turnOrder[currentPlayerIndex];
+          if (game.current_round === 1) {
+            // Anyone on the team can play the first round
+            currentPlayerId = currentUser.id;
+          } else {
+            // Alternate based on the order established in Round 1
+            const currentPlayerIndex = (game.current_round - 1) % 2;
+            currentPlayerId = turnOrder[currentPlayerIndex];
+          }
 
-          if (expectedPlayerId !== currentUser.id) return;
+          if (currentPlayerId !== currentUser.id) {
+            console.log(`Unauthorized turn attempt by ${currentUser.name}. Expected ${currentPlayerId}`);
+            return;
+          }
 
           const existingTurnRes = await db.query(`
             SELECT id FROM round5_turns WHERE game_id = $1 AND round_number = $2 AND player_id = $3
@@ -959,6 +965,15 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
                   finalCard = prevOppTurnRes.rows[0].card_selected;
                 }
               }
+            }
+
+            // If this is sub-round 1, finalize the turn order based on who clicked first
+            if (game.current_round === 1) {
+              const u1 = isTeamA ? game.team_a_user1 : game.team_b_user1;
+              const u2 = isTeamA ? game.team_a_user2 : game.team_b_user2;
+              const finalizedOrder = currentUser.id === u1 ? [u1, u2] : [u2, u1];
+              const orderField = isTeamA ? 'team_a_turn_order' : 'team_b_turn_order';
+              await db.query(`UPDATE round5_games SET ${orderField} = $1 WHERE id = $2`, [JSON.stringify(finalizedOrder), gameId]);
             }
 
             await db.query(`
@@ -999,11 +1014,11 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
             
             if (!bothUsedPact) {
               // Apply Pact A
-              if (turnA.pact_used === 'reduce_penalty' && deltaA === -3) deltaA = -1;
+              if (turnA.pact_used === 'reduce_penalty' && deltaA <= -2) deltaA = -1;
               if (turnA.pact_used === 'ignore_negative' && deltaA < 0) deltaA = 0;
               
               // Apply Pact B
-              if (turnB.pact_used === 'reduce_penalty' && deltaB === -3) deltaB = -1;
+              if (turnB.pact_used === 'reduce_penalty' && deltaB <= -2) deltaB = -1;
               if (turnB.pact_used === 'ignore_negative' && deltaB < 0) deltaB = 0;
             } else {
                console.log("Both teams used Pacts in the same turn - PACTS CANCELLED");
@@ -1014,11 +1029,16 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
             const newMomentumA = game.team_a_momentum + deltaA;
             const newMomentumB = game.team_b_momentum + deltaB;
 
+            console.log(`RESOLVING PARADOX Turn ${game.current_round} [Game ${gameId}]:`);
+            console.log(` - Team A: ${turnA.card_selected} (Pact: ${turnA.pact_used || 'N/A'}) -> Momentum ${game.team_a_momentum} -> ${newMomentumA} (Delta: ${deltaA})`);
+            console.log(` - Team B: ${turnB.card_selected} (Pact: ${turnB.pact_used || 'N/A'}) -> Momentum ${game.team_b_momentum} -> ${newMomentumB} (Delta: ${deltaB})`);
+
             await db.query('UPDATE round5_turns SET is_revealed = true WHERE game_id = $1 AND round_number = $2', [gameId, game.current_round]);
             await db.query('UPDATE round5_games SET team_a_momentum = $1, team_b_momentum = $2 WHERE id = $3', [newMomentumA, newMomentumB, gameId]);
             
             const endCheck = checkGameEnd(newMomentumA, newMomentumB, game.current_round);
             if (endCheck.ended) {
+              console.log(`GAME OVER for Game ${gameId}: ${endCheck.result}`);
               await db.query('UPDATE round5_games SET status = \'finished\', result = $1 WHERE id = $2', [endCheck.result, gameId]);
               // Handle eliminations
               const fullGame = (await db.query(`

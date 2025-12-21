@@ -550,8 +550,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   const opponentMomentum = isTeamA ? game.team_b_momentum : game.team_a_momentum;
   const turnOrder = isTeamA ? game.team_a_turn_order : game.team_b_turn_order;
   
-  const currentPlayerIndex = game.current_round <= 3 ? 0 : 1;
-  const isMyTurn = turnOrder[currentPlayerIndex] === userId;
+  const isMyTurn = game.current_round === 1 || turnOrder[(game.current_round - 1) % 2] === userId;
   
   const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
   const myTurn = currentRoundTurns.find((t: any) => t.player_id === userId);
@@ -559,12 +558,19 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   const revealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
 
   const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
+  const [showGuide, setShowGuide] = useState(false);
 
   const pactOptions = [
-    { id: 'reduce_penalty', label: '🛡️ REDUCE PENALTY', desc: 'Convert -3 momentum loss to -1' },
-    { id: 'copy_opponent', label: '👥 COPY PREVIOUS', desc: 'Use opponent\'s previous round card' },
-    { id: 'ignore_negative', label: '🚫 IGNORE NEGATIVE', desc: 'Cancel any negative momentum change' }
+    { id: 'reduce_penalty', label: '🛡️ REDUCE PENALTY', desc: 'Convert penalty loss to -1' },
+    { id: 'copy_opponent', label: '👥 COPY PREVIOUS', desc: 'Use opponent\'s last card' },
+    { id: 'ignore_negative', label: '🚫 IGNORE NEGATIVE', desc: 'Cancel any negative change' }
   ];
+
+  const MATRIX: any = {
+    ATTACK: { ATTACK: [-1, -1], FORTIFY: [2, -1], CONVERGE: [-2, 2] },
+    FORTIFY: { ATTACK: [-1, 2], FORTIFY: [0, 0], CONVERGE: [1, -1] },
+    CONVERGE: { ATTACK: [2, -2], FORTIFY: [-1, 1], CONVERGE: [3, 3] }
+  };
 
   if (game.status === 'finished') {
     const won = (game.result === 'team_a_win' && isTeamA) || 
@@ -593,18 +599,56 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   return (
     <div className="card" style={{ padding: '2rem' }}>
       <div style={{ 
-        background: '#ff4444', 
-        color: 'white', 
-        padding: '1rem', 
+        background: '#000', 
+        color: '#ff4444', 
+        padding: '1.5rem', 
         marginBottom: '2rem',
-        borderRadius: '8px',
-        fontWeight: 'bold',
-        textAlign: 'center'
+        border: '3px solid #ff4444',
+        fontWeight: '900',
+        textAlign: 'center',
+        boxShadow: '6px 6px 0px 0px black'
       }}>
-        ⚠️ SILENCE ENFORCED - ANY COMMUNICATION = INSTANT LOSS ⚠️
+        ⚠️ ABSOLUTE SILENCE - COMMUNICATING WITH YOUR PARTNER = INSTANT ELIMINATION ⚠️
       </div>
       
-      <h2>ROUND 5: PARADOX</h2>
+      <h2 style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '1.5rem', borderBottom: '4px solid black', paddingBottom: '0.5rem' }}>ROUND 5: THE PARADOX</h2>
+      
+      <div style={{ background: 'rgba(0,0,0,0.05)', padding: '1rem', marginBottom: '1.5rem', border: '2px solid black' }}>
+        <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}><strong>OBJECTIVE:</strong> Survive 9 turns. If your momentum hits 0, you **DIE** instantly.</p>
+        <p style={{ fontSize: '0.9rem' }}><strong>TURNS:</strong> Players alternate every turn. Turn 1 determines the order. No talking.</p>
+      </div>
+
+      <button 
+        onClick={() => setShowGuide(!showGuide)}
+        style={{ width: '100%', padding: '0.5rem', marginBottom: '1.5rem', border: '2px solid black', fontWeight: '900', cursor: 'pointer', background: showGuide ? '#000' : '#fff', color: showGuide ? '#fff' : '#000' }}
+      >
+        {showGuide ? '🔽 HIDE BATTLE LOGIC' : '▶️ SHOW BATTLE LOGIC'}
+      </button>
+
+      {showGuide && (
+        <div style={{ padding: '1rem', border: '2px solid black', marginBottom: '1.5rem', fontSize: '0.75rem', background: '#fafafa' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid black' }}>
+                <th>YOURS</th>
+                <th>THEIRS</th>
+                <th>RESULT (YOU/THEM)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(MATRIX).map(y => Object.keys(MATRIX[y]).map(t => (
+                <tr key={`${y}-${t}`} style={{ borderBottom: '1px solid #ddd' }}>
+                  <td style={{ padding: '4px', fontWeight: 'bold' }}>{y}</td>
+                  <td style={{ padding: '4px' }}>{t}</td>
+                  <td style={{ padding: '4px', color: MATRIX[y][t][0] > 0 ? '#00aa00' : MATRIX[y][t][0] < 0 ? '#cc0000' : 'inherit' }}>
+                    {MATRIX[y][t][0] > 0 ? '+' : ''}{MATRIX[y][t][0]} / {MATRIX[y][t][1] > 0 ? '+' : ''}{MATRIX[y][t][1]}
+                  </td>
+                </tr>
+              )))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-around', margin: '2rem 0' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>TEAM {myTeam} (YOU)</div>
@@ -621,7 +665,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       
       <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between' }}>
         <div>
-          <strong>Sub-Round:</strong> {game.current_round}/6
+          <strong>Sub-Round:</strong> {game.current_round}/9
           {game.is_sudden_death && <span style={{ color: '#ff4444', marginLeft: '1rem' }}>⚡ SUDDEN DEATH</span>}
         </div>
         <div>
@@ -709,6 +753,57 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
           <p>Waiting for your teammate or opponent to play...</p>
         </div>
       )}
+
+      {/* BATTLE HISTORY LOG */}
+      <div style={{ marginTop: '2.5rem', borderTop: '4px solid black', paddingTop: '1.5rem' }}>
+        <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>BATTLE HISTORY</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {[...game.turns].filter(t => t.is_revealed).sort((a, b) => b.round_number - a.round_number).map((t, _, arr) => {
+            // Group turns by round
+            if (t.team === 'B') return null; // We'll process A and find B
+            const roundNum = t.round_number;
+            const turnA = t;
+            const turnB = arr.find(alt => alt.round_number === roundNum && alt.team === 'B');
+            if (!turnB) return null;
+
+            const [dA, dB] = MATRIX[turnA.card_selected][turnB.card_selected];
+            const isMeA = isTeamA;
+            const myDelta = isMeA ? dA : dB;
+            const oppDelta = isMeA ? dB : dA;
+
+            return (
+              <div key={roundNum} style={{ 
+                padding: '10px', 
+                border: '2px solid black', 
+                background: '#fff',
+                fontSize: '0.8rem',
+                display: 'grid',
+                gridTemplateColumns: '50px 1fr 1fr',
+                alignItems: 'center'
+              }}>
+                <div style={{ fontWeight: '900' }}>#{roundNum}</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', opacity: 0.6 }}>YOU</div>
+                  <div style={{ fontWeight: 'bold' }}>{isMeA ? turnA.card_selected : turnB.card_selected}</div>
+                  <div style={{ color: myDelta >= 0 ? '#00aa00' : '#ff4444', fontWeight: '900' }}>
+                    {myDelta > 0 ? '+' : ''}{myDelta}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', opacity: 0.6 }}>THEM</div>
+                  <div style={{ fontWeight: 'bold' }}>{isMeA ? turnB.card_selected : turnA.card_selected}</div>
+                  <div style={{ color: oppDelta >= 0 ? '#00aa00' : '#ff4444', fontWeight: '900' }}>
+                    {oppDelta > 0 ? '+' : ''}{oppDelta}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {(!game.turns || game.turns.filter((t: any) => t.is_revealed).length === 0) && (
+            <p style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>No history yet. The battle has just begun.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -741,7 +836,7 @@ function Round5VolunteerView({ games, onFinish, onResolve, onNext }: {
               <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem' }}>
                 <div>Momentum A: {g.team_a_momentum}</div>
                 <div>Momentum B: {g.team_b_momentum}</div>
-                <div>Round: {g.current_round}/6</div>
+                <div>Round: {g.current_round}/9</div>
               </div>
               
               {g.status === 'active' && (
