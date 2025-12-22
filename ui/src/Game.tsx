@@ -902,7 +902,14 @@ function AdminView({
               </div>
               <div className="admin-sum-card">
                 <span className="label">SURVIVORS</span>
-                <span className="value">{surviversCount}</span>
+                <span className="value">
+                  {surviversCount} 
+                  {gameState.current_round >= 2 && (
+                    <span style={{ fontSize: '0.6em', marginLeft: '6px', opacity: 0.8 }}>
+                      ({adminTeams.filter((t: any) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
 
