@@ -678,8 +678,9 @@ const performR5NextRound = async (gameId) => {
             const lotteryRes = await db.query("SELECT * FROM lottery_pool WHERE (content->>'type') != 'config' ORDER BY id");
             socket.send(JSON.stringify({ type: 'lottery_pool', pool: lotteryRes.rows }));
             
-            const r3Res = await db.query('SELECT * FROM round3_matches ORDER BY id');
-            socket.send(JSON.stringify({ type: 'round3_matches', matches: r3Res.rows }));
+            
+            const r3Matches = await getRound3Matches();
+            socket.send(JSON.stringify({ type: 'round3_update', matches: r3Matches }));
             
             const r4Res = await db.query('SELECT * FROM round4_sessions ORDER BY id');
             socket.send(JSON.stringify({ type: 'round4_sessions', sessions: r4Res.rows }));
@@ -1814,6 +1815,7 @@ const performR5NextRound = async (gameId) => {
             // Refresh auxiliary data for admins/volunteers
             const pool = await getDetailedPool();
             const r3Matches = await getRound3Matches();
+            console.log(`[RESET] Fetched ${r3Matches.length} Round 3 matches to broadcast`);
             const r4Sessions = await getRound4Sessions();
             const r5Games = await getRound5Games();
             const r6State = targetRound >= 6 ? await getRound6State() : null;
@@ -1824,8 +1826,9 @@ const performR5NextRound = async (gameId) => {
 
             for (const [uid, client] of clients.entries()) {
               if (client.socket.readyState === 1 && (client.user.role === 'admin' || client.user.role === 'volunteer')) {
+                console.log(`[RESET] Sending round3_update with ${r3Matches.length} matches to ${client.user.role}: ${client.user.name}`);
                 client.socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
-                client.socket.send(JSON.stringify({ type: 'round3_matches', matches: r3Matches }));
+                client.socket.send(JSON.stringify({ type: 'round3_update', matches: r3Matches }));
                 client.socket.send(JSON.stringify({ type: 'round4_sessions', sessions: r4Sessions }));
                 client.socket.send(JSON.stringify({ type: 'round5_games', games: r5Games }));
                 client.socket.send(JSON.stringify({ type: 'admin_teams', teams: teamsRes.rows }));
