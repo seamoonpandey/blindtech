@@ -445,6 +445,43 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
 // ROUND 6 HELPERS (THE GAME OF HEARTS)
 async function getRound6State() {
   console.log('Fetching Round 6 State...');
+  const stateRes = await db.query('SELECT * FROM round6_state WHERE id = 1');
+  if (!stateRes.rows[0]) {
+    console.log('Round 6 State row NOT FOUND in database!');
+    return null;
+  }
+  const state = stateRes.rows[0];
+  
+  // Attach votes for the current cycle (monitor view)
+  const votesRes = await db.query('SELECT * FROM round6_votes WHERE cycle = $1', [state.current_cycle]);
+  state.votes = votesRes.rows;
+  
+  // Attach alive players
+  const playersRes = await db.query("SELECT id, name, has_used_safety, is_eliminated FROM users WHERE role = 'player' ORDER BY name ASC");
+  state.players = playersRes.rows;
+
+  // Attach history
+  const historyRes = await db.query(`
+    SELECT h.*, u1.name as target_name, u2.name as partner_name 
+    FROM round6_history h
+    LEFT JOIN users u1 ON h.target_id = u1.id
+    LEFT JOIN users u2 ON h.partner_id = u2.id
+    ORDER BY subround ASC
+  `);
+  state.history = historyRes.rows;
+  
+  return state;
+}
+
+const broadcastRound6Update = async () => {
+  const r6State = await getRound6State();
+  if (!r6State) return;
+  console.log('Broadcasting Round 6 Update...');
+  broadcast({ type: 'round6_update', state: r6State });
+}
+
+async function getRound7State() {
+  console.log('Fetching Round 7 State (Hearts)...');
   const stateRes = await db.query('SELECT * FROM hearts_game_state WHERE id = 1');
   if (!stateRes.rows[0]) return null;
   const state = stateRes.rows[0];
@@ -461,13 +498,104 @@ async function getRound6State() {
   return state;
 }
 
-const broadcastRound6Update = async () => {
-  const r6State = await getRound6State();
-  if (!r6State) return;
-
-  console.log('Broadcasting Round 6 Update...');
-  broadcast({ type: 'round6_update', state: r6State });
+const broadcastRound7Update = async () => {
+  const r7State = await getRound7State();
+  if (!r7State) return;
+  console.log('Broadcasting Round 7 Update...');
+  broadcast({ type: 'round7_update', state: r7State });
 }
+
+const performR6Resolution = async () => {
+  const r6State = await getRound6State();
+  if (!r6State || r6State.status !== 'voting') return;
+  console.log(`RESOLVING ROUND 6 CYCLE ${r6State.current_cycle}`);
+  const votes = r6State.votes;
+  const tally = {};
+  votes.forEach(v => {
+    tally[v.target_id] = (tally[v.target_id] || 0) + 1;
+  });
+  let maxVotes = -1;
+  let targetId = null;
+  for (const [pid, count] of Object.entries(tally)) {
+    if (count > maxVotes) { maxVotes = count; targetId = pid; }
+    else if (count === maxVotes) { if (Math.random() > 0.5) targetId = pid; }
+  }
+  let eliminatedId = null;
+  let partnerId = null;
+  if (targetId) {
+    const targetVote = votes.find(v => v.voter_id === targetId);
+    if (targetVote && targetVote.used_safety) {
+      console.log(`Player ${targetId} used SAFETY and survived!`);
+    } else {
+      eliminatedId = targetId;
+      console.log(`Player ${targetId} eliminated with ${maxVotes} votes.`);
+      await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [targetId]);
+      const teamRes = await db.query("SELECT * FROM teams WHERE round_formed = 2 AND (user1_id = $1 OR user2_id = $1)", [targetId]);
+      const team = teamRes.rows[0];
+      if (team) {
+        partnerId = team.user1_id === targetId ? team.user2_id : team.user1_id;
+        const pCheck = await db.query("SELECT is_eliminated FROM users WHERE id = $1", [partnerId]);
+        if (pCheck.rows[0] && !pCheck.rows[0].is_eliminated) {
+           console.log(`Partner ${partnerId} also eliminated (Collateral Damage).`);
+           await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [partnerId]);
+        } else {
+          partnerId = null;
+        }
+      }
+    }
+  }
+
+  // Record in history
+  if (eliminatedId) {
+    await db.query(`
+      INSERT INTO round6_history (subround, target_id, partner_id, reason)
+      VALUES ($1, $2, $3, 'vote')
+    `, [r6State.current_cycle, eliminatedId, partnerId]);
+  }
+
+  await db.query(`UPDATE round6_state SET status = 'finished' WHERE id = 1`);
+  await broadcastRound6Update();
+}
+
+// Background Timer for Round 6
+setInterval(async () => {
+  try {
+    const r6State = await getRound6State();
+    if (r6State && r6State.status === 'voting') {
+      if (new Date() > new Date(r6State.voting_deadline)) {
+        console.log("Round 6 Voting Timeout! Eliminating non-voters...");
+        const voters = r6State.votes.map(v => v.voter_id);
+        const alivePlayers = (await db.query("SELECT id FROM users WHERE role = 'player' AND is_eliminated = false")).rows;
+        
+        for (const p of alivePlayers) {
+          if (!voters.includes(p.id)) {
+             console.log(`Player ${p.id} failed to vote. AUTO-ELIMINATED.`);
+             await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [p.id]);
+             
+             // Elimination of non-voter also kills partner
+             const teamRes = await db.query("SELECT * FROM teams WHERE round_formed = 2 AND (user1_id = $1 OR user2_id = $1)", [p.id]);
+             const team = teamRes.rows[0];
+             if (team) {
+               const partnerId = team.user1_id === p.id ? team.user2_id : team.user1_id;
+               const pCheck = await db.query("SELECT is_eliminated FROM users WHERE id = $1", [partnerId]);
+               if (pCheck.rows[0] && !pCheck.rows[0].is_eliminated) {
+                  await db.query("UPDATE users SET is_eliminated = true WHERE id = $1", [partnerId]);
+                  await db.query(`
+                    INSERT INTO round6_history (subround, target_id, partner_id, reason)
+                    VALUES ($1, $2, $3, 'timeout')
+                  `, [r6State.current_cycle, p.id, partnerId]).catch(e => console.log('History insert error:', e.message));
+               }
+             }
+          }
+        }
+        await db.query(`UPDATE round6_state SET status = 'finished' WHERE id = 1`);
+        await broadcastRound6Update();
+      }
+    }
+  } catch (e) {
+    console.error('R6 Timer Error:', e);
+  }
+}, 5000);
 
 const performR5Resolution = async (gameId, isTimeout = false) => {
   const gameRes = await db.query('SELECT * FROM round5_games WHERE id = $1', [gameId]);
@@ -663,6 +791,7 @@ const performR5NextRound = async (gameId) => {
           }
           
           const r6State = stateRes.rows[0].current_round >= 6 ? await getRound6State() : null;
+          const r7State = stateRes.rows[0].current_round >= 7 ? await getRound7State() : null;
 
           socket.send(JSON.stringify({ 
             type: 'init', 
@@ -670,7 +799,8 @@ const performR5NextRound = async (gameId) => {
             leaderboard,
             submission,
             isEliminated,
-            round6_state: r6State
+            round6_state: r6State,
+            round7_state: r7State
           }));
 
           // If volunteer or admin, send additional data
@@ -1344,6 +1474,40 @@ const performR5NextRound = async (gameId) => {
 
         if (data.type === 'finish_round_5' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Finishing Round 5...');
+          
+          // Verify all games are finished
+          const gamesRes = await db.query("SELECT * FROM round5_games WHERE status != 'finished'");
+          if (gamesRes.rows.length > 0) {
+            socket.send(JSON.stringify({ 
+              type: 'error', 
+              message: `Cannot finish Round 5: ${gamesRes.rows.length} game(s) still in progress.` 
+            }));
+            return;
+          }
+          
+          // Eliminate teams that lost (didn't reach required momentum)
+          const allGamesRes = await db.query("SELECT * FROM round5_games WHERE status = 'finished'");
+          for (const game of allGamesRes.rows) {
+            // Determine loser based on result
+            let loserTeamId = null;
+            if (game.result === 'team_a_won') {
+              loserTeamId = game.team_b_id;
+            } else if (game.result === 'team_b_won') {
+              loserTeamId = game.team_a_id;
+            }
+            
+            if (loserTeamId) {
+              // Eliminate both players in the losing team
+              const teamRes = await db.query('SELECT user1_id, user2_id FROM teams WHERE id = $1', [loserTeamId]);
+              if (teamRes.rows.length > 0) {
+                const team = teamRes.rows[0];
+                await db.query('UPDATE users SET is_eliminated = true WHERE id = $1 OR id = $2', 
+                  [team.user1_id, team.user2_id]);
+                console.log(`Eliminated team ${loserTeamId} for losing Round 5`);
+              }
+            }
+          }
+          
           await db.query("UPDATE game_state SET status = 'waiting' WHERE id = 1");
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
@@ -1351,50 +1515,58 @@ const performR5NextRound = async (gameId) => {
         }
 
         if (data.type === 'start_round_6' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
-          console.log('Starting Round 6 (The Game of Hearts)...');
+          console.log('Starting Round 6 (Pigeon Round)...');
+          await db.query('DELETE FROM round6_votes');
+          await db.query('DELETE FROM round6_history');
+          await db.query("UPDATE round6_state SET current_cycle = 1, status = 'waiting' WHERE id = 1");
+          await db.query("UPDATE game_state SET current_round = 6, status = 'active' WHERE id = 1");
+          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          await broadcastRound6Update();
+        }
+
+        if (data.type === 'start_round_7' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
+          console.log('Starting Round 7 (The Game of Hearts)...');
           
           await db.query('DELETE FROM hearts_players');
           await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'waiting\', winner_id = NULL WHERE id = 1');
           
-          // Initialize hearts_players from alive players and teams
+          // Initialize hearts_players from alive players
           const alivePlayers = await db.query("SELECT id, name FROM users WHERE role = 'player' AND is_eliminated = false");
           const teams = await db.query("SELECT * FROM teams WHERE round_formed = 2");
 
           for (const p of alivePlayers.rows) {
             const myTeam = teams.rows.find(t => t.user1_id === p.id || t.user2_id === p.id);
             const teammateId = myTeam ? (myTeam.user1_id === p.id ? myTeam.user2_id : myTeam.user1_id) : null;
-            
             await db.query(`
-              INSERT INTO hearts_players (user_id, teammate_id, hearts, is_alive)
-              VALUES ($1, $2, 3, true)
-            `, [p.id, teammateId]);
+              INSERT INTO hearts_players (user_id, team_id, teammate_id, hearts, is_alive)
+              VALUES ($1, $2, $3, 3, true)
+            `, [p.id, myTeam ? myTeam.id : null, teammateId]);
           }
-          
-          // Update Game State
-          await db.query('UPDATE game_state SET current_round = 6, status = \'active\' WHERE id = 1');
-          
+
+          await db.query("UPDATE game_state SET current_round = 7, status = 'active' WHERE id = 1");
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
-          await broadcastRound6Update();
+          await broadcastRound7Update();
         }
 
-        if (data.type === 'r6_submit_action') {
+        if (data.type === 'r7_submit_action') {
           const { action, targetId } = data;
-          console.log(`Player ${currentUser.name} submitted R6 action: ${action}`);
+          console.log(`Player ${currentUser.name} submitted R7 action: ${action}`);
           await db.query(`
             UPDATE hearts_players 
             SET current_action = $1, target_id = $2 
             WHERE user_id = $3
           `, [action, targetId, currentUser.id]);
-          await broadcastRound6Update();
+          await broadcastRound7Update();
         }
 
-        if (data.type === 'r6_resolve_cycle' && currentUser.role === 'volunteer') {
+        if (data.type === 'r7_resolve_cycle' && currentUser.role === 'volunteer') {
           console.log('Resolving Game of Hearts cycle...');
-          const r6State = await getRound6State();
-          if (!r6State) return;
+          const r7State = await getRound7State();
+          if (!r7State) return;
 
-          const players = r6State.players;
+          const players = r7State.players;
           const actions = players.filter(p => p.current_action).map(p => ({
             user_id: p.user_id,
             action: p.current_action,
@@ -1423,14 +1595,82 @@ const performR5NextRound = async (gameId) => {
             await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'waiting\' WHERE id = 1');
           }
 
-          await broadcastRound6Update();
-          // We could send logs as well, maybe via a separate message or adding to state
-          broadcast({ type: 'r6_cycle_logs', logs: result.logs });
+          await broadcastRound7Update();
+          broadcast({ type: 'r7_cycle_logs', logs: result.logs });
         }
 
-        if (data.type === 'r6_start_voting' && currentUser.role === 'volunteer') {
+        if (data.type === 'r7_start_voting' && currentUser.role === 'volunteer') {
           await db.query("UPDATE hearts_game_state SET status = 'acting' WHERE id = 1");
+          await broadcastRound7Update();
+        }
+
+        if (data.type === 'r6_start_timer' && currentUser.role === 'volunteer') {
+          console.log('Starting Round 6 Voting Timer...');
+          await db.query(`
+            UPDATE round6_state 
+            SET status = 'voting', 
+                voting_deadline = CURRENT_TIMESTAMP + interval '5 minutes'
+            WHERE id = 1
+          `);
           await broadcastRound6Update();
+        }
+
+        if (data.type === 'r6_vote' && currentUser.role === 'player') {
+           const { targetId, useSafety } = data;
+           
+           // Check if player is eliminated
+           const playerCheck = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
+           if (playerCheck.rows[0]?.is_eliminated) {
+             console.log(`Eliminated player ${currentUser.name} tried to vote. Blocked.`);
+             return;
+           }
+
+           const r6State = await getRound6State();
+           if (!r6State || r6State.status !== 'voting') return;
+           
+           try {
+             const currentCycle = r6State.current_cycle;
+             await db.query(`
+               INSERT INTO round6_votes (cycle, voter_id, target_id, used_safety)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (voter_id, cycle) DO UPDATE SET target_id = $3, used_safety = $4
+             `, [currentCycle, currentUser.id, targetId, useSafety || false]);
+             
+             if (useSafety) {
+               await db.query("UPDATE users SET has_used_safety = true WHERE id = $1", [currentUser.id]);
+             }
+             
+             console.log(`Player ${currentUser.name} voted for ${targetId} (Safety: ${useSafety})`);
+             await broadcastRound6Update();  
+           } catch (e) {
+             console.log('Vote error:', e.message);
+           }
+        }
+
+        if (data.type === 'r6_resolve' && currentUser.role === 'volunteer') {
+           await performR6Resolution();
+        }
+
+        if (data.type === 'r6_next_subround' && currentUser.role === 'volunteer') {
+           await db.query("UPDATE round6_state SET current_cycle = current_cycle + 1, status = 'waiting' WHERE id = 1");
+           await broadcastRound6Update();
+        }
+        
+        if (data.type === 'r6_finish' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
+           console.log('Finishing Round 6...');
+           // Transition to Round 7 ONLY if 2 teams left
+           const teamsRes = await db.query("SELECT * FROM teams WHERE round_formed = 2");
+           const alivePlayersRes = await db.query("SELECT id FROM users WHERE role = 'player' AND is_eliminated = false");
+           const aliveIds = alivePlayersRes.rows.map(r => r.id);
+           const intactTeams = teamsRes.rows.filter(t => aliveIds.includes(t.user1_id) && aliveIds.includes(t.user2_id));
+           
+           if (intactTeams.length > 2) {
+             // Stay in Round 6? Or just warning?
+             // Usually, GM decides when to finish.
+           }
+           
+           await db.query("UPDATE game_state SET status = 'waiting' WHERE id = 1");
+           broadcast({ type: 'state_update', state: (await db.query("SELECT * FROM game_state WHERE id = 1")).rows[0] });
         }
 
 
@@ -1563,71 +1803,6 @@ const performR5NextRound = async (gameId) => {
           }
         }
 
-        if (data.type === 'r6_start_timer' && currentUser.role === 'volunteer') {
-          console.log('Starting Round 6 Voting Timer...');
-          await db.query(`
-            UPDATE round6_state 
-            SET subround_status = 'voting', 
-                voting_started_at = CURRENT_TIMESTAMP,
-                last_eliminated_id = null,
-                last_partner_eliminated_id = null
-            WHERE id = 1
-          `);
-          await broadcastRound6Update();
-        }
-
-        if (data.type === 'r6_vote' && currentUser.role === 'player') {
-           const { targetId, useSafety } = data;
-           
-           // Check if player is eliminated
-           const playerCheck = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
-           if (playerCheck.rows[0]?.is_eliminated) {
-             console.log(`Eliminated player ${currentUser.name} tried to vote. Blocked.`);
-             return;
-           }
-
-           const r6State = await getRound6State();
-           if (!r6State || r6State.subround_status !== 'voting') return;
-           
-           if (useSafety) {
-             const userRes = await db.query("SELECT has_used_safety FROM users WHERE id = $1", [currentUser.id]);
-             if (userRes.rows[0].has_used_safety) {
-               console.log(`Player ${currentUser.name} tried to use safety again. Denied.`);
-               return; // Cheat attempt
-             }
-           }
-           
-           try {
-             await db.query(`
-               INSERT INTO round6_votes (round_number, voter_id, target_id, used_safety)
-               VALUES ($1, $2, $3, $4)
-             `, [r6State.current_subround, currentUser.id, targetId, useSafety]);
-             
-             if (useSafety) {
-               await db.query("UPDATE users SET has_used_safety = true WHERE id = $1", [currentUser.id]);
-             }
-             
-             console.log(`Player ${currentUser.name} voted for ${targetId} (Safety: ${useSafety})`);
-             await broadcastRound6Update();  
-           } catch (e) {
-             console.log('Vote error (duplicate?):', e.message);
-           }
-        }
-
-        if (data.type === 'r6_resolve' && currentUser.role === 'volunteer') {
-           await performR6Resolution();
-        }
-
-        if (data.type === 'r6_next_subround' && currentUser.role === 'volunteer') {
-           await db.query("UPDATE round6_state SET current_subround = current_subround + 1, subround_status = 'waiting' WHERE id = 1");
-           await broadcastRound6Update();
-        }
-        
-        if (data.type === 'r6_finish' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
-           console.log('Finishing Round 6...');
-           await db.query("UPDATE game_state SET status = 'finished' WHERE id = 1");
-           broadcast({ type: 'state_update', state: (await db.query("SELECT * FROM game_state WHERE id = 1")).rows[0] });
-        }
 
         if (data.type === 'select_card' && currentUser.role === 'player') {
           const { cardId } = data;
@@ -1779,9 +1954,14 @@ const performR5NextRound = async (gameId) => {
             await db.query("UPDATE game_state SET current_round = $1, status = 'active' WHERE id = 1", [targetRound]);
 
             // 2. Clear data for future rounds
-            if (targetRound < 6) {
+            if (targetRound < 7) {
               await db.query("DELETE FROM hearts_players");
               await db.query("UPDATE hearts_game_state SET current_cycle = 1, status = 'waiting', winner_id = NULL WHERE id = 1");
+            }
+            if (targetRound < 6) {
+              await db.query("DELETE FROM round6_votes");
+              await db.query("DELETE FROM round6_history");
+              await db.query("UPDATE round6_state SET current_cycle = 1, status = 'waiting' WHERE id = 1");
             }
             if (targetRound < 5) {
               await db.query("DELETE FROM round5_turns");
@@ -1815,10 +1995,11 @@ const performR5NextRound = async (gameId) => {
             // Refresh auxiliary data for admins/volunteers
             const pool = await getDetailedPool();
             const r3Matches = await getRound3Matches();
-            console.log(`[RESET] Fetched ${r3Matches.length} Round 3 matches to broadcast`);
             const r4Sessions = await getRound4Sessions();
             const r5Games = await getRound5Games();
             const r6State = targetRound >= 6 ? await getRound6State() : null;
+            const r7State = targetRound >= 7 ? await getRound7State() : null;
+            
             const teamsRes = await db.query(`
                SELECT t.id, t.name, t.round_formed, u1.name as user1_name, u2.name as user2_name, u1.id as user1_id, u2.id as user2_id, u1.is_eliminated as user1_eliminated, u2.is_eliminated as user2_eliminated
                FROM teams t JOIN users u1 ON t.user1_id = u1.id JOIN users u2 ON t.user2_id = u2.id ORDER BY t.id DESC
@@ -1826,7 +2007,6 @@ const performR5NextRound = async (gameId) => {
 
             for (const [uid, client] of clients.entries()) {
               if (client.socket.readyState === 1 && (client.user.role === 'admin' || client.user.role === 'volunteer')) {
-                console.log(`[RESET] Sending round3_update with ${r3Matches.length} matches to ${client.user.role}: ${client.user.name}`);
                 client.socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
                 client.socket.send(JSON.stringify({ type: 'round3_update', matches: r3Matches }));
                 client.socket.send(JSON.stringify({ type: 'round4_sessions', sessions: r4Sessions }));
@@ -1835,6 +2015,9 @@ const performR5NextRound = async (gameId) => {
               }
               if (targetRound >= 6 && client.socket.readyState === 1) {
                 client.socket.send(JSON.stringify({ type: 'round6_update', state: r6State }));
+              }
+              if (targetRound >= 7 && client.socket.readyState === 1) {
+                client.socket.send(JSON.stringify({ type: 'round7_update', state: r7State }));
               }
             }
           } catch (e) {

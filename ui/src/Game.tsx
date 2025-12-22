@@ -870,6 +870,8 @@ function AdminView({
   onStartRound5,
   onFinishRound5,
   onStartRound6,
+  onStartRound7,
+  onFinishRound6,
   onResetRound
 }: any) {
   const [activeTab, setActiveTab] = useState('control');
@@ -931,13 +933,14 @@ function AdminView({
                      <button onClick={onStartRound} className="admin-btn primary">START ROUND 1</button>
                    )}
                    
-                   {gameState.status === 'active' && gameState.current_round >= 1 && gameState.current_round <= 5 && (
+                   {gameState.status === 'active' && gameState.current_round >= 1 && gameState.current_round <= 6 && (
                      <button 
                        onClick={() => {
                          if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound();
                          else if (gameState.current_round === 3) onFinishRound3();
                          else if (gameState.current_round === 4) onFinishRound4();
                          else if (gameState.current_round === 5) onFinishRound5();
+                         else if (gameState.current_round === 6) onFinishRound6();
                        }} 
                        className="admin-btn primary"
                      >
@@ -970,10 +973,14 @@ function AdminView({
                    )}
 
                    {gameState.current_round === 5 && gameState.status === 'waiting' && (
-                     <button onClick={onStartRound6} className="admin-btn">ACTIVATE R6: HEARTS</button>
+                     <button onClick={onStartRound6} className="admin-btn">ACTIVATE R6: PIGEON</button>
                    )}
 
-                   {gameState.current_round === 6 && (
+                   {gameState.current_round === 6 && gameState.status === 'waiting' && (
+                     <button onClick={onStartRound7} className="admin-btn">ACTIVATE R7: HEARTS</button>
+                   )}
+
+                   {gameState.current_round === 7 && (
                      <p style={{ textAlign: 'center', opacity: 0.7, padding: '1rem' }}>Final Round Active</p>
                    )}
                 </div>
@@ -1338,8 +1345,9 @@ export default function Game() {
   const [round3Matches, setRound3Matches] = useState<any[]>([]);
   const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
   const [round5Games, setRound5Games] = useState<any[]>([]);
-  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE
-  const [r6Logs, setR6Logs] = useState<string[]>([]);
+  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE (VOTING)
+  const [round7State, setRound7State] = useState<any>(null); // ROUND 7 STATE (HEARTS)
+  const [r7Logs, setR7Logs] = useState<string[]>([]);
   const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
   const [adminTeams, setAdminTeams] = useState<any[]>([]); // Admin/Volunteer teams list
   const [randomQuote] = useState(() => {
@@ -1399,6 +1407,7 @@ export default function Game() {
           setSubmitted(true);
         }
         if (data.round6_state) setRound6State(data.round6_state);
+        if (data.round7_state) setRound7State(data.round7_state);
       } else if (data.type === 'state_update') {
         console.log('RECEIVED STATE UPDATE:', data.state);
         setGameState(data.state);
@@ -1496,8 +1505,11 @@ export default function Game() {
       } else if (data.type === 'round6_update') {
         console.log('Using Round 6 Update:', data.state);
         setRound6State(data.state);
-      } else if (data.type === 'r6_cycle_logs') {
-        setR6Logs(data.logs);
+      } else if (data.type === 'round7_update') {
+        console.log('Using Round 7 Update:', data.state);
+        setRound7State(data.state);
+      } else if (data.type === 'r7_cycle_logs') {
+        setR7Logs(data.logs);
       } else if (data.type === 'admin_users') {
         setAdminUsers(data.users);
       } else if (data.type === 'admin_teams') {
@@ -1558,16 +1570,36 @@ export default function Game() {
   };
 
   // ROUND 6 HANDLERS
-  const startR6Voting = () => {
-    ws?.send(JSON.stringify({ type: 'r6_start_voting' }));
+  const startR6Timer = () => {
+    ws?.send(JSON.stringify({ type: 'r6_start_timer' }));
   };
 
-  const submitR6Action = (action: string, targetId?: string) => {
-    ws?.send(JSON.stringify({ type: 'r6_submit_action', action, targetId }));
+  const submitR6Vote = (targetId: string, safety: boolean) => {
+    ws?.send(JSON.stringify({ type: 'r6_vote', targetId, useSafety: safety }));
   };
 
-  const resolveR6Cycle = () => {
-    ws?.send(JSON.stringify({ type: 'r6_resolve_cycle' }));
+  const resolveR6 = () => {
+    ws?.send(JSON.stringify({ type: 'r6_resolve' }));
+  };
+
+  const nextR6Cycle = () => {
+    ws?.send(JSON.stringify({ type: 'r6_next_subround' }));
+  };
+
+  const finishR6 = () => {
+    ws?.send(JSON.stringify({ type: 'r6_finish' }));
+  };
+
+  const startR7Voting = () => {
+    ws?.send(JSON.stringify({ type: 'r7_start_voting' }));
+  };
+
+  const submitR7Action = (action: string, targetId?: string) => {
+    ws?.send(JSON.stringify({ type: 'r7_submit_action', action, targetId }));
+  };
+
+  const resolveR7Cycle = () => {
+    ws?.send(JSON.stringify({ type: 'r7_resolve_cycle' }));
   };
 
   const joinMatch = (matchId: string) => {
@@ -1674,6 +1706,10 @@ export default function Game() {
 
   const startRound6 = () => {
     ws?.send(JSON.stringify({ type: 'start_round_6' }));
+  };
+
+  const startRound7 = () => {
+    ws?.send(JSON.stringify({ type: 'start_round_7' }));
   };
 
   const resetRound = (round: number) => {
@@ -1796,6 +1832,8 @@ export default function Game() {
           onStartRound5={startRound5}
           onFinishRound5={finishRound5}
           onStartRound6={startRound6}
+          onStartRound7={startRound7}
+          onFinishRound6={finishR6}
           onResetRound={resetRound}
         />
       </div>
@@ -2070,15 +2108,33 @@ export default function Game() {
               <Round6PlayerView 
                 state={round6State} 
                 userId={user.id} 
-                onAction={submitR6Action}
-                logs={r6Logs}
+                onVote={submitR6Vote}
               />
             ) : (
               <Round6VolunteerView 
                 state={round6State}
-                onStartVoting={startR6Voting}
-                onResolve={resolveR6Cycle}
-                logs={r6Logs}
+                onStartTimer={startR6Timer}
+                onResolve={resolveR6}
+                onNext={nextR6Cycle}
+                onFinish={finishR6}
+              />
+            )
+          )}
+
+          {gameState.status === 'active' && gameState.current_round === 7 && round7State && (
+            user.role === 'player' ? (
+              <Round7PlayerView 
+                state={round7State} 
+                userId={user.id} 
+                onAction={submitR7Action}
+                logs={r7Logs}
+              />
+            ) : (
+              <Round7VolunteerView 
+                state={round7State}
+                onStartVoting={startR7Voting}
+                onResolve={resolveR7Cycle}
+                logs={r7Logs}
               />
             )
           )}
@@ -3154,7 +3210,150 @@ export default function Game() {
 
 // ROUND 6 COMPONENTS (THE GAME OF HEARTS)
 
-function Round6PlayerView({ state, userId, onAction, logs }: { 
+function Round6History({ history }: { history: any[] }) {
+  if (history.length === 0) return null;
+  return (
+    <div className="admin-card" style={{ marginTop: '1rem', background: '#f8f8f8' }}>
+      <h4 className="section-title">ELIMINATION HISTORY</h4>
+      <div className="admin-user-list">
+        {history.map((h, idx) => (
+          <div key={idx} className="admin-user-item" style={{ borderLeft: '4px solid #ff4444' }}>
+            <div className="admin-user-info">
+              <strong>{h.target_name} eliminated</strong>
+              {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
+              <small>Cycle {h.subround} | Reason: {h.reason.toUpperCase()}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Round6PlayerView({ 
+  state, 
+  userId, 
+  onVote 
+}: { 
+  state: any, 
+  userId: string,
+  onVote: (targetId: string, safety: boolean) => void
+}) {
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  
+  const me = state.players.find((p: any) => p.id === userId);
+  const isDead = me?.is_eliminated;
+
+  if (isDead) {
+    return (
+      <div className="player-view">
+        <div className="instruction-box" style={{ background: '#ff4444' }}>
+          <h3>DE-CALIBRATED</h3>
+          <p>You are no longer an active variable in this trial.</p>
+        </div>
+        <Round6History history={state.history} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="player-view">
+      <div className="instruction-box">
+        <h3>ROUND 6: THE PIGEON ROUND</h3>
+        <p>Variable Elimination Protocol Engaging. Choose a target. If your target is eliminated, their unit partner is also purged.</p>
+        {state.status === 'voting' && (
+          <p style={{ color: '#4ade80', fontWeight: 'bold' }}>VOTING IN PROGRESS</p>
+        )}
+      </div>
+
+      {state.status === 'voting' && (
+        <div className="admin-card">
+          <h4 className="section-title">ACTIVE TARGETS</h4>
+          <div className="player-list">
+            {state.players.filter((p: any) => !p.is_eliminated && p.id !== userId).map((p: any) => (
+              <div 
+                key={p.id} 
+                className={`player-item ${selectedTarget === p.id ? 'selected' : ''}`}
+                onClick={() => setSelectedTarget(p.id)}
+              >
+                {p.name}
+              </div>
+            ))}
+          </div>
+          <button 
+            className="primary-btn" 
+            style={{ width: '100%', marginTop: '1rem' }}
+            disabled={!selectedTarget}
+            onClick={() => {
+              if (selectedTarget) onVote(selectedTarget, false);
+            }}
+          >
+            CONFIRM VOTE
+          </button>
+        </div>
+      )}
+
+      {state.status !== 'voting' && (
+        <div className="instruction-box" style={{ background: '#333' }}>
+          <p>WAITING FOR NEXT CYCLE...</p>
+        </div>
+      )}
+
+      <Round6History history={state.history} />
+    </div>
+  );
+}
+
+function Round6VolunteerView({ 
+  state, 
+  onStartTimer, 
+  onResolve, 
+  onNext,
+  onFinish 
+}: { 
+  state: any, 
+  onStartTimer: () => void, 
+  onResolve: () => void,
+  onNext: () => void,
+  onFinish: () => void
+}) {
+  return (
+    <div className="volunteer-view" style={{ padding: '1rem' }}>
+      <div className="admin-card">
+        <h3>PIGEON ROUND CONTROL</h3>
+        <p>Cycle: {state.current_cycle} | Status: {state.status.toUpperCase()}</p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '1rem' }}>
+          <button className="primary-btn" onClick={onStartTimer} disabled={state.status === 'voting'}>START TIMER</button>
+          <button className="primary-btn" onClick={onResolve} disabled={state.status !== 'voting'}>RESOLVE</button>
+          <button className="primary-btn" onClick={onNext} disabled={state.status !== 'finished'}>NEXT CYCLE</button>
+          <button className="primary-btn" style={{ background: '#ff4444' }} onClick={onFinish}>FINISH ROUND</button>
+        </div>
+      </div>
+
+      <div className="admin-card" style={{ marginTop: '1rem' }}>
+        <h4 className="section-title">LIVE VOTES ({state.votes.length})</h4>
+        <div className="admin-user-list">
+          {state.players.filter((p: any) => !p.is_eliminated).map((p: any) => {
+             const vote = state.votes.find((v: any) => v.voter_id === p.id);
+             return (
+               <div key={p.id} className="admin-user-item">
+                 <div className="admin-user-info">
+                   <strong>{p.name}</strong>
+                   <small>{vote ? `Voted for ${state.players.find((t: any) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
+                 </div>
+               </div>
+             )
+          })}
+        </div>
+      </div>
+
+      <Round6History history={state.history} />
+    </div>
+  );
+}
+
+function Round7PlayerView({ state, userId, onAction, logs }: { 
   state: any; 
   userId: string; 
   onAction: (action: string, targetId?: string) => void;
@@ -3306,7 +3505,7 @@ function Round6PlayerView({ state, userId, onAction, logs }: {
   );
 }
 
-function Round6VolunteerView({ state, onStartVoting, onResolve, logs }: { 
+function Round7VolunteerView({ state, onStartVoting, onResolve, logs }: { 
   state: any; 
   onStartVoting: () => void; 
   onResolve: () => void;

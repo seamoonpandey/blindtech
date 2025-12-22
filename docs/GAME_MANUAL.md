@@ -60,9 +60,19 @@ Blindtech is an iterative filtration process designed to identify "Resonant Unit
   - **CONVERGE vs CONVERGE**: +3 / +3 (**Mutual Resonance**)
 - **Instant Death**: Reaching 0 Momentum results in immediate termination.
 
-### VI. THE GAME OF HEARTS (Survival Engine)
+### VI. THE PIGEON ROUND (Variable Elimination)
 
-**Objective:** The final descent into attrition and betrayal.
+**Objective:** Tactical player elimination through voting and unit-level collateral damage.
+
+- **Voting Phase**: Active players must nominate a target for elimination.
+- **The Pigeon Rule**: If a player is eliminated via the vote, their **unit partner** is also automatically terminated.
+- **Protocol**:
+  - Sub-rounds continue until only **two units (four players)** remain.
+  - Failure to vote within the deadline results in immediate termination of the unit.
+
+### VII. THE GAME OF HEARTS (Final Survival)
+
+**Objective:** The final descent into attrition and betrayal. Only activates when exactly two units remain.
 
 - **The Bleed**: Automatic loss of 1 Heart per cycle.
 - **Actions**:
