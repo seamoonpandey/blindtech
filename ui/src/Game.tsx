@@ -1067,8 +1067,11 @@ function AdminView({
                             {t.name}
                           </strong>
                           <div style={{ display: 'flex', gap: '4px' }}>
-                            <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(t.id)}>ELIMINATE</button>
-                            <button className="admin-btn-sm revive" onClick={() => onReviveTeam(t.id)}>REVIVE</button>
+                            {isTeamCompromised ? (
+                              <button className="admin-btn-sm revive" onClick={() => onReviveTeam(t.id)}>REVIVE</button>
+                            ) : (
+                              <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(t.id)}>ELIMINATE</button>
+                            )}
                           </div>
                         </div>
                         <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
