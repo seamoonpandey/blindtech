@@ -1116,16 +1116,24 @@ function AdminView({
 
               {dataSubTab === 'r4' && (
                 <>
-                  <h4>ROUND 4: BUG BOUNTY SESSIONS</h4>
+                  <h4>ROUND 4: COGNITIVE TECHNICAL ROUND</h4>
                   <div className="admin-user-list">
-                    {round4Sessions.length > 0 ? round4Sessions.map((s: any) => (
-                      <div key={s.id} className="admin-user-item">
-                        <div className="admin-user-info">
-                          <strong>{s.team_name} (Session #{s.id.slice(0, 8)})</strong>
-                          <small>Status: {s.status} | Bugs Found: {s.bugs_found} | Score: {s.score}</small>
+                    {round4Sessions.length > 0 ? round4Sessions.map((s: any) => {
+                      const isTeamCompromised = s.user1_eliminated || s.user2_eliminated;
+                      return (
+                        <div key={s.id} className="admin-user-item">
+                          <div className="admin-user-info">
+                            <strong style={{ 
+                              color: isTeamCompromised ? '#ef4444' : 'inherit',
+                              textDecoration: isTeamCompromised ? 'line-through' : 'none'
+                            }}>
+                              {s.team_name} (Session #{s.id.slice(0, 8)})
+                            </strong>
+                            <small>Status: {s.status}</small>
+                          </div>
                         </div>
-                      </div>
-                    )) : <p className="empty">No Round 4 session data available.</p>}
+                      );
+                    }) : <p className="empty">No Round 4 session data available.</p>}
                   </div>
                 </>
               )}

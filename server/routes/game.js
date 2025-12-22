@@ -308,6 +308,7 @@ async function gameRoutes(fastify, options) {
         t.name as team_name,
         t.user1_id, t.user2_id,
         u1.name as user1_name, u2.name as user2_name,
+        u1.is_eliminated as user1_eliminated, u2.is_eliminated as user2_eliminated,
         v.name as volunteer_name
       FROM round4_sessions s
       JOIN teams t ON s.team_id = t.id
