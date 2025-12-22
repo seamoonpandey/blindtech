@@ -258,6 +258,8 @@ async function gameRoutes(fastify, options) {
       FROM lottery_pool lp
       LEFT JOIN users u ON lp.taken_by = u.id
       LEFT JOIN teams t ON (t.user1_id = lp.taken_by OR t.user2_id = lp.taken_by) AND t.round_formed = 2
+      WHERE (lp.content->>'type') != 'config'
+      ORDER BY lp.id ASC
     `);
     return res.rows;
   }
@@ -672,7 +674,7 @@ const performR5NextRound = async (gameId) => {
 
           // If volunteer or admin, send additional data
           if (currentUser.role === 'volunteer' || currentUser.role === 'admin') {
-            const lotteryRes = await db.query('SELECT * FROM lottery_pool ORDER BY id');
+            const lotteryRes = await db.query("SELECT * FROM lottery_pool WHERE (content->>'type') != 'config' ORDER BY id");
             socket.send(JSON.stringify({ type: 'lottery_pool', pool: lotteryRes.rows }));
             
             const r3Res = await db.query('SELECT * FROM round3_matches ORDER BY id');
@@ -710,7 +712,7 @@ const performR5NextRound = async (gameId) => {
               const pool = await getDetailedPool();
               socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
             } else {
-              const poolRes = await db.query('SELECT id, is_taken, taken_by FROM lottery_pool');
+              const poolRes = await db.query("SELECT id, is_taken, taken_by FROM lottery_pool WHERE (content->>'type') != 'config' ORDER BY id ASC");
               socket.send(JSON.stringify({ type: 'lottery_pool', pool: poolRes.rows }));
             }
             
@@ -889,22 +891,26 @@ const performR5NextRound = async (gameId) => {
           console.log(`[DEBUG] Storing leadersCount ${X} in lottery_pool config`);
           await db.query("INSERT INTO lottery_pool (content, is_taken) VALUES ($1, true)", [JSON.stringify({ type: 'config', leadersCount: X })]);
           
-          const poolItems = [];
-          // If we have more leaders than selectors, we only add selectors.length leaders to the pool
-          // to ensure everyone who picks gets a partner.
-          const effectiveLeaders = leaders.slice(0, Math.min(leaders.length, selectors.length));
-          
-          effectiveLeaders.forEach(l => {
-            poolItems.push({ type: 'player', id: l.id, name: l.name });
-          });
+          // Target pool size is exactly the number of selectors
+          const poolTargetSize = selectors.length;
+          console.log(`[DEBUG] Target Pool Size (Selectors): ${poolTargetSize}`);
 
-          // Add quotes to pool to fill it up to selectors.length
-          const numQuotes = Math.max(0, selectors.length - poolItems.length);
-          console.log('Number of quotes to add:', numQuotes);
-          for (let i = 0; i < numQuotes; i++) {
+          // 1. Add Leaders (up to poolTargetSize)
+          // We can't add more leaders than there are cards, though usually Leaders < Selectors
+          const leadersToAdd = leaders.slice(0, poolTargetSize);
+          const poolItems = leadersToAdd.map(l => ({ type: 'player', id: l.id, name: l.name }));
+          console.log(`[DEBUG] Added ${poolItems.length} leader cards.`);
+
+          // 2. Fill remainder with Quotes
+          const quotesNeeded = poolTargetSize - poolItems.length;
+          console.log(`[DEBUG] Filling with ${quotesNeeded} quotes.`);
+          
+          for (let i = 0; i < quotesNeeded; i++) {
             const quote = HARD_QUOTES[i % HARD_QUOTES.length];
             poolItems.push({ type: 'quote', text: quote });
           }
+          
+          console.log(`[DEBUG] Final Pool Size: ${poolItems.length}`);
           
           // Shuffle poolItems
           for (let i = poolItems.length - 1; i > 0; i--) {

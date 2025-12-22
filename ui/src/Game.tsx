@@ -2144,15 +2144,15 @@ export default function Game() {
                     <>
                       <p style={{ marginBottom: '1.5rem' }}>Select a card to find your partner or your fate.</p>
                       <div className="card-grid">
-                        {lotteryPool.map(card => (
+                        {lotteryPool.filter(c => !c.is_taken).map(card => (
                           <div 
                             key={card.id} 
-                            className={`lottery-card ${card.is_taken ? 'taken' : ''}`}
-                            onClick={() => !card.is_taken && selectCard(card.id)}
+                            className="lottery-card"
+                            onClick={() => selectCard(card.id)}
                           >
                             <div className="card-inner">
                               <div className="card-front">?</div>
-                              <div className="card-back">{card.is_taken ? '×' : ''}</div>
+                              <div className="card-back"></div>
                             </div>
                           </div>
                         ))}
