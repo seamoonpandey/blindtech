@@ -714,48 +714,53 @@ const performR5NextRound = async (gameId) => {
               socket.send(JSON.stringify({ type: 'lottery_pool', pool: poolRes.rows }));
             }
             
-            // Also send if user is leader or selector
+            // Common data for everyone
             const configRes = await db.query("SELECT content->>'leadersCount' as count FROM lottery_pool WHERE content->>'type' = 'config'");
             const leadersCountAttr = configRes.rows.length > 0 ? parseInt(configRes.rows[0].count) : null;
-            
-            let isLeader = false;
-            if (leadersCountAttr !== null && currentUser.role === 'player') {
-              const lb = await calculateLeaderboard();
-              const userIdx = lb.findIndex(p => p.id === currentUser.id);
-              console.log(`[DEBUG] Role check for ${currentUser.name}: Rank ${userIdx + 1}, leadersCount ${leadersCountAttr}`);
-              if (userIdx !== -1 && userIdx < leadersCountAttr) {
-                isLeader = true;
-              }
-            } else {
-              // Fallback/Legacy: Check if user is in pool as content
-              const inPoolRes = await db.query("SELECT id FROM lottery_pool WHERE content->>'type' = 'player' AND content->>'id' = $1", [currentUser.id]);
-              isLeader = inPoolRes.rows.length > 0;
-            }
-            console.log(`[DEBUG] Assigining role ${isLeader ? 'leader' : 'selector'} to ${currentUser.name}`);
-            socket.send(JSON.stringify({ type: 'round2_role', role: isLeader ? 'leader' : 'selector' }));
 
-            // Send selection result if already made or if leader is picked
-            if (!isLeader) {
-              const selectionRes = await db.query('SELECT content FROM lottery_pool WHERE taken_by = $1', [currentUser.id]);
-              if (selectionRes.rows.length > 0) {
-                const content = selectionRes.rows[0].content;
-                let result = {};
-                if (content.type === 'player') {
-                  const teamRes = await db.query('SELECT name FROM teams WHERE (user1_id = $1 OR user2_id = $1) AND round_formed = 2', [currentUser.id]);
-                  result = { type: 'team', partner: content.name, teamName: teamRes.rows[0]?.name };
-                } else {
-                  result = { type: 'eliminated', quote: content.text };
+            if (currentUser.role === 'player') {
+              let isLeader = false;
+              if (leadersCountAttr !== null) {
+                const lb = await calculateLeaderboard();
+                const userIdx = lb.findIndex(p => p.id === currentUser.id);
+                console.log(`[DEBUG] Role check for ${currentUser.name}: Rank ${userIdx + 1}, leadersCount ${leadersCountAttr}`);
+                if (userIdx !== -1 && userIdx < leadersCountAttr) {
+                  isLeader = true;
                 }
-                socket.send(JSON.stringify({ type: 'selection_result', result }));
+              } else {
+                // Fallback/Legacy: Check if user is in pool as content
+                const inPoolRes = await db.query("SELECT id FROM lottery_pool WHERE content->>'type' = 'player' AND content->>'id' = $1", [currentUser.id]);
+                isLeader = inPoolRes.rows.length > 0;
+              }
+              console.log(`[DEBUG] Assigining role ${isLeader ? 'leader' : 'selector'} to ${currentUser.name}`);
+              socket.send(JSON.stringify({ type: 'round2_role', role: isLeader ? 'leader' : 'selector' }));
+
+              // Send selection result if already made or if leader is picked
+              if (!isLeader) {
+                const selectionRes = await db.query('SELECT content FROM lottery_pool WHERE taken_by = $1', [currentUser.id]);
+                if (selectionRes.rows.length > 0) {
+                  const content = selectionRes.rows[0].content;
+                  let result = {};
+                  if (content.type === 'player') {
+                    const teamRes = await db.query('SELECT name FROM teams WHERE (user1_id = $1 OR user2_id = $1) AND round_formed = 2', [currentUser.id]);
+                    result = { type: 'team', partner: content.name, teamName: teamRes.rows[0]?.name };
+                  } else {
+                    result = { type: 'eliminated', quote: content.text };
+                  }
+                  socket.send(JSON.stringify({ type: 'selection_result', result }));
+                }
+              } else {
+                // Check if leader is picked
+                const pickedRes = await db.query('SELECT u.id, u.name FROM lottery_pool lp JOIN users u ON lp.taken_by = u.id WHERE lp.content->>\'type\' = \'player\' AND lp.content->>\'id\' = $1 AND lp.is_taken = true', [currentUser.id]);
+                if (pickedRes.rows.length > 0) {
+                  const teamRes = await db.query('SELECT name FROM teams WHERE (user1_id = $1 OR user2_id = $1) AND round_formed = 2', [currentUser.id]);
+                  const result = { type: 'team', partner: pickedRes.rows[0].name, teamName: teamRes.rows[0]?.name };
+                  socket.send(JSON.stringify({ type: 'selection_result', result }));
+                }
               }
             } else {
-              // Check if leader is picked
-              const pickedRes = await db.query('SELECT u.id, u.name FROM lottery_pool lp JOIN users u ON lp.taken_by = u.id WHERE lp.content->>\'type\' = \'player\' AND lp.content->>\'id\' = $1 AND lp.is_taken = true', [currentUser.id]);
-              if (pickedRes.rows.length > 0) {
-                const teamRes = await db.query('SELECT name FROM teams WHERE (user1_id = $1 OR user2_id = $1) AND round_formed = 2', [currentUser.id]);
-                const result = { type: 'team', partner: pickedRes.rows[0].name, teamName: teamRes.rows[0]?.name };
-                socket.send(JSON.stringify({ type: 'selection_result', result }));
-              }
+              // Admin/Volunteer
+              socket.send(JSON.stringify({ type: 'round2_role', role: 'admin' }));
             }
           }
           // If round 3 is active, send the match info
