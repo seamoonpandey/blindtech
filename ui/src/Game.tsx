@@ -894,14 +894,24 @@ function AdminView({
             <div className="admin-summary-cards">
               <div className="admin-sum-card">
                 <span className="label">ROUND</span>
-                <span className="value">{gameState.current_round}</span>
+                <span> &nbsp; </span>
+                <span className="value" style={{ marginTop: '0.5rem' }}>{gameState.current_round}</span>
               </div>
               <div className="admin-sum-card">
                 <span className="label">STATUS</span>
-                <span className="value">{gameState.status.toUpperCase()}</span>
+                <span> &nbsp; </span>
+                <span className="value" style={{ 
+                  marginTop: '0.5rem',
+                  color: gameState.status === 'active' ? '#4ade80' : 
+                         gameState.status === 'waiting' ? '#fbbf24' : 
+                         gameState.status === 'finished' ? '#f87171' : 'inherit'
+                }}>
+                  {gameState.status.toUpperCase()}
+                </span>
               </div>
               <div className="admin-sum-card">
                 <span className="label">SURVIVORS</span>
+                <span> &nbsp; </span>
                 <span className="value">
                   {surviversCount} 
                   {gameState.current_round >= 2 && (
