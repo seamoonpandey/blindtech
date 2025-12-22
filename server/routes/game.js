@@ -620,7 +620,10 @@ const performR5NextRound = async (gameId) => {
       id: p.id,
       name: p.name,
       score: Math.round(scores[p.id] || 0)
-    })).sort((a, b) => b.score - a.score);
+    })).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    });
 
     return leaderboard;
   };
@@ -712,8 +715,23 @@ const performR5NextRound = async (gameId) => {
             }
             
             // Also send if user is leader or selector
-            const inPoolRes = await db.query("SELECT id FROM lottery_pool WHERE content->>'type' = 'player' AND content->>'id' = $1", [currentUser.id]);
-            const isLeader = inPoolRes.rows.length > 0;
+            const configRes = await db.query("SELECT content->>'leadersCount' as count FROM lottery_pool WHERE content->>'type' = 'config'");
+            const leadersCountAttr = configRes.rows.length > 0 ? parseInt(configRes.rows[0].count) : null;
+            
+            let isLeader = false;
+            if (leadersCountAttr !== null && currentUser.role === 'player') {
+              const lb = await calculateLeaderboard();
+              const userIdx = lb.findIndex(p => p.id === currentUser.id);
+              console.log(`[DEBUG] Role check for ${currentUser.name}: Rank ${userIdx + 1}, leadersCount ${leadersCountAttr}`);
+              if (userIdx !== -1 && userIdx < leadersCountAttr) {
+                isLeader = true;
+              }
+            } else {
+              // Fallback/Legacy: Check if user is in pool as content
+              const inPoolRes = await db.query("SELECT id FROM lottery_pool WHERE content->>'type' = 'player' AND content->>'id' = $1", [currentUser.id]);
+              isLeader = inPoolRes.rows.length > 0;
+            }
+            console.log(`[DEBUG] Assigining role ${isLeader ? 'leader' : 'selector'} to ${currentUser.name}`);
             socket.send(JSON.stringify({ type: 'round2_role', role: isLeader ? 'leader' : 'selector' }));
 
             // Send selection result if already made or if leader is picked
@@ -862,6 +880,10 @@ const performR5NextRound = async (gameId) => {
           await db.query('DELETE FROM lottery_pool');
           console.log('Cleared lottery_pool');
           
+          // Store config for role determination
+          console.log(`[DEBUG] Storing leadersCount ${X} in lottery_pool config`);
+          await db.query("INSERT INTO lottery_pool (content, is_taken) VALUES ($1, true)", [JSON.stringify({ type: 'config', leadersCount: X })]);
+          
           const poolItems = [];
           // If we have more leaders than selectors, we only add selectors.length leaders to the pool
           // to ensure everyone who picks gets a partner.
@@ -899,6 +921,17 @@ const performR5NextRound = async (gameId) => {
           const detailedPool = await getDetailedPool();
           const restrictedPool = detailedPool.map(c => ({ id: c.id, is_taken: c.is_taken, taken_by: c.taken_by }));
           broadcast({ type: 'lottery_pool', pool: restrictedPool });
+
+          // Notify individual roles immediately
+          for (const [uid, client] of clients.entries()) {
+            if (client.user.role === 'player') {
+              const userIdx = leaderboard.findIndex(p => p.id === client.user.id);
+              const role = (userIdx !== -1 && userIdx < X) ? 'leader' : 'selector';
+              if (client.socket.readyState === 1) {
+                client.socket.send(JSON.stringify({ type: 'round2_role', role }));
+              }
+            }
+          }
           
           console.log('Round 2 started successfully');
         }
@@ -1715,7 +1748,6 @@ const performR5NextRound = async (gameId) => {
             // 2. Clear data for future rounds
             if (targetRound < 6) {
               await db.query("DELETE FROM hearts_players");
-              await db.query("DELETE FROM round6_history");
               await db.query("UPDATE hearts_game_state SET current_cycle = 1, status = 'waiting', winner_id = NULL WHERE id = 1");
             }
             if (targetRound < 5) {
