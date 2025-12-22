@@ -861,7 +861,6 @@ function AdminView({
   onEliminateTeam,
   onReviveTeam,
   onStartRound,
-  onStopRound,
   onFinishRound,
   onStartRound2,
   onStartRound3,
@@ -915,46 +914,42 @@ function AdminView({
                      <button onClick={onStartRound} className="admin-btn primary">START ROUND 1</button>
                    )}
                    
-                   {gameState.status === 'active' && (gameState.current_round === 1 || gameState.current_round === 2) && (
-                     <button onClick={onFinishRound} className="admin-btn">FINISH ROUND {gameState.current_round}</button>
+                   {gameState.status === 'active' && gameState.current_round >= 1 && gameState.current_round <= 5 && (
+                     <button 
+                       onClick={() => {
+                         if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound();
+                         else if (gameState.current_round === 3) onFinishRound3();
+                         else if (gameState.current_round === 4) onFinishRound4();
+                         else if (gameState.current_round === 5) onFinishRound5();
+                       }} 
+                       className="admin-btn primary"
+                     >
+                       FINISH ROUND {gameState.current_round}
+                     </button>
                    )}
-
-                   <button onClick={onStopRound} className="admin-btn danger">EMERGENCY STOP</button>
                 </div>
               </div>
 
               <div className="card control-card">
                 <h3>TRANSITIONS</h3>
                 <div className="btn-group-vertical">
-                   {((gameState.current_round === 1 && gameState.status === 'finished') || (gameState.current_round === 2 && gameState.status === 'waiting')) && (
+                   {gameState.current_round === 1 && gameState.status === 'finished' && (
                      <button onClick={onStartRound2} className="admin-btn">ACTIVATE R2: LOTTERY</button>
                    )}
                    
-                   {((gameState.current_round === 2 && gameState.status === 'finished') || (gameState.current_round === 3 && gameState.status === 'waiting')) && (
+                   {gameState.current_round === 2 && gameState.status === 'finished' && (
                      <button onClick={onStartRound3} className="admin-btn">ACTIVATE R3: DUELS</button>
                    )}
 
-                   {gameState.current_round === 3 && gameState.status === 'active' && (
-                     <button onClick={onFinishRound3} className="admin-btn">FINISH R3</button>
-                   )}
-
-                   {((gameState.current_round === 3 && gameState.status === 'waiting') || (gameState.current_round === 4 && gameState.status === 'waiting')) && (
+                   {gameState.current_round === 3 && gameState.status === 'waiting' && (
                      <button onClick={onStartRound4} className="admin-btn">ACTIVATE R4: CODING</button>
                    )}
 
-                   {gameState.current_round === 4 && gameState.status === 'active' && (
-                     <button onClick={onFinishRound4} className="admin-btn">FINISH R4</button>
-                   )}
-
-                   {((gameState.current_round === 4 && gameState.status === 'waiting') || (gameState.current_round === 5 && gameState.status === 'waiting')) && (
+                   {gameState.current_round === 4 && gameState.status === 'waiting' && (
                      <button onClick={onStartRound5} className="admin-btn">ACTIVATE R5: PARADOX</button>
                    )}
 
-                   {gameState.current_round === 5 && gameState.status === 'active' && (
-                     <button onClick={onFinishRound5} className="admin-btn">FINISH R5</button>
-                   )}
-
-                   {((gameState.current_round === 5 && gameState.status === 'waiting') || (gameState.current_round === 6 && gameState.status === 'waiting')) && (
+                   {gameState.current_round === 5 && gameState.status === 'waiting' && (
                      <button onClick={onStartRound6} className="admin-btn">ACTIVATE R6: HEARTS</button>
                    )}
 
@@ -1500,10 +1495,7 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'start_round' }));
   };
 
-  const stopRound = () => {
-    console.log('Sending stop_round message...');
-    ws?.send(JSON.stringify({ type: 'stop_round' }));
-  };
+
 
   const finishRound = () => {
     ws?.send(JSON.stringify({ type: 'finish_round' }));
@@ -1749,7 +1741,6 @@ export default function Game() {
           onEliminateTeam={eliminateTeam}
           onReviveTeam={reviveTeam}
           onStartRound={startRound}
-          onStopRound={stopRound}
           onFinishRound={finishRound}
           onStartRound2={startRound2}
           onStartRound3={startRound3}
