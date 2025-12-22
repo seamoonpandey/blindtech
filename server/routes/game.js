@@ -253,12 +253,33 @@ async function gameRoutes(fastify, options) {
           WHEN (lp.content->>'type') = 'player' THEN (lp.content->>'name')
           ELSE 'QUOTE'
         END as content_name,
-        t.name as team_name
+        t.name as team_name,
+        t.id as team_id
       FROM lottery_pool lp
       LEFT JOIN users u ON lp.taken_by = u.id
       LEFT JOIN teams t ON (t.user1_id = lp.taken_by OR t.user2_id = lp.taken_by) AND t.round_formed = 2
     `);
     return res.rows;
+  }
+
+  async function broadcastTeams() {
+    const res = await db.query(`
+      SELECT 
+        t.id, t.name, t.round_formed,
+        u1.name as user1_name, u2.name as user2_name,
+        u1.id as user1_id, u2.id as user2_id,
+        u1.is_eliminated as user1_eliminated, u2.is_eliminated as user2_eliminated
+      FROM teams t
+      JOIN users u1 ON t.user1_id = u1.id
+      JOIN users u2 ON t.user2_id = u2.id
+      ORDER BY t.id DESC
+    `);
+    const teams = res.rows;
+    for (const [userId, { socket, user }] of clients.entries()) {
+      if (socket.readyState === 1 && (user.role === 'admin' || user.role === 'volunteer')) {
+        socket.send(JSON.stringify({ type: 'admin_teams', teams }));
+      }
+    }
   }
 
   async function getRound3Matches() {
@@ -659,6 +680,20 @@ const performR5NextRound = async (gameId) => {
             
             const r5Res = await db.query('SELECT * FROM round5_games ORDER BY id');
             socket.send(JSON.stringify({ type: 'round5_games', games: r5Res.rows }));
+
+            // Teams list for management
+            const teamsRes = await db.query(`
+              SELECT 
+                t.id, t.name, t.round_formed,
+                u1.name as user1_name, u2.name as user2_name,
+                u1.id as user1_id, u2.id as user2_id,
+                u1.is_eliminated as user1_eliminated, u2.is_eliminated as user2_eliminated
+              FROM teams t
+              JOIN users u1 ON t.user1_id = u1.id
+              JOIN users u2 ON t.user2_id = u2.id
+              ORDER BY t.id DESC
+            `);
+            socket.send(JSON.stringify({ type: 'admin_teams', teams: teamsRes.rows }));
           }
 
           // If admin, send all users for management
@@ -758,8 +793,8 @@ const performR5NextRound = async (gameId) => {
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
-        if (data.type === 'stop_round' && currentUser.role === 'admin') {
-          console.log('Stopping round...');
+        if (data.type === 'stop_round' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
+          console.log('Stopping round...', currentUser.role);
           const stateResBefore = await db.query('SELECT current_round FROM game_state WHERE id = 1');
           const currentRound = stateResBefore.rows[0].current_round;
 
@@ -786,15 +821,32 @@ const performR5NextRound = async (gameId) => {
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
-        if (data.type === 'finish_round' && currentUser.role === 'admin') {
-          console.log('Finishing round...');
+        if (data.type === 'finish_round' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
+          console.log('Finishing round...', currentUser.role);
+          const stateResBefore = await db.query('SELECT current_round FROM game_state WHERE id = 1');
+          const currentRound = stateResBefore.rows[0].current_round;
+
+          if (currentRound === 2) {
+            console.log('Eliminating single players in Round 2 (via finish_round)...');
+            await db.query(`
+              UPDATE users 
+              SET is_eliminated = true 
+              WHERE role = 'player' 
+              AND id NOT IN (
+                SELECT user1_id FROM teams WHERE round_formed = 2
+                UNION 
+                SELECT user2_id FROM teams WHERE round_formed = 2
+              )
+            `);
+          }
+
           await db.query('UPDATE game_state SET status = \'finished\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
           broadcast({ type: 'round_finished', round: stateRes.rows[0].current_round });
         }
 
-        if (data.type === 'start_round_2' && currentUser.role === 'admin') {
+        if (data.type === 'start_round_2' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Starting Round 2...');
           const leaderboard = await calculateLeaderboard();
           console.log('Leaderboard calculated, size:', leaderboard.length);
@@ -847,7 +899,7 @@ const performR5NextRound = async (gameId) => {
           console.log('Round 2 started successfully');
         }
 
-        if (data.type === 'start_round_3' && currentUser.role === 'admin') {
+        if (data.type === 'start_round_3' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           try {
             console.log('Starting Round 3...');
             
@@ -905,7 +957,7 @@ const performR5NextRound = async (gameId) => {
           }
         }
 
-        if (data.type === 'finish_round_3' && currentUser.role === 'admin') {
+        if (data.type === 'finish_round_3' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Finishing Round 3...');
           
           // Set game state to waiting (Round 3 finished, waiting for Round 4)
@@ -916,7 +968,7 @@ const performR5NextRound = async (gameId) => {
           console.log('Round 3 finished - players can now see their elimination status');
         }
 
-        if (data.type === 'start_round_4' && currentUser.role === 'admin') {
+        if (data.type === 'start_round_4' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Starting Round 4 (Coding Club)...');
           
           // Get all surviving teams (users who are not eliminated and are in teams)
@@ -1000,14 +1052,14 @@ const performR5NextRound = async (gameId) => {
           await broadcastRound4Update();
         }
 
-        if (data.type === 'finish_round_4' && currentUser.role === 'admin') {
+        if (data.type === 'finish_round_4' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Finishing Round 4...');
           await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
         }
 
-        if (data.type === 'start_round_5' && currentUser.role === 'admin') {
+        if (data.type === 'start_round_5' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Starting Round 5 (Paradox)...');
           
           // Get all surviving teams
@@ -1220,7 +1272,7 @@ const performR5NextRound = async (gameId) => {
           await broadcastRound5Update();
         }
 
-        if (data.type === 'finish_round_5' && currentUser.role === 'admin') {
+        if (data.type === 'finish_round_5' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Finishing Round 5...');
           await db.query('UPDATE game_state SET status = \'waiting\' WHERE id = 1');
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
@@ -1228,7 +1280,7 @@ const performR5NextRound = async (gameId) => {
           console.log('Round 5 finished');
         }
 
-        if (data.type === 'start_round_6' && currentUser.role === 'admin') {
+        if (data.type === 'start_round_6' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Starting Round 6 (The Game of Hearts)...');
           
           await db.query('DELETE FROM hearts_players');
@@ -1501,7 +1553,7 @@ const performR5NextRound = async (gameId) => {
            await broadcastRound6Update();
         }
         
-        if (data.type === 'r6_finish' && currentUser.role === 'admin') {
+        if (data.type === 'r6_finish' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
            console.log('Finishing Round 6...');
            await db.query("UPDATE game_state SET status = 'finished' WHERE id = 1");
            broadcast({ type: 'state_update', state: (await db.query("SELECT * FROM game_state WHERE id = 1")).rows[0] });
@@ -1583,6 +1635,9 @@ const performR5NextRound = async (gameId) => {
                 }));
               }
             }
+
+            // Sync teams for admin/volunteers
+            await broadcastTeams();
             
           } catch (e) {
             await client.query('ROLLBACK');
@@ -1640,6 +1695,80 @@ const performR5NextRound = async (gameId) => {
                  client.socket.send(JSON.stringify({ type: 'status_update', isEliminated }));
                }
             }
+          }
+        }
+
+        if (data.type === 'admin_reset_round' && currentUser.role === 'admin') {
+          const targetRound = parseInt(data.round);
+          console.log(`ADMIN RESET: Resetting to Round ${targetRound}`);
+          
+          try {
+            await db.query('BEGIN');
+            
+            // 1. Update core game state
+            await db.query("UPDATE game_state SET current_round = $1, status = 'active' WHERE id = 1", [targetRound]);
+
+            // 2. Clear data for future rounds
+            if (targetRound < 6) {
+              await db.query("DELETE FROM hearts_players");
+              await db.query("DELETE FROM round6_history");
+              await db.query("UPDATE hearts_game_state SET current_cycle = 1, status = 'waiting', winner_id = NULL WHERE id = 1");
+            }
+            if (targetRound < 5) {
+              await db.query("DELETE FROM round5_turns");
+              await db.query("DELETE FROM round5_games");
+            }
+            if (targetRound < 4) {
+              await db.query("DELETE FROM round4_sessions");
+            }
+            if (targetRound < 3) {
+              await db.query("DELETE FROM round3_matches");
+            }
+            if (targetRound <= 2) {
+              await db.query("DELETE FROM teams WHERE round_formed >= 2");
+              await db.query("UPDATE lottery_pool SET is_taken = false, taken_by = NULL");
+            }
+            if (targetRound <= 1) {
+              await db.query("DELETE FROM submissions");
+            }
+
+            // 3. Revive all players for any reset to earlier rounds
+            await db.query("UPDATE users SET is_eliminated = false WHERE role = 'player'");
+            await db.query("UPDATE users SET has_used_safety = false");
+
+            await db.query('COMMIT');
+            console.log(`SUCCESS: Reset to Round ${targetRound} complete.`);
+            
+            // 4. Broadcast the new state and refresh data
+            const newState = (await db.query('SELECT * FROM game_state WHERE id = 1')).rows[0];
+            broadcast({ type: 'state_update', state: newState });
+            
+            // Refresh auxiliary data for admins/volunteers
+            const pool = await getDetailedPool();
+            const r3Matches = await getRound3Matches();
+            const r4Sessions = await getRound4Sessions();
+            const r5Games = await getRound5Games();
+            const r6State = targetRound >= 6 ? await getRound6State() : null;
+            const teamsRes = await db.query(`
+               SELECT t.id, t.name, t.round_formed, u1.name as user1_name, u2.name as user2_name, u1.id as user1_id, u2.id as user2_id, u1.is_eliminated as user1_eliminated, u2.is_eliminated as user2_eliminated
+               FROM teams t JOIN users u1 ON t.user1_id = u1.id JOIN users u2 ON t.user2_id = u2.id ORDER BY t.id DESC
+            `);
+
+            for (const [uid, client] of clients.entries()) {
+              if (client.socket.readyState === 1 && (client.user.role === 'admin' || client.user.role === 'volunteer')) {
+                client.socket.send(JSON.stringify({ type: 'lottery_pool', pool }));
+                client.socket.send(JSON.stringify({ type: 'round3_matches', matches: r3Matches }));
+                client.socket.send(JSON.stringify({ type: 'round4_sessions', sessions: r4Sessions }));
+                client.socket.send(JSON.stringify({ type: 'round5_games', games: r5Games }));
+                client.socket.send(JSON.stringify({ type: 'admin_teams', teams: teamsRes.rows }));
+              }
+              if (targetRound >= 6 && client.socket.readyState === 1) {
+                client.socket.send(JSON.stringify({ type: 'round6_update', state: r6State }));
+              }
+            }
+          } catch (e) {
+            await db.query('ROLLBACK');
+            console.error('RESET FAILED:', e);
           }
         }
       } catch (err) {

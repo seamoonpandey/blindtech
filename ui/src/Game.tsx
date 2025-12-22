@@ -174,13 +174,12 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, onFinishRound3 }: { 
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { 
   volunteerId: string; 
   matches: any[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
-  onFinishRound3?: () => void;
 }) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
 
@@ -307,16 +306,6 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
               </div>
             )}
           </div>
-
-          {matches.length > 0 && matches.every(m => m.status === 'finished') && onFinishRound3 && (
-            <button 
-              onClick={onFinishRound3}
-              className="submit-btn" 
-              style={{ width: '100%', marginTop: '1.5rem', background: '#ff9800', fontSize: '1.2rem', padding: '1rem' }}
-            >
-              ⏹️ FINISH ROUND 3
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -415,12 +404,11 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
   );
 }
 
-function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate, onFinishRound4 }: {
+function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
   sessions: any[];
   volunteerId: string;
   onJoinSession: (sessionId: string) => void;
   onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
-  onFinishRound4?: () => void;
 }) {
   const mySession = sessions.find(s => s.volunteer_id === volunteerId && s.status === 'active');
   
@@ -514,16 +502,6 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate,
           <div className="card" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
             <p>NO TEAMS IN EVALUATION QUEUE</p>
           </div>
-        )}
-
-        {sessions.length > 0 && sessions.every(s => s.status === 'finished') && onFinishRound4 && (
-          <button 
-            onClick={onFinishRound4}
-            className="submit-btn" 
-            style={{ width: '100%', marginTop: '1.5rem', background: '#ff9800', fontSize: '1.2rem', padding: '1rem' }}
-          >
-            ⏹️ FINISH ROUND 4
-          </button>
         )}
       </div>
     </div>
@@ -874,7 +852,7 @@ function AdminView({
   gameState, 
   leaderboard, 
   adminUsers, 
-  lotteryPool, 
+  adminTeams, 
   round3Matches, 
   round4Sessions, 
   round5Games,
@@ -892,7 +870,8 @@ function AdminView({
   onFinishRound4,
   onStartRound5,
   onFinishRound5,
-  onStartRound6
+  onStartRound6,
+  onResetRound
 }: any) {
   const [activeTab, setActiveTab] = useState('control');
   const [leaderboardPage, setLeaderboardPage] = useState(1);
@@ -906,6 +885,7 @@ function AdminView({
         <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => setActiveTab('leaderboard')}>LEADERBOARD</button>
         <button className={activeTab === 'management' ? 'active' : ''} onClick={() => setActiveTab('management')}>MANAGEMENT</button>
         <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>DATA HISTORY</button>
+        <button className={activeTab === 'recovery' ? 'active' : ''} onClick={() => setActiveTab('recovery')}>RECOVERY</button>
       </div>
 
       <div className="admin-content-area">
@@ -931,33 +911,56 @@ function AdminView({
               <div className="card control-card">
                 <h3>GLOBAL CONTROLS</h3>
                 <div className="btn-group-vertical">
-                   <button onClick={onStartRound} className="admin-btn primary" disabled={gameState.current_round !== 0}>START ROUND 1</button>
+                   {gameState.current_round === 0 && (
+                     <button onClick={onStartRound} className="admin-btn primary">START ROUND 1</button>
+                   )}
+                   
+                   {gameState.status === 'active' && (gameState.current_round === 1 || gameState.current_round === 2) && (
+                     <button onClick={onFinishRound} className="admin-btn">FINISH ROUND {gameState.current_round}</button>
+                   )}
+
                    <button onClick={onStopRound} className="admin-btn danger">EMERGENCY STOP</button>
-                   <button onClick={onFinishRound} className="admin-btn">FINISH CURRENT ROUND</button>
                 </div>
               </div>
 
               <div className="card control-card">
                 <h3>TRANSITIONS</h3>
                 <div className="btn-group-vertical">
-                   <button onClick={onStartRound2} className="admin-btn" disabled={gameState.current_round !== 1 || gameState.status !== 'finished'}>ACTIVATE R2: LOTTERY</button>
+                   {((gameState.current_round === 1 && gameState.status === 'finished') || (gameState.current_round === 2 && gameState.status === 'waiting')) && (
+                     <button onClick={onStartRound2} className="admin-btn">ACTIVATE R2: LOTTERY</button>
+                   )}
                    
-                   <div className="btn-row">
-                     <button onClick={onStartRound3} className="admin-btn" disabled={gameState.current_round !== 2 || gameState.status !== 'active'}>ACTIVATE R3: DUELS</button>
-                     <button onClick={onFinishRound3} className="admin-btn-sm" disabled={gameState.current_round !== 3 || gameState.status !== 'active'}>FINISH R3</button>
-                   </div>
+                   {((gameState.current_round === 2 && gameState.status === 'finished') || (gameState.current_round === 3 && gameState.status === 'waiting')) && (
+                     <button onClick={onStartRound3} className="admin-btn">ACTIVATE R3: DUELS</button>
+                   )}
 
-                   <div className="btn-row">
-                     <button onClick={onStartRound4} className="admin-btn" disabled={gameState.current_round !== 3 || gameState.status !== 'waiting'}>ACTIVATE R4: CODING</button>
-                     <button onClick={onFinishRound4} className="admin-btn-sm" disabled={gameState.current_round !== 4 || gameState.status !== 'active'}>FINISH R4</button>
-                   </div>
+                   {gameState.current_round === 3 && gameState.status === 'active' && (
+                     <button onClick={onFinishRound3} className="admin-btn">FINISH R3</button>
+                   )}
 
-                   <div className="btn-row">
-                     <button onClick={onStartRound5} className="admin-btn" disabled={gameState.current_round !== 4 || gameState.status !== 'waiting'}>ACTIVATE R5: PARADOX</button>
-                     <button onClick={onFinishRound5} className="admin-btn-sm" disabled={gameState.current_round !== 5 || gameState.status !== 'active'}>FINISH R5</button>
-                   </div>
+                   {((gameState.current_round === 3 && gameState.status === 'waiting') || (gameState.current_round === 4 && gameState.status === 'waiting')) && (
+                     <button onClick={onStartRound4} className="admin-btn">ACTIVATE R4: CODING</button>
+                   )}
 
-                   <button onClick={onStartRound6} className="admin-btn" disabled={gameState.current_round !== 5 || gameState.status !== 'waiting'}>ACTIVATE R6: HEARTS</button>
+                   {gameState.current_round === 4 && gameState.status === 'active' && (
+                     <button onClick={onFinishRound4} className="admin-btn">FINISH R4</button>
+                   )}
+
+                   {((gameState.current_round === 4 && gameState.status === 'waiting') || (gameState.current_round === 5 && gameState.status === 'waiting')) && (
+                     <button onClick={onStartRound5} className="admin-btn">ACTIVATE R5: PARADOX</button>
+                   )}
+
+                   {gameState.current_round === 5 && gameState.status === 'active' && (
+                     <button onClick={onFinishRound5} className="admin-btn">FINISH R5</button>
+                   )}
+
+                   {((gameState.current_round === 5 && gameState.status === 'waiting') || (gameState.current_round === 6 && gameState.status === 'waiting')) && (
+                     <button onClick={onStartRound6} className="admin-btn">ACTIVATE R6: HEARTS</button>
+                   )}
+
+                   {gameState.current_round === 6 && (
+                     <p style={{ textAlign: 'center', opacity: 0.7, padding: '1rem' }}>Final Round Active</p>
+                   )}
                 </div>
               </div>
             </div>
@@ -1047,15 +1050,25 @@ function AdminView({
               <div className="card">
                 <h3>TEAMS MANAGEMENT (R2+)</h3>
                 <div className="admin-user-scroll">
-                  {/* Logic to show teams if available */}
-                  {lotteryPool.filter((c: any) => c.is_taken && c.team_id).map((c: any) => (
-                    <div key={c.team_id} className="admin-user-item">
-                      <span>TEAM: {c.team_name}</span>
-                      <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(c.team_id)}>ELIMINATE TEAM</button>
-                      <button className="admin-btn-sm revive" onClick={() => onReviveTeam(c.team_id)}>REVIVE TEAM</button>
+                  {adminTeams.map((t: any) => (
+                    <div key={t.id} className="admin-user-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '1rem' }}>{t.name}</strong>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(t.id)}>ELIMINATE</button>
+                          <button className="admin-btn-sm revive" onClick={() => onReviveTeam(t.id)}>REVIVE</button>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                        {t.user1_name} {t.user1_eliminated ? '💀' : '❤️'} | {t.user2_name} {t.user2_eliminated ? '💀' : '❤️'}
+                      </div>
                     </div>
                   ))}
-                  {lotteryPool.filter((c: any) => c.is_taken && c.team_id).length === 0 && <p>No teams formed yet.</p>}
+                  {adminTeams.length === 0 && (
+                    <p className="empty">
+                      {gameState.current_round < 2 ? "Teams will be formed in Round 2." : "No teams have been formed yet."}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1064,8 +1077,8 @@ function AdminView({
 
         {activeTab === 'data' && (
           <div className="admin-tab-pane">
-            <h1 className="admin-pane-title">GAME DATA HISTORY</h1>
-            <div className="admin-data-history-tabs">
+            <h1 className="admin-pane-title">GAME DATA LOGS</h1>
+            <div className="admin-data-tabs">
               <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
               <button className={dataSubTab === 'r4' ? 'active' : ''} onClick={() => setDataSubTab('r4')}>R4 SESSIONS</button>
               <button className={dataSubTab === 'r5' ? 'active' : ''} onClick={() => setDataSubTab('r5')}>R5 GAMES</button>
@@ -1122,14 +1135,47 @@ function AdminView({
             </div>
           </div>
         )}
+
+        {activeTab === 'recovery' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">SYSTEM RECOVERY</h1>
+            <div className="card" style={{ border: '2px solid #ef4444', background: '#fef2f2' }}>
+              <h3 style={{ color: '#b91c1c', marginTop: 0 }}>⚠️ DANGER ZONE: ROUND RESET</h3>
+              <p style={{ fontSize: '0.9rem', color: '#7f1d1d', marginBottom: '1.5rem' }}>
+                Jumping back to a previous round will <strong>permanently delete</strong> all data collected in subsequent rounds. 
+                This action is irreversible.
+              </p>
+              
+              <div className="btn-group-vertical" style={{ gap: '1rem' }}>
+                {gameState.current_round > 1 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(1)}>RESET TO ROUND 1 (RANKINGS)</button>
+                )}
+                {gameState.current_round > 2 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(2)}>RESET TO ROUND 2 (LOTTERY)</button>
+                )}
+                {gameState.current_round > 3 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(3)}>RESET TO ROUND 3 (DUELS)</button>
+                )}
+                {gameState.current_round > 4 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(4)}>RESET TO ROUND 4 (CODING)</button>
+                )}
+                {gameState.current_round > 5 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(5)}>RESET TO ROUND 5 (PARADOX)</button>
+                )}
+                {gameState.current_round <= 1 && (
+                  <p style={{ opacity: 0.5, textAlign: 'center' }}>No past rounds available for recovery.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
+function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
   games: any[];
-  onFinish: () => void;
   onDisqualify: (gameId: string, team: 'A' | 'B') => void;
   onEndNow: (gameId: string) => void;
 }) {
@@ -1146,6 +1192,9 @@ function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
           const currentRoundTurns = g.turns?.filter((t: any) => t.round_number === g.current_round) || [];
           const bothSubmitted = currentRoundTurns.length === 2;
           const isRevealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
+
+          const turnA = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'A');
+          const turnB = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'B');
 
           return (
             <div key={g.id} className="card" style={{ padding: '1.5rem', border: g.status === 'finished' ? '2px solid #ddd' : '4px solid black' }}>
@@ -1191,6 +1240,19 @@ function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
                   </div>
                 )}
               </div>
+
+              {isRevealed && turnA && turnB && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
+                  <div style={{ padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px' }}>
+                    <div style={{ opacity: 0.6 }}>A played:</div>
+                    <div style={{ fontWeight: 'bold' }}>{turnA.card_selected}</div>
+                  </div>
+                  <div style={{ padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px' }}>
+                    <div style={{ opacity: 0.6 }}>B played:</div>
+                    <div style={{ fontWeight: 'bold' }}>{turnB.card_selected}</div>
+                  </div>
+                </div>
+              )}
               
 
 
@@ -1210,16 +1272,6 @@ function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
           );
         })}
       </div>
-      
-      {games.length > 0 && (
-        <button 
-          onClick={onFinish}
-          className="submit-btn" 
-          style={{ width: '100%', marginTop: '2.5rem', fontSize: '1.2rem', padding: '1.5rem', background: '#000', color: '#fff', border: '4px solid #fff', boxShadow: '0 0 15px rgba(0,0,0,0.2)' }}
-        >
-          {games.every(g => g.status === 'finished') ? '⏹️ OFFICIALLY CLOSE ROUND 5' : '🚨 EMERGENCY SHUTDOWN ROUND 5'}
-        </button>
-      )}
     </div>
   );
 }
@@ -1242,13 +1294,13 @@ export default function Game() {
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
-  const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3' | 'round4' | 'round5'>('round1');
   const [round3Matches, setRound3Matches] = useState<any[]>([]);
   const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
   const [round5Games, setRound5Games] = useState<any[]>([]);
   const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE
   const [r6Logs, setR6Logs] = useState<string[]>([]);
   const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
+  const [adminTeams, setAdminTeams] = useState<any[]>([]); // Admin/Volunteer teams list
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1407,6 +1459,8 @@ export default function Game() {
         setR6Logs(data.logs);
       } else if (data.type === 'admin_users') {
         setAdminUsers(data.users);
+      } else if (data.type === 'admin_teams') {
+        setAdminTeams(data.teams);
       } else if (data.type === 'status_update') {
         setIsEliminated(data.isEliminated);
       }
@@ -1584,6 +1638,12 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'start_round_6' }));
   };
 
+  const resetRound = (round: number) => {
+    if (window.confirm(`⚠️ WARNING: YOU ARE ABOUT TO RESET THE GAME TO ROUND ${round}. THIS WILL DELETE DATA FROM ALL SUBSEQUENT ROUNDS. ARE YOU ABSOLUTELY SURE?`)) {
+      ws?.send(JSON.stringify({ type: 'admin_reset_round', round }));
+    }
+  };
+
 
   const selectCard = (cardId: string) => {
     setPendingCardId(cardId);
@@ -1680,7 +1740,7 @@ export default function Game() {
           gameState={gameState}
           leaderboard={leaderboard}
           adminUsers={adminUsers}
-          lotteryPool={lotteryPool}
+          adminTeams={adminTeams}
           round3Matches={round3Matches}
           round4Sessions={round4Sessions}
           round5Games={round5Games}
@@ -1699,6 +1759,7 @@ export default function Game() {
           onStartRound5={startRound5}
           onFinishRound5={finishRound5}
           onStartRound6={startRound6}
+          onResetRound={resetRound}
         />
       </div>
     );
@@ -1739,12 +1800,10 @@ export default function Game() {
         {/* Left Column: Game Interaction */}
         <div className={`main-area ${activeTab === 'game' ? 'show' : 'hide'}`}>
           {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 0 && (
-            <div className="card admin-card">
-              <h2 className="section-title">CONTROL PANEL</h2>
-              <p>Initialize Round 1 for all players.</p>
-              <button onClick={startRound} className="primary-btn" style={{ width: '100%', fontSize: '1.2rem' }}>
-                ACTIVATE ROUND 1
-              </button>
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
+              <h2 className="section-title">INITIALIZING ARENA</h2>
+              <p>Waiting for the <strong>Game Master</strong> to authorize the start of <strong>Round 1</strong>.</p>
             </div>
           )}
 
@@ -1853,57 +1912,32 @@ export default function Game() {
           )}
 
           {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 3 && (
-            <div className="card waiting-card">
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
               <h2 className="section-title">ROUND 3 COMPLETE</h2>
-              <p style={{ marginBottom: '1.5rem' }}>All duels have been finished. Players have been notified of their status.</p>
-              <button 
-                onClick={startRound4} 
-                className="submit-btn" 
-                style={{ width: '100%', background: '#667eea', fontSize: '1.2rem', padding: '1rem' }}
-              >
-                🎯 ACTIVATE CODING CLUB (ROUND 4)
-              </button>
+              <p>Waiting for the <strong>Game Master</strong> to activate <strong>Round 4: Coding Club</strong>.</p>
             </div>
           )}
 
           {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 4 && (
-            <div className="card waiting-card">
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
               <h2 className="section-title">ROUND 4 COMPLETE</h2>
-              <p style={{ marginBottom: '1.5rem' }}>All evaluations have been finished. Survivors are ready for the Paradox.</p>
-              <button 
-                onClick={startRound5} 
-                className="submit-btn" 
-                style={{ width: '100%', background: '#8b5cf6', fontSize: '1.2rem', padding: '1rem' }}
-              >
-                🔮 ACTIVATE PARADOX (ROUND 5)
-              </button>
+              <p>Waiting for the <strong>Game Master</strong> to activate <strong>Round 5: The Paradox</strong>.</p>
             </div>
           )}
 
           {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 1 && (
-            <div className="card admin-card">
-              <h2 className="section-title">ROUND 1 ACTIVE</h2>
-              <p>Players are currently submitting their rankings.</p>
-              <div className="stats-grid">
-                <div className="stat-item">
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <h2 className="section-title">ROUND 1: POPULARITY HELL</h2>
+              <p>Players are currently submitting their mission parameters.</p>
+              <div className="stats-grid" style={{ marginTop: '1.5rem' }}>
+                <div className="stat-item" style={{ textAlign: 'center' }}>
                   <div className="stat-value">{players.length}</div>
-                  <div className="stat-label">TOTAL PLAYERS</div>
+                  <div className="stat-label">TOTAL OPERATIVES</div>
                 </div>
               </div>
-              <button 
-                onClick={finishRound} 
-                className="submit-btn" 
-                style={{ width: '100%', marginTop: '1.5rem' }}
-              >
-                FINISH ROUND
-              </button>
-              <button 
-                onClick={stopRound} 
-                className="secondary-btn" 
-                style={{ width: '100%', marginTop: '0.5rem', background: '#ff4444', color: 'white' }}
-              >
-                STOP ROUND
-              </button>
+              <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>Waiting for game master to conclude this phase.</p>
             </div>
           )}
 
@@ -1923,7 +1957,6 @@ export default function Game() {
               onJoin={joinMatch}
               onScore={scoreTeam}
               onDisqualify={disqualifyTeam}
-              onFinishRound3={finishRound3}
             />
           )}
 
@@ -1940,7 +1973,6 @@ export default function Game() {
               volunteerId={user.id}
               onJoinSession={joinSession}
               onEvaluate={evaluateTeam}
-              onFinishRound4={finishRound4}
             />
           )}
 
@@ -1983,19 +2015,16 @@ export default function Game() {
           {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 5 && (
             <Round5VolunteerView 
               games={round5Games}
-              onFinish={finishRound5}
               onDisqualify={disqualifyTeam5}
               onEndNow={endR5GameNow}
             />
           )}
 
           {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 5 && (
-            <div className="card admin-card">
-              <h2 className="section-title">ROUND 5 COMPLETE</h2>
-              <p>The Paradox is over. Survivors are ready for the final trial.</p>
-              <button onClick={startRound6} className="primary-btn" style={{ width: '100%', fontSize: '1.2rem', marginTop: '1rem', background: '#d53f8c' }}>
-                ACTIVATE THE GAME OF HEARTS
-              </button>
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
+              <h2 className="section-title">THE PARADOX HAS ENDED</h2>
+              <p>Waiting for the <strong>Game Master</strong> to activate the final arena: <strong>The Game of Hearts</strong>.</p>
             </div>
           )}
 
@@ -2056,52 +2085,7 @@ export default function Game() {
                   <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
                     ROUND {gameState.current_round} FINALIZED
                   </p>
-                  <p style={{ opacity: 0.7 }}>Awaiting next phase instructions...</p>
-                  {user.role === 'volunteer' && gameState.current_round === 1 && (
-                    <button 
-                      onClick={startRound2} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem' }}
-                    >
-                      ACTIVATE ROUND 2
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 2 && (
-                    <button 
-                      onClick={startRound3} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem' }}
-                    >
-                      ACTIVATE ROUND 3
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 3 && (
-                    <button 
-                      onClick={startRound4} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem', background: '#667eea' }}
-                    >
-                      🎯 ACTIVATE CODING CLUB (ROUND 4)
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 4 && (
-                    <button 
-                      onClick={startRound5} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem', background: '#8b5cf6' }}
-                    >
-                      🔮 ACTIVATE PARADOX (ROUND 5)
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 5 && (
-                    <button 
-                      onClick={startRound6} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem', background: '#d53f8c' }}
-                    >
-                      🎰 ACTIVATE FINAL LOTTERY (ROUND 6)
-                    </button>
-                  )}
+                  <p style={{ opacity: 0.7 }}>Awaiting next phase instructions from the Game Master...</p>
                 </>
               )}
             </div>
@@ -2188,16 +2172,11 @@ export default function Game() {
 
 
           {gameState.current_round === 2 && gameState.status === 'active' && user.role === 'volunteer' && (
-            <div className="card admin-card">
-              <h2 className="section-title">ROUND 2 ACTIVE</h2>
-              <p>Lottery is in progress. Leaders are waiting, Selectors are picking.</p>
-              <button 
-                onClick={stopRound} 
-                className="secondary-btn" 
-                style={{ width: '100%', marginTop: '1.5rem', background: '#ff4444', color: 'white' }}
-              >
-                STOP ROUND 2 & ELIMINATE SINGLES
-              </button>
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
+              <h2 className="section-title">ROUND 2: LOTTERY</h2>
+              <p>Lottery is currently in progress. Players are selecting their fate.</p>
+              <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>Waiting for game master to stop the lottery and eliminate single players.</p>
             </div>
           )}
         </div>
@@ -2235,40 +2214,7 @@ export default function Game() {
             <div className="card leaderboard-card">
               {user.role === 'volunteer' ? (
                 <>
-                  <div className="volunteer-tabs">
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round1' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round1')}
-                    >
-                      R1
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round2' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round2')}
-                    >
-                      R2
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round3' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round3')}
-                    >
-                      R3
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round4' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round4')}
-                    >
-                      R4
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round5' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round5')}
-                    >
-                      R5
-                    </button>
-                  </div>
-
-                  {volunteerTab === 'round1' && (
+                  {gameState.current_round === 1 && (
                     <>
                       <h2 className="section-title">R1 RANKINGS</h2>
                       <div className="leaderboard-container">
@@ -2299,12 +2245,12 @@ export default function Game() {
                     </>
                   )}
 
-                  {volunteerTab === 'round2' && (
+                  {gameState.current_round === 2 && (
                     <>
-                      <h2 className="section-title">R2 STATUS</h2>
+                      <h2 className="section-title">R2 LOTTERY STATUS</h2>
                       <div className="volunteer-data-list">
                         <p style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '1rem' }}>
-                          Real-time lottery results will appear here.
+                          Current Round: {gameState.status.toUpperCase()}
                         </p>
                         {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').length === 0 ? (
                           <p>No teams formed yet.</p>
@@ -2330,17 +2276,17 @@ export default function Game() {
                     </>
                   )}
 
-                   {volunteerTab === 'round3' && (
+                   {gameState.current_round === 3 && (
                     <>
-                      <h2 className="section-title">R3 STATUS</h2>
+                      <h2 className="section-title">R3 DUEL MONITOR</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
                           {round3Matches.map(m => {
                             const isFinished = m.status === 'finished';
                             const getStatusColor = (scores: any, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
                               if (!isFinished) return 'inherit';
-                              if (isLuckyPassSlot) return '#888'; // Neutral grey for the placeholder
-                              if (!hasOpponent) return '#00cc00'; // Solo team with Lucky Pass is always safe
+                              if (isLuckyPassSlot) return '#888'; 
+                              if (!hasOpponent) return '#00cc00'; 
                               const s = Array.isArray(scores) ? scores : [];
                               const positives = s.filter((val: any) => val === true).length;
                               return positives >= 2 ? '#00cc00' : '#ff4444';
@@ -2373,9 +2319,8 @@ export default function Game() {
                                 <span style={{ 
                                   color: m.status === 'active' ? '#00ff00' : 
                                          m.status === 'finished' ? (
-                                           // For finished matches, show green if team1 won, red if team1 lost
                                            (() => {
-                                             if (!m.team2_id) return '#00cc00'; // Lucky pass
+                                             if (!m.team2_id) return '#00cc00'; 
                                              const t1Positives = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s: boolean) => s === true).length : 0;
                                              return t1Positives >= 2 ? '#00cc00' : '#ff4444';
                                            })()
@@ -2391,14 +2336,15 @@ export default function Game() {
                             </div>
                             );
                           })}
+                          {round3Matches.length === 0 && <p className="empty">No active duels found.</p>}
                         </div>
                       </div>
                     </>
                   )}
 
-                   {volunteerTab === 'round4' && (
+                   {gameState.current_round === 4 && (
                     <>
-                      <h2 className="section-title">R4 STATUS</h2>
+                      <h2 className="section-title">R4 EVALUATION MONITOR</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
                           {round4Sessions.map(s => (
@@ -2432,14 +2378,15 @@ export default function Game() {
                               </div>
                             </div>
                           ))}
+                          {round4Sessions.length === 0 && <p className="empty">No evaluation sessions found.</p>}
                         </div>
                       </div>
                     </>
                   )}
 
-                   {volunteerTab === 'round5' && (
+                   {gameState.current_round === 5 && (
                     <>
-                      <h2 className="section-title">R5 STATUS</h2>
+                      <h2 className="section-title">R5 PARADOX MONITOR</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
                           {round5Games.map(g => (
@@ -2448,7 +2395,7 @@ export default function Game() {
                                 <div>
                                   <div>{g.team_a_name} vs {g.team_b_name || 'BYE'}</div>
                                   <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                    Momentum: {g.team_a_momentum} - {g.team_b_momentum} | Round: {g.current_round}/6
+                                    Momentum: {g.team_a_momentum} - {g.team_b_momentum} | Round: {g.current_round}/9
                                   </div>
                                 </div>
                                 <span style={{ 
@@ -2470,9 +2417,24 @@ export default function Game() {
                               )}
                             </div>
                           ))}
+                          {round5Games.length === 0 && <p className="empty">No active Paradox games found.</p>}
                         </div>
                       </div>
                     </>
+                  )}
+                  
+                  {gameState.current_round === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                      <h3>WAITING FOR GAME START</h3>
+                      <p>Automation will activate once Round 1 begins.</p>
+                    </div>
+                  )}
+
+                  {gameState.current_round >= 6 && (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                      <h3>FINAL ROUND ACTIVE</h3>
+                      <p>Monitoring is now handled via the main interface.</p>
+                    </div>
                   )}
                 </>
               ) : (
