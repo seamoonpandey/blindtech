@@ -849,7 +849,9 @@ const performR5NextRound = async (gameId) => {
           const leaderboard = await calculateLeaderboard();
           console.log('Leaderboard calculated, size:', leaderboard.length);
           const totalPlayers = leaderboard.length;
-          const X = Math.min(10, Math.floor(totalPlayers / 2)); // Top X leaders
+          // Use admin-specified count or default to top X
+          let X = data.leadersCount !== undefined ? parseInt(data.leadersCount) : Math.min(10, Math.floor(totalPlayers / 2));
+          X = Math.max(0, Math.min(X, totalPlayers)); // Guard rails
           console.log('X (leaders count):', X);
           
           const leaders = leaderboard.slice(0, X);
@@ -861,12 +863,16 @@ const performR5NextRound = async (gameId) => {
           console.log('Cleared lottery_pool');
           
           const poolItems = [];
-          // Add leaders to pool
-          leaders.forEach(l => {
+          // If we have more leaders than selectors, we only add selectors.length leaders to the pool
+          // to ensure everyone who picks gets a partner.
+          const effectiveLeaders = leaders.slice(0, Math.min(leaders.length, selectors.length));
+          
+          effectiveLeaders.forEach(l => {
             poolItems.push({ type: 'player', id: l.id, name: l.name });
           });
-          // Add quotes to pool
-          const numQuotes = selectors.length - leaders.length;
+
+          // Add quotes to pool to fill it up to selectors.length
+          const numQuotes = Math.max(0, selectors.length - poolItems.length);
           console.log('Number of quotes to add:', numQuotes);
           for (let i = 0; i < numQuotes; i++) {
             const quote = HARD_QUOTES[i % HARD_QUOTES.length];

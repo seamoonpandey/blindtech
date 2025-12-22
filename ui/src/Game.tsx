@@ -934,7 +934,10 @@ function AdminView({
                 <h3>TRANSITIONS</h3>
                 <div className="btn-group-vertical">
                    {gameState.current_round === 1 && gameState.status === 'finished' && (
-                     <button onClick={onStartRound2} className="admin-btn">ACTIVATE R2: LOTTERY</button>
+                     <button onClick={() => {
+                        const count = window.prompt(`How many players (Top X) should be 'Saved' as Leaders? (Total Players: ${leaderboard.length})`, Math.min(10, Math.floor(leaderboard.length / 2)).toString());
+                        if (count !== null) onStartRound2(parseInt(count));
+                     }} className="admin-btn">ACTIVATE R2: LOTTERY</button>
                    )}
                    
                    {gameState.current_round === 2 && gameState.status === 'finished' && (
@@ -1501,8 +1504,8 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'finish_round' }));
   };
 
-  const startRound2 = () => {
-    ws?.send(JSON.stringify({ type: 'start_round_2' }));
+  const startRound2 = (leadersCount?: number) => {
+    ws?.send(JSON.stringify({ type: 'start_round_2', leadersCount }));
   };
 
   const startRound3 = () => {
