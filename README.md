@@ -14,8 +14,8 @@ The project adheres to a **Dystopian Monochrome** aesthetic—premium high-contr
 
 The documentation is organized to provide clarity without redundancy:
 
-- **[Game Manual](GAME_MANUAL.md)**: The definitive guide to gameplay. Contains detailed round breakdowns, scoring formulas (Math), and official laws of the System.
-- **[Development Guide](DEVELOPMENT.md)**: Technical specifications for engineers. Covers environment setup, backend architecture, and WebSocket protocols.
+- **[Game Manual](docs/GAME_MANUAL.md)**: The definitive guide to gameplay. Contains detailed round breakdowns, scoring formulas (Math), and official laws of the System.
+- **[Development Guide](docs/DEVELOPMENT.md)**: Technical specifications for engineers. Covers environment setup, backend architecture, and WebSocket protocols.
 
 ---
 
