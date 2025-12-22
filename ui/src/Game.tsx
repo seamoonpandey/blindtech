@@ -1034,7 +1034,12 @@ function AdminView({
                 <div className="admin-user-scroll">
                   {adminUsers.filter((u: any) => u.role === 'player').map((u: any) => (
                     <div key={u.id} className="admin-user-item">
-                      <span>{u.name} ({u.email})</span>
+                      <span style={{ 
+                        color: u.is_eliminated ? '#ef4444' : 'inherit',
+                        textDecoration: u.is_eliminated ? 'line-through' : 'none'
+                      }}>
+                        {u.name} ({u.email})
+                      </span>
                       {u.is_eliminated ? (
                         <button className="admin-btn-sm revive" onClick={() => onReviveUser(u.id)}>REVIVE</button>
                       ) : (
@@ -1048,20 +1053,30 @@ function AdminView({
               <div className="card">
                 <h3>TEAMS MANAGEMENT (R2+)</h3>
                 <div className="admin-user-scroll">
-                  {adminTeams.map((t: any) => (
-                    <div key={t.id} className="admin-user-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                        <strong style={{ fontSize: '1rem' }}>{t.name}</strong>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(t.id)}>ELIMINATE</button>
-                          <button className="admin-btn-sm revive" onClick={() => onReviveTeam(t.id)}>REVIVE</button>
+                  {adminTeams.map((t: any) => {
+                    // Mark team as 'dead' if EITHER player is eliminated
+                    const isTeamCompromised = t.user1_eliminated || t.user2_eliminated;
+                    return (
+                      <div key={t.id} className="admin-user-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                          <strong style={{ 
+                            fontSize: '1rem', 
+                            color: isTeamCompromised ? '#ef4444' : 'inherit',
+                            textDecoration: isTeamCompromised ? 'line-through' : 'none'
+                          }}>
+                            {t.name}
+                          </strong>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(t.id)}>ELIMINATE</button>
+                            <button className="admin-btn-sm revive" onClick={() => onReviveTeam(t.id)}>REVIVE</button>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                          {t.user1_name} {t.user1_eliminated ? '💀' : '❤️'} | {t.user2_name} {t.user2_eliminated ? '💀' : '❤️'}
                         </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                        {t.user1_name} {t.user1_eliminated ? '💀' : '❤️'} | {t.user2_name} {t.user2_eliminated ? '💀' : '❤️'}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {adminTeams.length === 0 && (
                     <p className="empty">
                       {gameState.current_round < 2 ? "Teams will be formed in Round 2." : "No teams have been formed yet."}
