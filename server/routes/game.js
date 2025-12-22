@@ -1103,9 +1103,29 @@ const performR5NextRound = async (gameId) => {
 
         if (data.type === 'finish_round_4' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
           console.log('Finishing Round 4...');
+          
+          await db.query('BEGIN');
+          
+          // Eliminate players from teams that did not PASS
+          // This includes 'waiting', 'active', 'fail', or anything else
+          await db.query(`
+             UPDATE users 
+             SET is_eliminated = true 
+             WHERE id IN (
+               SELECT t.user1_id FROM round4_sessions s JOIN teams t ON s.team_id = t.id WHERE s.result != 'pass' OR s.result IS NULL
+               UNION
+               SELECT t.user2_id FROM round4_sessions s JOIN teams t ON s.team_id = t.id WHERE s.result != 'pass' OR s.result IS NULL
+             )
+          `);
+          
+          console.log('Eliminated players from teams that did not pass Round 4.');
+
           await db.query("UPDATE game_state SET status = 'waiting' WHERE id = 1");
+          await db.query('COMMIT');
+
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
+          await broadcastRound4Update(); // To show updated eliminations
         }
 
         if (data.type === 'start_round_5' && (currentUser.role === 'admin' || currentUser.role === 'volunteer')) {
