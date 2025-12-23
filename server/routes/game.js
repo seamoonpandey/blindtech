@@ -1710,7 +1710,11 @@ const performR5NextRound = async (gameId) => {
 
           console.log(`[R7 Check] Alive: ${alivePlayers.length}, Acted: ${activeActions.length}`);
           
-          if (alivePlayers.length > 0 && activeActions.length === alivePlayers.length) {
+          if (alivePlayers.length === 2 && activeActions.length >= 1) {
+            console.log("FINAL DUEL ACTION RECEIVED. TRIGGERING IMMEDIATE RESOLUTION (FIRST TO ACT RULE).");
+            await performR7Resolution();
+          } 
+          else if (alivePlayers.length > 0 && activeActions.length === alivePlayers.length) {
             console.log("ALL PLAYERS ACTED. AUTO-RESOLVING ROUND 7 CYCLE...");
             await performR7Resolution();
           } else {
