@@ -3246,10 +3246,19 @@ function Round6PlayerView({
   onVote: (targetId: string, safety: boolean) => void
 }) {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [useSafety, setUseSafety] = useState<boolean>(false);
   
   const me = state.players.find((p: any) => p.id === userId);
   const myVote = state.votes?.find((v: any) => v.voter_id === userId);
   const isDead = me?.is_eliminated;
+
+  // Update useSafety if they already cast a vote with safety in this subround
+  useEffect(() => {
+    if (myVote) {
+      setUseSafety(!!myVote.used_safety);
+      setSelectedTarget(myVote.target_id);
+    }
+  }, [myVote]);
 
   if (isDead) {
     return (
@@ -3262,6 +3271,8 @@ function Round6PlayerView({
       </div>
     );
   }
+
+  const alreadyUsedSafetyInPast = me?.has_used_safety && !myVote?.used_safety;
 
   return (
     <div className="player-view">
@@ -3279,6 +3290,7 @@ function Round6PlayerView({
           {myVote && (
             <div style={{ background: '#000', color: '#fff', padding: '10px', marginBottom: '1rem', fontWeight: 'bold' }}>
               VOTE RECORDED: {state.players.find((p: any) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
+              {myVote.used_safety && <span style={{ color: '#00ff00', marginLeft: '10px' }}>[SAFETY ACTIVE]</span>}
             </div>
           )}
           <div className="player-list">
@@ -3292,15 +3304,32 @@ function Round6PlayerView({
               </div>
             ))}
           </div>
+
+          <div style={{ marginTop: '1.5rem', padding: '15px', border: '2px dashed black', background: '#f0f0f0' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: alreadyUsedSafetyInPast ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              <input 
+                type="checkbox" 
+                checked={useSafety} 
+                disabled={alreadyUsedSafetyInPast}
+                onChange={(e) => setUseSafety(e.target.checked)}
+                style={{ width: '20px', height: '20px' }}
+              />
+              {alreadyUsedSafetyInPast ? 'SAFETY CARD ALREADY EXHAUSTED' : 'APPLY SAFETY CARD (One-time use)'}
+            </label>
+            <p style={{ fontSize: '0.7rem', marginTop: '5px', opacity: 0.7 }}>
+              Safety prevents your elimination even if you are the top-voted target this cycle.
+            </p>
+          </div>
+
           <button 
             className="primary-btn" 
             style={{ width: '100%', marginTop: '1rem' }}
-            disabled={!selectedTarget || myVote?.target_id === selectedTarget}
+            disabled={!selectedTarget || (myVote?.target_id === selectedTarget && myVote?.used_safety === useSafety)}
             onClick={() => {
-              if (selectedTarget) onVote(selectedTarget, false);
+              if (selectedTarget) onVote(selectedTarget, useSafety);
             }}
           >
-            {myVote ? 'CHANGE VOTE' : 'CONFIRM VOTE'}
+            {myVote ? 'UPDATE VOTE/SAFETY' : 'CONFIRM VOTE'}
           </button>
         </div>
       )}

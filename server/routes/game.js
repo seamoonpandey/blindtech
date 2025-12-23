@@ -539,7 +539,7 @@ const broadcastRound7Update = async () => {
 const performR6Resolution = async () => {
   const r6State = await getRound6State();
   if (!r6State || r6State.status !== 'voting') return;
-  // 1. Identify and eliminate non-voters
+  const votes = r6State.votes || [];
   const activePlayers = r6State.players.filter(p => !p.is_eliminated);
   const voterIds = votes.map(v => v.voter_id);
   const nonVoters = activePlayers.filter(p => !voterIds.includes(p.id));
@@ -574,11 +574,22 @@ const performR6Resolution = async () => {
     tally[v.target_id] = (tally[v.target_id] || 0) + 1;
   });
   
-  let maxVotes = -1;
-  let targetId = null;
+  let maxVotes = 0;
+  let candidates = [];
   for (const [pid, count] of Object.entries(tally)) {
-    if (count > maxVotes) { maxVotes = count; targetId = pid; }
-    else if (count === maxVotes) { if (Math.random() > 0.5) targetId = pid; }
+    if (count > maxVotes) {
+      maxVotes = count;
+      candidates = [pid];
+    } else if (count === maxVotes) {
+      candidates.push(pid);
+    }
+  }
+
+  let targetId = null;
+  if (candidates.length === 1) {
+    targetId = candidates[0];
+  } else if (candidates.length > 1) {
+    console.log(`Tie detected between ${candidates.length} players (${maxVotes} votes each). Standoff reached: No voting elimination occurs.`);
   }
 
   let eliminatedId = null;
