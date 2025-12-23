@@ -3222,15 +3222,22 @@ function Round6History({ history }: { history: any[] }) {
     <div className="admin-card" style={{ marginTop: '1rem', background: '#f8f8f8' }}>
       <h4 className="section-title">ELIMINATION HISTORY</h4>
       <div className="admin-user-list">
-        {history.map((h, idx) => (
-          <div key={idx} className="admin-user-item" style={{ borderLeft: '4px solid #ff4444' }}>
-            <div className="admin-user-info">
-              <strong>{h.target_name} eliminated</strong>
-              {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
-              <small>Cycle {h.subround} | Reason: {h.reason.toUpperCase()}</small>
+        {history.map((h, idx) => {
+          const isStandoff = h.reason === 'standoff';
+          return (
+            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : '4px solid #ff4444' }}>
+              <div className="admin-user-info">
+                {isStandoff ? (
+                  <strong>STANDOFF REACHED</strong>
+                ) : (
+                  <strong>{h.target_name} eliminated</strong>
+                )}
+                {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
+                <small>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : `Reason: ${h.reason.toUpperCase()}`}</small>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

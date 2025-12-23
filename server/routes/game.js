@@ -590,6 +590,10 @@ const performR6Resolution = async () => {
     targetId = candidates[0];
   } else if (candidates.length > 1) {
     console.log(`Tie detected between ${candidates.length} players (${maxVotes} votes each). Standoff reached: No voting elimination occurs.`);
+    await db.query(`
+      INSERT INTO round6_history (subround, reason)
+      VALUES ($1, 'standoff')
+    `, [r6State.current_cycle]);
   }
 
   let eliminatedId = null;
