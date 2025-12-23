@@ -174,13 +174,12 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, onFinishRound3 }: { 
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { 
   volunteerId: string; 
   matches: any[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
-  onFinishRound3?: () => void;
 }) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
 
@@ -307,16 +306,6 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
               </div>
             )}
           </div>
-
-          {matches.length > 0 && matches.every(m => m.status === 'finished') && onFinishRound3 && (
-            <button 
-              onClick={onFinishRound3}
-              className="submit-btn" 
-              style={{ width: '100%', marginTop: '1.5rem', background: '#ff9800', fontSize: '1.2rem', padding: '1rem' }}
-            >
-              ⏹️ FINISH ROUND 3
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -415,12 +404,11 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
   );
 }
 
-function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate, onFinishRound4 }: {
+function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
   sessions: any[];
   volunteerId: string;
   onJoinSession: (sessionId: string) => void;
   onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
-  onFinishRound4?: () => void;
 }) {
   const mySession = sessions.find(s => s.volunteer_id === volunteerId && s.status === 'active');
   
@@ -514,16 +502,6 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate,
           <div className="card" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
             <p>NO TEAMS IN EVALUATION QUEUE</p>
           </div>
-        )}
-
-        {sessions.length > 0 && sessions.every(s => s.status === 'finished') && onFinishRound4 && (
-          <button 
-            onClick={onFinishRound4}
-            className="submit-btn" 
-            style={{ width: '100%', marginTop: '1.5rem', background: '#ff9800', fontSize: '1.2rem', padding: '1rem' }}
-          >
-            ⏹️ FINISH ROUND 4
-          </button>
         )}
       </div>
     </div>
@@ -870,9 +848,382 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   );
 }
 
-function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
+function AdminView({ 
+  gameState, 
+  leaderboard, 
+  adminUsers, 
+  adminTeams, 
+  round3Matches, 
+  round4Sessions, 
+  round5Games,
+  onEliminateUser,
+  onReviveUser,
+  onEliminateTeam,
+  onReviveTeam,
+  onStartRound,
+  onFinishRound,
+  onStartRound2,
+  onStartRound3,
+  onFinishRound3,
+  onStartRound4,
+  onFinishRound4,
+  onStartRound5,
+  onFinishRound5,
+  onStartRound6,
+  onStartRound7,
+  onFinishRound6,
+  onResetRound
+}: any) {
+  const [activeTab, setActiveTab] = useState('control');
+  const [leaderboardPage, setLeaderboardPage] = useState(1);
+  const [dataSubTab, setDataSubTab] = useState('r3');
+  const surviversCount = adminUsers.filter((u: any) => !u.is_eliminated && u.role === 'player').length;
+
+  return (
+    <div className="admin-view-root">
+      <div className="admin-nav-tabs">
+        <button className={activeTab === 'control' ? 'active' : ''} onClick={() => setActiveTab('control')}>CONTROL</button>
+        <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => setActiveTab('leaderboard')}>LEADERBOARD</button>
+        <button className={activeTab === 'management' ? 'active' : ''} onClick={() => setActiveTab('management')}>MANAGEMENT</button>
+        <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>DATA HISTORY</button>
+        <button className={activeTab === 'recovery' ? 'active' : ''} onClick={() => setActiveTab('recovery')}>RECOVERY</button>
+      </div>
+
+      <div className="admin-content-area">
+        {activeTab === 'control' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">MISSION CONTROL</h1>
+            <div className="admin-summary-cards">
+              <div className="admin-sum-card">
+                <span className="label">ROUND</span>
+                <span> &nbsp; </span>
+                <span className="value" style={{ marginTop: '0.5rem' }}>{gameState.current_round}</span>
+              </div>
+              <div className="admin-sum-card">
+                <span className="label">STATUS</span>
+                <span> &nbsp; </span>
+                <span className="value" style={{ 
+                  marginTop: '0.5rem',
+                  color: gameState.status === 'active' ? '#4ade80' : 
+                         gameState.status === 'waiting' ? '#fbbf24' : 
+                         gameState.status === 'finished' ? '#f87171' : 'inherit'
+                }}>
+                  {gameState.status.toUpperCase()}
+                </span>
+              </div>
+              <div className="admin-sum-card">
+                <span className="label">SURVIVORS</span>
+                <span> &nbsp; </span>
+                <span className="value">
+                  {surviversCount} 
+                  {gameState.current_round >= 2 && (
+                    <span style={{ fontSize: '0.6em', marginLeft: '6px', opacity: 0.8 }}>
+                      ({adminTeams.filter((t: any) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="admin-control-grid">
+              <div className="card control-card">
+                <h3>GLOBAL CONTROLS</h3>
+                <div className="btn-group-vertical">
+                   {gameState.current_round === 0 && (
+                     <button onClick={onStartRound} className="admin-btn primary">START ROUND 1</button>
+                   )}
+                   
+                   {gameState.status === 'active' && gameState.current_round >= 1 && gameState.current_round <= 6 && (
+                     <button 
+                       onClick={() => {
+                         if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound();
+                         else if (gameState.current_round === 3) onFinishRound3();
+                         else if (gameState.current_round === 4) onFinishRound4();
+                         else if (gameState.current_round === 5) onFinishRound5();
+                         else if (gameState.current_round === 6) onFinishRound6();
+                       }} 
+                       className="admin-btn primary"
+                     >
+                       FINISH ROUND {gameState.current_round}
+                     </button>
+                   )}
+                </div>
+              </div>
+
+              <div className="card control-card">
+                <h3>TRANSITIONS</h3>
+                <div className="btn-group-vertical">
+                   {gameState.current_round === 1 && gameState.status === 'finished' && (
+                     <button onClick={() => {
+                        const count = window.prompt(`How many players (Top X) should be 'Saved' as Leaders? (Total Players: ${leaderboard.length})`, Math.min(10, Math.floor(leaderboard.length / 2)).toString());
+                        if (count !== null) onStartRound2(parseInt(count));
+                     }} className="admin-btn">ACTIVATE R2: LOTTERY</button>
+                   )}
+                   
+                   {gameState.current_round === 2 && gameState.status === 'finished' && (
+                     <button onClick={onStartRound3} className="admin-btn">ACTIVATE R3: DUELS</button>
+                   )}
+
+                   {gameState.current_round === 3 && gameState.status === 'waiting' && (
+                     <button onClick={onStartRound4} className="admin-btn">ACTIVATE R4: CODING</button>
+                   )}
+
+                   {gameState.current_round === 4 && gameState.status === 'waiting' && (
+                     <button onClick={onStartRound5} className="admin-btn">ACTIVATE R5: PARADOX</button>
+                   )}
+
+                   {gameState.current_round === 5 && gameState.status === 'waiting' && (
+                     <button onClick={onStartRound6} className="admin-btn">ACTIVATE R6: PIGEON</button>
+                   )}
+
+                   {gameState.current_round === 6 && gameState.status === 'waiting' && (
+                     <button onClick={onStartRound7} className="admin-btn">ACTIVATE R7: HEARTS</button>
+                   )}
+
+                   {gameState.current_round === 7 && (
+                     <p style={{ textAlign: 'center', opacity: 0.7, padding: '1rem' }}>Final Round Active</p>
+                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <div className="admin-tab-pane">
+            <div className="admin-leaderboard">
+              <h2>LIVE LEADERBOARD (R1)</h2>
+              <div className="leaderboard-table-wrapper">
+                <table className="leaderboard-table">
+                  <thead>
+                    <tr>
+                      <th>RANK</th>
+                      <th>PLAYER</th>
+                      <th>SCORE</th>
+                      <th>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard
+                      .slice((leaderboardPage - 1) * 10, leaderboardPage * 10)
+                      .map((entry: any, i: number) => (
+                      <tr key={entry.id} className={entry.is_eliminated ? 'eliminated' : ''}>
+                        <td className="leaderboard-rank">#{((leaderboardPage - 1) * 10) + i + 1}</td>
+                        <td className="leaderboard-name">{entry.name}</td>
+                        <td className="leaderboard-score">{entry.score} pts</td>
+                        <td className="leaderboard-status">
+                          {entry.is_eliminated ? (
+                            <span className="status-badge eliminated">ELIMINATED</span>
+                          ) : (
+                            <span className="status-badge active">ACTIVE</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {Math.ceil(leaderboard.length / 10) > 1 && (
+                <div className="pagination">
+                  <button 
+                    onClick={() => setLeaderboardPage(p => Math.max(1, p - 1))}
+                    disabled={leaderboardPage === 1}
+                    className="pagination-btn"
+                  >
+                    ← PREV
+                  </button>
+                  <span className="pagination-info">
+                    Page {leaderboardPage} of {Math.ceil(leaderboard.length / 10)}
+                  </span>
+                  <button 
+                    onClick={() => setLeaderboardPage(p => Math.min(Math.ceil(leaderboard.length / 10), p + 1))}
+                    disabled={leaderboardPage === Math.ceil(leaderboard.length / 10)}
+                    className="pagination-btn"
+                  >
+                    NEXT →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'management' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">USER MANAGEMENT</h1>
+            <div className="admin-management-grid">
+              <div className="card">
+                <h3>PLAYERS LIST</h3>
+                <div className="admin-user-scroll">
+                  {adminUsers.filter((u: any) => u.role === 'player').map((u: any) => (
+                    <div key={u.id} className="admin-user-item">
+                      <span style={{ 
+                        color: u.is_eliminated ? '#ef4444' : 'inherit',
+                        textDecoration: u.is_eliminated ? 'line-through' : 'none'
+                      }}>
+                        {u.name} ({u.email})
+                      </span>
+                      {u.is_eliminated ? (
+                        <button className="admin-btn-sm revive" onClick={() => onReviveUser(u.id)}>REVIVE</button>
+                      ) : (
+                        <button className="admin-btn-sm eliminate" onClick={() => onEliminateUser(u.id)}>ELIMINATE</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <h3>TEAMS MANAGEMENT (R2+)</h3>
+                <div className="admin-user-scroll">
+                  {adminTeams.map((t: any) => {
+                    // Mark team as 'dead' if EITHER player is eliminated
+                    const isTeamCompromised = t.user1_eliminated || t.user2_eliminated;
+                    return (
+                      <div key={t.id} className="admin-user-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                          <strong style={{ 
+                            fontSize: '1rem', 
+                            color: isTeamCompromised ? '#ef4444' : 'inherit',
+                            textDecoration: isTeamCompromised ? 'line-through' : 'none'
+                          }}>
+                            {t.name}
+                          </strong>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {isTeamCompromised ? (
+                              <button className="admin-btn-sm revive" onClick={() => onReviveTeam(t.id)}>REVIVE</button>
+                            ) : (
+                              <button className="admin-btn-sm eliminate" onClick={() => onEliminateTeam(t.id)}>ELIMINATE</button>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                          {t.user1_name} {t.user1_eliminated ? '💀' : '❤️'} | {t.user2_name} {t.user2_eliminated ? '💀' : '❤️'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {adminTeams.length === 0 && (
+                    <p className="empty">
+                      {gameState.current_round < 2 ? "Teams will be formed in Round 2." : "No teams have been formed yet."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'data' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">GAME DATA LOGS</h1>
+            <div className="admin-data-tabs">
+              <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
+              <button className={dataSubTab === 'r4' ? 'active' : ''} onClick={() => setDataSubTab('r4')}>R4 SESSIONS</button>
+              <button className={dataSubTab === 'r5' ? 'active' : ''} onClick={() => setDataSubTab('r5')}>R5 GAMES</button>
+            </div>
+            
+            <div className="admin-data-content">
+              {dataSubTab === 'r3' && (
+                <>
+                  <h4>ROUND 3: PHYSICAL DUELS</h4>
+                  <div className="admin-user-list">
+                    {round3Matches.length > 0 ? round3Matches.map((m: any) => (
+                      <div key={m.id} className="admin-user-item">
+                        <div className="admin-user-info">
+                          <strong>{m.team1_name} vs {m.team2_name}</strong>
+                          <small>Status: {m.status} | Winner: {m.winner_name || m.winner_team_id || 'PENDING'}</small>
+                        </div>
+                      </div>
+                    )) : <p className="empty">No Round 3 match data available.</p>}
+                  </div>
+                </>
+              )}
+
+              {dataSubTab === 'r4' && (
+                <>
+                  <h4>ROUND 4: COGNITIVE TECHNICAL ROUND</h4>
+                  <div className="admin-user-list">
+                    {round4Sessions.length > 0 ? round4Sessions.map((s: any) => {
+                      const isTeamCompromised = s.user1_eliminated || s.user2_eliminated;
+                      return (
+                        <div key={s.id} className="admin-user-item">
+                          <div className="admin-user-info">
+                            <strong style={{ 
+                              color: isTeamCompromised ? '#ef4444' : 'inherit',
+                              textDecoration: isTeamCompromised ? 'line-through' : 'none'
+                            }}>
+                              {s.team_name} (Session #{s.id.slice(0, 8)})
+                            </strong>
+                            <small>Status: {s.status}</small>
+                          </div>
+                        </div>
+                      );
+                    }) : <p className="empty">No Round 4 session data available.</p>}
+                  </div>
+                </>
+              )}
+
+              {dataSubTab === 'r5' && (
+                <>
+                  <h4>ROUND 5: THE PARADOX GAMES</h4>
+                  <div className="admin-user-list">
+                    {round5Games.length > 0 ? round5Games.map((g: any) => (
+                      <div key={g.id} className="admin-user-item">
+                        <div className="admin-user-info">
+                          <strong>{g.team_a_name} vs {g.team_b_name}</strong>
+                          <small>Status: {g.status} | Result: {g.result || 'IN PROGRESS'}</small>
+                        </div>
+                      </div>
+                    )) : <p className="empty">No Round 5 game data available.</p>}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'recovery' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">SYSTEM RECOVERY</h1>
+            <div className="card" style={{ border: '2px solid #ef4444', background: '#fef2f2' }}>
+              <h3 style={{ color: '#b91c1c', marginTop: 0 }}>⚠️ DANGER ZONE: ROUND RESET</h3>
+              <p style={{ fontSize: '0.9rem', color: '#7f1d1d', marginBottom: '1.5rem' }}>
+                Jumping back to a previous round will <strong>permanently delete</strong> all data collected in subsequent rounds. 
+                This action is irreversible.
+              </p>
+              
+              <div className="btn-group-vertical" style={{ gap: '1rem' }}>
+                {gameState.current_round > 1 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(1)}>RESET TO ROUND 1 (RANKINGS)</button>
+                )}
+                {gameState.current_round > 2 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(2)}>RESET TO ROUND 2 (LOTTERY)</button>
+                )}
+                {gameState.current_round > 3 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(3)}>RESET TO ROUND 3 (DUELS)</button>
+                )}
+                {gameState.current_round > 4 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(4)}>RESET TO ROUND 4 (CODING)</button>
+                )}
+                {gameState.current_round > 5 && (
+                  <button className="admin-btn danger" onClick={() => onResetRound(5)}>RESET TO ROUND 5 (PARADOX)</button>
+                )}
+                {gameState.current_round <= 1 && (
+                  <p style={{ opacity: 0.5, textAlign: 'center' }}>No past rounds available for recovery.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
   games: any[];
-  onFinish: () => void;
   onDisqualify: (gameId: string, team: 'A' | 'B') => void;
   onEndNow: (gameId: string) => void;
 }) {
@@ -889,6 +1240,9 @@ function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
           const currentRoundTurns = g.turns?.filter((t: any) => t.round_number === g.current_round) || [];
           const bothSubmitted = currentRoundTurns.length === 2;
           const isRevealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
+
+          const turnA = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'A');
+          const turnB = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'B');
 
           return (
             <div key={g.id} className="card" style={{ padding: '1.5rem', border: g.status === 'finished' ? '2px solid #ddd' : '4px solid black' }}>
@@ -934,6 +1288,19 @@ function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
                   </div>
                 )}
               </div>
+
+              {isRevealed && turnA && turnB && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
+                  <div style={{ padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px' }}>
+                    <div style={{ opacity: 0.6 }}>A played:</div>
+                    <div style={{ fontWeight: 'bold' }}>{turnA.card_selected}</div>
+                  </div>
+                  <div style={{ padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px' }}>
+                    <div style={{ opacity: 0.6 }}>B played:</div>
+                    <div style={{ fontWeight: 'bold' }}>{turnB.card_selected}</div>
+                  </div>
+                </div>
+              )}
               
 
 
@@ -953,16 +1320,6 @@ function Round5VolunteerView({ games, onFinish, onDisqualify, onEndNow }: {
           );
         })}
       </div>
-      
-      {games.length > 0 && (
-        <button 
-          onClick={onFinish}
-          className="submit-btn" 
-          style={{ width: '100%', marginTop: '2.5rem', fontSize: '1.2rem', padding: '1.5rem', background: '#000', color: '#fff', border: '4px solid #fff', boxShadow: '0 0 15px rgba(0,0,0,0.2)' }}
-        >
-          {games.every(g => g.status === 'finished') ? '⏹️ OFFICIALLY CLOSE ROUND 5' : '🚨 EMERGENCY SHUTDOWN ROUND 5'}
-        </button>
-      )}
     </div>
   );
 }
@@ -985,12 +1342,14 @@ export default function Game() {
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
-  const [volunteerTab, setVolunteerTab] = useState<'round1' | 'round2' | 'round3' | 'round4' | 'round5'>('round1');
   const [round3Matches, setRound3Matches] = useState<any[]>([]);
   const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
   const [round5Games, setRound5Games] = useState<any[]>([]);
-  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE
-  const [r6Logs, setR6Logs] = useState<string[]>([]);
+  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE (VOTING)
+  const [round7State, setRound7State] = useState<any>(null); // ROUND 7 STATE (HEARTS)
+  const [r7Logs, setR7Logs] = useState<string[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
+  const [adminTeams, setAdminTeams] = useState<any[]>([]); // Admin/Volunteer teams list
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1048,6 +1407,13 @@ export default function Game() {
           setSubmitted(true);
         }
         if (data.round6_state) setRound6State(data.round6_state);
+        if (data.round7_state) setRound7State(data.round7_state);
+        if (data.lottery_pool) setLotteryPool(data.lottery_pool);
+        if (data.admin_users) setAdminUsers(data.admin_users);
+        if (data.admin_teams) setAdminTeams(data.admin_teams);
+        if (data.round3_matches) setRound3Matches(data.round3_matches);
+        if (data.round4_sessions) setRound4Sessions(data.round4_sessions);
+        if (data.round5_games) setRound5Games(data.round5_games);
       } else if (data.type === 'state_update') {
         console.log('RECEIVED STATE UPDATE:', data.state);
         setGameState(data.state);
@@ -1145,8 +1511,17 @@ export default function Game() {
       } else if (data.type === 'round6_update') {
         console.log('Using Round 6 Update:', data.state);
         setRound6State(data.state);
-      } else if (data.type === 'r6_cycle_logs') {
-        setR6Logs(data.logs);
+      } else if (data.type === 'round7_update') {
+        console.log('Using Round 7 Update:', data.state);
+        setRound7State(data.state);
+      } else if (data.type === 'r7_cycle_logs') {
+        setR7Logs(data.logs);
+      } else if (data.type === 'admin_users') {
+        setAdminUsers(data.users);
+      } else if (data.type === 'admin_teams') {
+        setAdminTeams(data.teams);
+      } else if (data.type === 'status_update') {
+        setIsEliminated(data.isEliminated);
       }
     };
 
@@ -1184,17 +1559,14 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'start_round' }));
   };
 
-  const stopRound = () => {
-    console.log('Sending stop_round message...');
-    ws?.send(JSON.stringify({ type: 'stop_round' }));
-  };
+
 
   const finishRound = () => {
     ws?.send(JSON.stringify({ type: 'finish_round' }));
   };
 
-  const startRound2 = () => {
-    ws?.send(JSON.stringify({ type: 'start_round_2' }));
+  const startRound2 = (leadersCount?: number) => {
+    ws?.send(JSON.stringify({ type: 'start_round_2', leadersCount }));
   };
 
   const startRound3 = () => {
@@ -1204,16 +1576,42 @@ export default function Game() {
   };
 
   // ROUND 6 HANDLERS
-  const startR6Voting = () => {
-    ws?.send(JSON.stringify({ type: 'r6_start_voting' }));
+  const startR6Timer = () => {
+    ws?.send(JSON.stringify({ type: 'r6_start_timer' }));
   };
 
-  const submitR6Action = (action: string, targetId?: string) => {
-    ws?.send(JSON.stringify({ type: 'r6_submit_action', action, targetId }));
+  const submitR6Vote = (targetId: string, safety: boolean) => {
+    ws?.send(JSON.stringify({ type: 'r6_vote', targetId, useSafety: safety }));
   };
 
-  const resolveR6Cycle = () => {
-    ws?.send(JSON.stringify({ type: 'r6_resolve_cycle' }));
+  const resolveR6 = () => {
+    ws?.send(JSON.stringify({ type: 'r6_resolve' }));
+  };
+
+  const nextR6Cycle = () => {
+    ws?.send(JSON.stringify({ type: 'r6_next_subround' }));
+  };
+
+  const finishR6 = () => {
+    ws?.send(JSON.stringify({ type: 'r6_finish' }));
+  };
+
+  const startR7Voting = () => {
+    ws?.send(JSON.stringify({ type: 'r7_start_voting' }));
+  };
+
+  const submitR7Action = (action: string, targetId?: string) => {
+    ws?.send(JSON.stringify({ type: 'r7_submit_action', action, targetId }));
+  };
+
+  const resolveR7Cycle = () => {
+    ws?.send(JSON.stringify({ type: 'r7_resolve_cycle' }));
+  };
+
+  const resetR7Cycle = () => {
+    if (window.confirm("FORCE RESET Round 7 Cycle? This clears all current actions and sets status to WAITING.")) {
+      ws?.send(JSON.stringify({ type: 'r7_reset_cycle' }));
+    }
   };
 
   const joinMatch = (matchId: string) => {
@@ -1305,8 +1703,22 @@ export default function Game() {
   };
 
   const endR5GameNow = (gameId: string) => {
-    if (window.confirm("ARE YOU SURE? This will instantly stop this specific game.")) {
-      ws?.send(JSON.stringify({ type: 'r5_end_now', gameId }));
+    const choice = window.prompt(
+      "MANUAL STOP: Choose the outcome.\n" +
+      "Type 'A' -> Team A Wins (Pass)\n" +
+      "Type 'B' -> Team B Wins (Pass)\n" +
+      "Type 'BOTH' -> Both Teams Pass (Rare)\n" +
+      "Type 'NONE' -> Both Teams Eliminated (Fail)\n\n" +
+      "Type your choice (A/B/BOTH/NONE):"
+    );
+
+    if (choice) {
+      const formatted = choice.toUpperCase().trim();
+      if (['A', 'B', 'BOTH', 'NONE'].includes(formatted)) {
+         ws?.send(JSON.stringify({ type: 'r5_end_now', gameId, outcome: formatted }));
+      } else {
+        alert("Invalid choice. Operation cancelled.");
+      }
     }
   };
 
@@ -1320,6 +1732,16 @@ export default function Game() {
 
   const startRound6 = () => {
     ws?.send(JSON.stringify({ type: 'start_round_6' }));
+  };
+
+  const startRound7 = () => {
+    ws?.send(JSON.stringify({ type: 'start_round_7' }));
+  };
+
+  const resetRound = (round: number) => {
+    if (window.confirm(`⚠️ WARNING: YOU ARE ABOUT TO RESET THE GAME TO ROUND ${round}. THIS WILL DELETE DATA FROM ALL SUBSEQUENT ROUNDS. ARE YOU ABSOLUTELY SURE?`)) {
+      ws?.send(JSON.stringify({ type: 'admin_reset_round', round }));
+    }
   };
 
 
@@ -1336,6 +1758,22 @@ export default function Game() {
 
   const cancelSelection = () => {
     setPendingCardId(null);
+  };
+
+  const eliminateUser = (userId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_user', userId, isEliminated: true }));
+  };
+
+  const reviveUser = (userId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_user', userId, isEliminated: false }));
+  };
+
+  const eliminateTeam = (teamId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: true }));
+  };
+
+  const reviveTeam = (teamId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: false }));
   };
 
   const togglePlayer = (player: Player) => {
@@ -1384,6 +1822,50 @@ export default function Game() {
 
   if (!user || !gameState) return <div className="container">Loading...</div>;
 
+  // Admin View
+  if (user.role === 'admin') {
+    return (
+      <div className="container" style={{ minHeight: '100vh', padding: '0' }}>
+        <div className="nav" style={{ padding: '0.5rem 1rem' }}>
+          <div className="logo">BLINDTECH.EXE - ADMIN</div>
+          <div className="user-info">
+            <div className="user-meta">
+              <div className="user-name">{user.name.toUpperCase()}</div>
+              <div className="user-role" style={{ color: '#ff4444' }}>GAME MASTER</div>
+            </div>
+            <button onClick={logout} className="exit-btn">EXIT</button>
+          </div>
+        </div>
+        <AdminView 
+          gameState={gameState}
+          leaderboard={leaderboard}
+          adminUsers={adminUsers}
+          adminTeams={adminTeams}
+          round3Matches={round3Matches}
+          round4Sessions={round4Sessions}
+          round5Games={round5Games}
+          onEliminateUser={eliminateUser}
+          onReviveUser={reviveUser}
+          onEliminateTeam={eliminateTeam}
+          onReviveTeam={reviveTeam}
+          onStartRound={startRound}
+          onFinishRound={finishRound}
+          onStartRound2={startRound2}
+          onStartRound3={startRound3}
+          onFinishRound3={finishRound3}
+          onStartRound4={startRound4}
+          onFinishRound4={finishRound4}
+          onStartRound5={startRound5}
+          onFinishRound5={finishRound5}
+          onStartRound6={startRound6}
+          onStartRound7={startRound7}
+          onFinishRound6={finishR6}
+          onResetRound={resetRound}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="container" style={{ maxWidth: '1200px', padding: '10px' }}>
       <div className="nav">
@@ -1419,12 +1901,10 @@ export default function Game() {
         {/* Left Column: Game Interaction */}
         <div className={`main-area ${activeTab === 'game' ? 'show' : 'hide'}`}>
           {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 0 && (
-            <div className="card admin-card">
-              <h2 className="section-title">CONTROL PANEL</h2>
-              <p>Initialize Round 1 for all players.</p>
-              <button onClick={startRound} className="primary-btn" style={{ width: '100%', fontSize: '1.2rem' }}>
-                ACTIVATE ROUND 1
-              </button>
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
+              <h2 className="section-title">INITIALIZING ARENA</h2>
+              <p>Waiting for the <strong>Game Master</strong> to authorize the start of <strong>Round 1</strong>.</p>
             </div>
           )}
 
@@ -1533,57 +2013,32 @@ export default function Game() {
           )}
 
           {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 3 && (
-            <div className="card waiting-card">
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
               <h2 className="section-title">ROUND 3 COMPLETE</h2>
-              <p style={{ marginBottom: '1.5rem' }}>All duels have been finished. Players have been notified of their status.</p>
-              <button 
-                onClick={startRound4} 
-                className="submit-btn" 
-                style={{ width: '100%', background: '#667eea', fontSize: '1.2rem', padding: '1rem' }}
-              >
-                🎯 ACTIVATE CODING CLUB (ROUND 4)
-              </button>
+              <p>Waiting for the <strong>Game Master</strong> to activate <strong>Round 4: Coding Club</strong>.</p>
             </div>
           )}
 
           {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 4 && (
-            <div className="card waiting-card">
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
               <h2 className="section-title">ROUND 4 COMPLETE</h2>
-              <p style={{ marginBottom: '1.5rem' }}>All evaluations have been finished. Survivors are ready for the Paradox.</p>
-              <button 
-                onClick={startRound5} 
-                className="submit-btn" 
-                style={{ width: '100%', background: '#8b5cf6', fontSize: '1.2rem', padding: '1rem' }}
-              >
-                🔮 ACTIVATE PARADOX (ROUND 5)
-              </button>
+              <p>Waiting for the <strong>Game Master</strong> to activate <strong>Round 5: The Paradox</strong>.</p>
             </div>
           )}
 
           {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 1 && (
-            <div className="card admin-card">
-              <h2 className="section-title">ROUND 1 ACTIVE</h2>
-              <p>Players are currently submitting their rankings.</p>
-              <div className="stats-grid">
-                <div className="stat-item">
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <h2 className="section-title">ROUND 1: POPULARITY HELL</h2>
+              <p>Players are currently submitting their mission parameters.</p>
+              <div className="stats-grid" style={{ marginTop: '1.5rem' }}>
+                <div className="stat-item" style={{ textAlign: 'center' }}>
                   <div className="stat-value">{players.length}</div>
-                  <div className="stat-label">TOTAL PLAYERS</div>
+                  <div className="stat-label">TOTAL OPERATIVES</div>
                 </div>
               </div>
-              <button 
-                onClick={finishRound} 
-                className="submit-btn" 
-                style={{ width: '100%', marginTop: '1.5rem' }}
-              >
-                FINISH ROUND
-              </button>
-              <button 
-                onClick={stopRound} 
-                className="secondary-btn" 
-                style={{ width: '100%', marginTop: '0.5rem', background: '#ff4444', color: 'white' }}
-              >
-                STOP ROUND
-              </button>
+              <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>Waiting for game master to conclude this phase.</p>
             </div>
           )}
 
@@ -1603,7 +2058,6 @@ export default function Game() {
               onJoin={joinMatch}
               onScore={scoreTeam}
               onDisqualify={disqualifyTeam}
-              onFinishRound3={finishRound3}
             />
           )}
 
@@ -1620,7 +2074,6 @@ export default function Game() {
               volunteerId={user.id}
               onJoinSession={joinSession}
               onEvaluate={evaluateTeam}
-              onFinishRound4={finishRound4}
             />
           )}
 
@@ -1663,19 +2116,16 @@ export default function Game() {
           {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 5 && (
             <Round5VolunteerView 
               games={round5Games}
-              onFinish={finishRound5}
               onDisqualify={disqualifyTeam5}
               onEndNow={endR5GameNow}
             />
           )}
 
           {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 5 && (
-            <div className="card admin-card">
-              <h2 className="section-title">ROUND 5 COMPLETE</h2>
-              <p>The Paradox is over. Survivors are ready for the final trial.</p>
-              <button onClick={startRound6} className="primary-btn" style={{ width: '100%', fontSize: '1.2rem', marginTop: '1rem', background: '#d53f8c' }}>
-                ACTIVATE THE GAME OF HEARTS
-              </button>
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
+              <h2 className="section-title">THE PARADOX HAS ENDED</h2>
+              <p>Waiting for the <strong>Game Master</strong> to activate the final arena: <strong>The Game of Hearts</strong>.</p>
             </div>
           )}
 
@@ -1684,17 +2134,51 @@ export default function Game() {
               <Round6PlayerView 
                 state={round6State} 
                 userId={user.id} 
-                onAction={submitR6Action}
-                logs={r6Logs}
+                onVote={submitR6Vote}
               />
             ) : (
               <Round6VolunteerView 
                 state={round6State}
-                onStartVoting={startR6Voting}
-                onResolve={resolveR6Cycle}
-                logs={r6Logs}
+                onStartTimer={startR6Timer}
+                onResolve={resolveR6}
+                onNext={nextR6Cycle}
+                onFinish={finishR6}
               />
             )
+          )}
+
+          {gameState.status === 'active' && gameState.current_round === 7 && (
+            !round7State ? (
+              <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+                <div className="loader-dots"><span></span><span></span><span></span></div>
+                <h3>CONNECTING TO HEARTS ENGINE...</h3>
+                <p style={{ opacity: 0.6 }}>Synchronizing game state...</p>
+                <button onClick={() => ws?.send(JSON.stringify({ type: 'start_round_7' }))} style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.5, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>
+                  Force Re-Sync (Admin Only)
+                </button>
+              </div>
+            ) : (
+             user.role === 'player' ? (
+              <Round7PlayerView 
+                state={round7State} 
+                userId={user.id} 
+                onAction={submitR7Action}
+                logs={r7Logs}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
+                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+                  GHAR JAA TERO KAAM SAKKIYO
+                </h3>
+                <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+                  (Go home, your work is done.)
+                </p>
+                <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
+                  Round 7 is running autonomously. You are dismissed.
+                </p>
+              </div>
+            )
+          )
           )}
 
           {gameState.status === 'finished' && (
@@ -1733,54 +2217,25 @@ export default function Game() {
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                    ROUND {gameState.current_round} FINALIZED
-                  </p>
-                  <p style={{ opacity: 0.7 }}>Awaiting next phase instructions...</p>
-                  {user.role === 'volunteer' && gameState.current_round === 1 && (
-                    <button 
-                      onClick={startRound2} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem' }}
-                    >
-                      ACTIVATE ROUND 2
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 2 && (
-                    <button 
-                      onClick={startRound3} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem' }}
-                    >
-                      ACTIVATE ROUND 3
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 3 && (
-                    <button 
-                      onClick={startRound4} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem', background: '#667eea' }}
-                    >
-                      🎯 ACTIVATE CODING CLUB (ROUND 4)
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 4 && (
-                    <button 
-                      onClick={startRound5} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem', background: '#8b5cf6' }}
-                    >
-                      🔮 ACTIVATE PARADOX (ROUND 5)
-                    </button>
-                  )}
-                  {user.role === 'volunteer' && gameState.current_round === 5 && (
-                    <button 
-                      onClick={startRound6} 
-                      className="submit-btn" 
-                      style={{ width: '100%', marginTop: '1.5rem', background: '#d53f8c' }}
-                    >
-                      🎰 ACTIVATE FINAL LOTTERY (ROUND 6)
-                    </button>
+                  {gameState.current_round === 6 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
+                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+                        GHAR JAA TERO KAAM SAKKIYO
+                      </h3>
+                      <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+                        (Go home, your work is done.)
+                      </p>
+                      <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
+                        The system will handle the Final Round automatically (or mostly). Good job.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
+                        ROUND {gameState.current_round} FINALIZED
+                      </p>
+                      <p style={{ opacity: 0.7 }}>Awaiting next phase instructions from the Game Master...</p>
+                    </>
                   )}
                 </>
               )}
@@ -1846,15 +2301,15 @@ export default function Game() {
                     <>
                       <p style={{ marginBottom: '1.5rem' }}>Select a card to find your partner or your fate.</p>
                       <div className="card-grid">
-                        {lotteryPool.map(card => (
+                        {lotteryPool.filter(c => !c.is_taken).map(card => (
                           <div 
                             key={card.id} 
-                            className={`lottery-card ${card.is_taken ? 'taken' : ''}`}
-                            onClick={() => !card.is_taken && selectCard(card.id)}
+                            className="lottery-card"
+                            onClick={() => selectCard(card.id)}
                           >
                             <div className="card-inner">
                               <div className="card-front">?</div>
-                              <div className="card-back">{card.is_taken ? '×' : ''}</div>
+                              <div className="card-back"></div>
                             </div>
                           </div>
                         ))}
@@ -1868,16 +2323,11 @@ export default function Game() {
 
 
           {gameState.current_round === 2 && gameState.status === 'active' && user.role === 'volunteer' && (
-            <div className="card admin-card">
-              <h2 className="section-title">ROUND 2 ACTIVE</h2>
-              <p>Lottery is in progress. Leaders are waiting, Selectors are picking.</p>
-              <button 
-                onClick={stopRound} 
-                className="secondary-btn" 
-                style={{ width: '100%', marginTop: '1.5rem', background: '#ff4444', color: 'white' }}
-              >
-                STOP ROUND 2 & ELIMINATE SINGLES
-              </button>
+            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
+              <div className="loader-dots"><span></span><span></span><span></span></div>
+              <h2 className="section-title">ROUND 2: LOTTERY</h2>
+              <p>Lottery is currently in progress. Players are selecting their fate.</p>
+              <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>Waiting for game master to stop the lottery and eliminate single players.</p>
             </div>
           )}
         </div>
@@ -1915,40 +2365,7 @@ export default function Game() {
             <div className="card leaderboard-card">
               {user.role === 'volunteer' ? (
                 <>
-                  <div className="volunteer-tabs">
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round1' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round1')}
-                    >
-                      R1
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round2' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round2')}
-                    >
-                      R2
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round3' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round3')}
-                    >
-                      R3
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round4' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round4')}
-                    >
-                      R4
-                    </button>
-                    <button 
-                      className={`v-tab ${volunteerTab === 'round5' ? 'active' : ''}`}
-                      onClick={() => setVolunteerTab('round5')}
-                    >
-                      R5
-                    </button>
-                  </div>
-
-                  {volunteerTab === 'round1' && (
+                  {gameState.current_round === 1 && (
                     <>
                       <h2 className="section-title">R1 RANKINGS</h2>
                       <div className="leaderboard-container">
@@ -1979,12 +2396,12 @@ export default function Game() {
                     </>
                   )}
 
-                  {volunteerTab === 'round2' && (
+                  {gameState.current_round === 2 && (
                     <>
-                      <h2 className="section-title">R2 STATUS</h2>
+                      <h2 className="section-title">R2 LOTTERY STATUS</h2>
                       <div className="volunteer-data-list">
                         <p style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '1rem' }}>
-                          Real-time lottery results will appear here.
+                          Current Round: {gameState.status.toUpperCase()}
                         </p>
                         {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').length === 0 ? (
                           <p>No teams formed yet.</p>
@@ -2010,17 +2427,17 @@ export default function Game() {
                     </>
                   )}
 
-                   {volunteerTab === 'round3' && (
+                   {gameState.current_round === 3 && (
                     <>
-                      <h2 className="section-title">R3 STATUS</h2>
+                      <h2 className="section-title">R3 DUEL MONITOR</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
                           {round3Matches.map(m => {
                             const isFinished = m.status === 'finished';
                             const getStatusColor = (scores: any, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
                               if (!isFinished) return 'inherit';
-                              if (isLuckyPassSlot) return '#888'; // Neutral grey for the placeholder
-                              if (!hasOpponent) return '#00cc00'; // Solo team with Lucky Pass is always safe
+                              if (isLuckyPassSlot) return '#888'; 
+                              if (!hasOpponent) return '#00cc00'; 
                               const s = Array.isArray(scores) ? scores : [];
                               const positives = s.filter((val: any) => val === true).length;
                               return positives >= 2 ? '#00cc00' : '#ff4444';
@@ -2053,9 +2470,8 @@ export default function Game() {
                                 <span style={{ 
                                   color: m.status === 'active' ? '#00ff00' : 
                                          m.status === 'finished' ? (
-                                           // For finished matches, show green if team1 won, red if team1 lost
                                            (() => {
-                                             if (!m.team2_id) return '#00cc00'; // Lucky pass
+                                             if (!m.team2_id) return '#00cc00'; 
                                              const t1Positives = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s: boolean) => s === true).length : 0;
                                              return t1Positives >= 2 ? '#00cc00' : '#ff4444';
                                            })()
@@ -2071,14 +2487,15 @@ export default function Game() {
                             </div>
                             );
                           })}
+                          {round3Matches.length === 0 && <p className="empty">No active duels found.</p>}
                         </div>
                       </div>
                     </>
                   )}
 
-                   {volunteerTab === 'round4' && (
+                   {gameState.current_round === 4 && (
                     <>
-                      <h2 className="section-title">R4 STATUS</h2>
+                      <h2 className="section-title">R4 EVALUATION MONITOR</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
                           {round4Sessions.map(s => (
@@ -2112,14 +2529,15 @@ export default function Game() {
                               </div>
                             </div>
                           ))}
+                          {round4Sessions.length === 0 && <p className="empty">No evaluation sessions found.</p>}
                         </div>
                       </div>
                     </>
                   )}
 
-                   {volunteerTab === 'round5' && (
+                   {gameState.current_round === 5 && (
                     <>
-                      <h2 className="section-title">R5 STATUS</h2>
+                      <h2 className="section-title">R5 PARADOX MONITOR</h2>
                       <div className="volunteer-data-list">
                         <div className="data-items">
                           {round5Games.map(g => (
@@ -2128,7 +2546,7 @@ export default function Game() {
                                 <div>
                                   <div>{g.team_a_name} vs {g.team_b_name || 'BYE'}</div>
                                   <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                    Momentum: {g.team_a_momentum} - {g.team_b_momentum} | Round: {g.current_round}/6
+                                    Momentum: {g.team_a_momentum} - {g.team_b_momentum} | Round: {g.current_round}/9
                                   </div>
                                 </div>
                                 <span style={{ 
@@ -2150,9 +2568,24 @@ export default function Game() {
                               )}
                             </div>
                           ))}
+                          {round5Games.length === 0 && <p className="empty">No active Paradox games found.</p>}
                         </div>
                       </div>
                     </>
+                  )}
+                  
+                  {gameState.current_round === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                      <h3>WAITING FOR GAME START</h3>
+                      <p>Automation will activate once Round 1 begins.</p>
+                    </div>
+                  )}
+
+                  {gameState.current_round >= 6 && (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                      <h3>FINAL ROUND ACTIVE</h3>
+                      <p>Monitoring is now handled via the main interface.</p>
+                    </div>
                   )}
                 </>
               ) : (
@@ -2835,7 +3268,201 @@ export default function Game() {
 
 // ROUND 6 COMPONENTS (THE GAME OF HEARTS)
 
-function Round6PlayerView({ state, userId, onAction, logs }: { 
+function Round6History({ history }: { history: any[] }) {
+  if (history.length === 0) return null;
+  return (
+    <div className="admin-card" style={{ marginTop: '1rem', background: '#f8f8f8' }}>
+      <h4 className="section-title">ELIMINATION HISTORY</h4>
+      <div className="admin-user-list">
+        {history.map((h, idx) => {
+          const isStandoff = h.reason === 'standoff';
+          return (
+            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : '4px solid #ff4444' }}>
+              <div className="admin-user-info">
+                {isStandoff ? (
+                  <strong>STANDOFF REACHED</strong>
+                ) : (
+                  <strong>{h.target_name} eliminated</strong>
+                )}
+                {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
+                <small>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : `Reason: ${h.reason.toUpperCase()}`}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Round6PlayerView({ 
+  state, 
+  userId, 
+  onVote 
+}: { 
+  state: any, 
+  userId: string,
+  onVote: (targetId: string, safety: boolean) => void
+}) {
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [useSafety, setUseSafety] = useState<boolean>(false);
+  
+  const me = state.players.find((p: any) => p.id === userId);
+  const myVote = state.votes?.find((v: any) => v.voter_id === userId);
+  const isDead = me?.is_eliminated;
+
+  // Update useSafety if they already cast a vote with safety in this subround
+  useEffect(() => {
+    if (myVote) {
+      setUseSafety(!!myVote.used_safety);
+      setSelectedTarget(myVote.target_id);
+    }
+  }, [myVote]);
+
+  if (isDead) {
+    return (
+      <div className="player-view">
+        <div className="instruction-box" style={{ background: '#ff4444' }}>
+          <h3>DE-CALIBRATED</h3>
+          <p>You are no longer an active variable in this trial.</p>
+        </div>
+        <Round6History history={state.history} />
+      </div>
+    );
+  }
+
+  const alreadyUsedSafetyInPast = me?.has_used_safety && !myVote?.used_safety;
+
+  return (
+    <div className="player-view">
+      <div className="instruction-box">
+        <h3>ROUND 6: THE PIGEON ROUND</h3>
+        <p>Variable Elimination Protocol Engaging. Choose a target. If your target is eliminated, their unit partner is also purged.</p>
+        {state.status === 'voting' && (
+          <p style={{ color: '#4ade80', fontWeight: 'bold' }}>VOTING IN PROGRESS</p>
+        )}
+      </div>
+
+      {state.status === 'voting' && (
+        <div className="admin-card">
+          <h4 className="section-title">ACTIVE TARGETS</h4>
+          {myVote && (
+            <div style={{ background: '#000', color: '#fff', padding: '10px', marginBottom: '1rem', fontWeight: 'bold' }}>
+              VOTE RECORDED: {state.players.find((p: any) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
+              {myVote.used_safety && <span style={{ color: '#00ff00', marginLeft: '10px' }}>[SAFETY ACTIVE]</span>}
+            </div>
+          )}
+          <div className="player-list">
+            {state.players.filter((p: any) => !p.is_eliminated && p.id !== userId).map((p: any) => (
+              <div 
+                key={p.id} 
+                className={`player-item ${selectedTarget === p.id || myVote?.target_id === p.id ? 'selected' : ''}`}
+                onClick={() => setSelectedTarget(p.id)}
+              >
+                {p.name} {myVote?.target_id === p.id && ' (YOUR TARGET)'}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '1.5rem', padding: '15px', border: '2px dashed black', background: '#f0f0f0' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: alreadyUsedSafetyInPast ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              <input 
+                type="checkbox" 
+                checked={useSafety} 
+                disabled={alreadyUsedSafetyInPast}
+                onChange={(e) => setUseSafety(e.target.checked)}
+                style={{ width: '20px', height: '20px' }}
+              />
+              {alreadyUsedSafetyInPast ? 'SAFETY CARD ALREADY EXHAUSTED' : 'APPLY SAFETY CARD (One-time use)'}
+            </label>
+            <p style={{ fontSize: '0.7rem', marginTop: '5px', opacity: 0.7 }}>
+              Safety prevents your elimination even if you are the top-voted target this cycle.
+            </p>
+          </div>
+
+          <button 
+            className="primary-btn" 
+            style={{ width: '100%', marginTop: '1rem' }}
+            disabled={!selectedTarget || (myVote?.target_id === selectedTarget && myVote?.used_safety === useSafety)}
+            onClick={() => {
+              if (selectedTarget) onVote(selectedTarget, useSafety);
+            }}
+          >
+            {myVote ? 'UPDATE VOTE/SAFETY' : 'CONFIRM VOTE'}
+          </button>
+        </div>
+      )}
+
+      {state.status !== 'voting' && (
+        <div className="instruction-box" style={{ background: '#333' }}>
+          <p>WAITING FOR NEXT CYCLE...</p>
+        </div>
+      )}
+
+      <Round6History history={state.history} />
+    </div>
+  );
+}
+
+function Round6VolunteerView({ 
+  state, 
+  onStartTimer, 
+  onResolve, 
+  onNext,
+  onFinish 
+}: { 
+  state: any, 
+  onStartTimer: () => void, 
+  onResolve: () => void,
+  onNext: () => void,
+  onFinish: () => void
+}) {
+  return (
+    <div className="volunteer-view" style={{ padding: '1rem' }}>
+      <div className="admin-card">
+        <h3>PIGEON ROUND CONTROL</h3>
+        <p>Cycle: {state.current_cycle} | Status: {state.status.toUpperCase()}</p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '1rem' }}>
+          <button className="primary-btn" onClick={onStartTimer} disabled={state.status === 'voting'}>START VOTING</button>
+          <button className="primary-btn" style={{ background: state.status === 'voting' ? '#ffaa00' : '' }} onClick={() => {
+            if (window.confirm("RESOLVE NOW? This will eliminate the top-voted player AND any players who failed to vote.")) {
+              onResolve();
+            }
+          }} disabled={state.status !== 'voting'}>RESOLVE & PURGE</button>
+          <button className="primary-btn" onClick={onNext} disabled={state.status !== 'finished'}>NEXT CYCLE</button>
+          <button className="primary-btn" style={{ background: '#ff4444' }} onClick={onFinish}>FINISH ROUND</button>
+        </div>
+        {state.status === 'voting' && (
+          <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#ff4444', fontWeight: 'bold' }}>
+            ⚠️ WARNING: Resolving will automatically eliminate all players marked "WAITING..." below.
+          </p>
+        )}
+      </div>
+
+      <div className="admin-card" style={{ marginTop: '1rem' }}>
+        <h4 className="section-title">LIVE VOTES ({state.votes.length})</h4>
+        <div className="admin-user-list">
+          {state.players.filter((p: any) => !p.is_eliminated).map((p: any) => {
+             const vote = state.votes.find((v: any) => v.voter_id === p.id);
+             return (
+               <div key={p.id} className="admin-user-item">
+                 <div className="admin-user-info">
+                   <strong>{p.name}</strong>
+                   <small>{vote ? `Voted for ${state.players.find((t: any) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
+                 </div>
+               </div>
+             )
+          })}
+        </div>
+      </div>
+
+      <Round6History history={state.history} />
+    </div>
+  );
+}
+
+function Round7PlayerView({ state, userId, onAction, logs }: { 
   state: any; 
   userId: string; 
   onAction: (action: string, targetId?: string) => void;
@@ -2895,7 +3522,7 @@ function Round6PlayerView({ state, userId, onAction, logs }: {
       {state.status === 'waiting' ? (
         <div style={{ textAlign: 'center', padding: '2rem', background: 'black', color: 'white' }}>
           <div className="loader-dots"><span></span><span></span><span></span></div>
-          <h3 style={{ fontSize: '1.2rem', letterSpacing: '2px' }}>AWAITING NEXT CYCLE...</h3>
+          <h3 style={{ fontSize: '1.2rem', letterSpacing: '2px' }}>CALCULATING CYCLE...</h3>
         </div>
       ) : me.current_action ? (
         <div style={{ textAlign: 'center', padding: '2rem', border: '3px dashed black' }}>
@@ -2987,10 +3614,11 @@ function Round6PlayerView({ state, userId, onAction, logs }: {
   );
 }
 
-function Round6VolunteerView({ state, onStartVoting, onResolve, logs }: { 
+function Round7VolunteerView({ state, onStartVoting, onResolve, onReset, logs }: { 
   state: any; 
   onStartVoting: () => void; 
   onResolve: () => void;
+  onReset: () => void;
   logs: string[];
 }) {
   const alivePlayers = state.players.filter((p: any) => p.is_alive);
@@ -3009,6 +3637,7 @@ function Round6VolunteerView({ state, onStartVoting, onResolve, logs }: {
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>CYCLE</div>
             <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{state.current_cycle}</div>
+             <button onClick={onReset} style={{ fontSize: '0.7rem', textDecoration: 'underline', background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer' }}>Reset Cycle</button>
           </div>
         </div>
 
@@ -3039,9 +3668,19 @@ function Round6VolunteerView({ state, onStartVoting, onResolve, logs }: {
         )}
 
         {state.status === 'finished' && (
-          <div style={{ textAlign: 'center', padding: '2rem', background: '#000', color: '#fff' }}>
-            <h3 style={{ fontSize: '2rem', margin: 0 }}>GAME FINISHED</h3>
-            <p>WINNER: {state.players.find((p:any)=>p.user_id === state.winner_id)?.name || 'NONE'}</p>
+          <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000' }}>
+            <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+              GHAR JAA TERO KAAM SAKKIYO
+            </h3>
+            <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+              (Go home, your work is done.)
+            </p>
+            <div style={{ marginTop: '2rem', padding: '1rem', borderTop: '1px solid #333' }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>CHAMPION DECLARED:</p>
+              <p style={{ fontSize: '2rem', margin: '0.5rem 0', color: '#4ade80' }}>
+                {state.players.find((p:any)=>p.user_id === state.winner_id)?.name || 'NONE'}
+              </p>
+            </div>
           </div>
         )}
       </div>

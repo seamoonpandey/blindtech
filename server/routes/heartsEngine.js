@@ -27,6 +27,33 @@ function resolveCycle(players, actions) {
     updatedPlayers.forEach(p => {
       if (p.is_alive) p.hearts = 1;
     });
+
+    // QUICK DRAW MECHANIC (First to act decides the fate)
+    const actors = updatedPlayers.filter(p => p.current_action && p.current_action !== 'REFUSE'); // Refuse is passive?
+    // actually just check current_action.
+    
+    // We only trigger this logic if NOT everyone has acted (i.e. strictly 1 person acted and we are resolving)
+    // OR if we decided that the first action is definitive regardless of the second.
+    // Given the prompt "one button click ends the thingy", we treat the first valid action as final.
+    
+    if (actors.length === 1) {
+       const actor = actors[0];
+       const opponent = aliveAtStart.find(p => getPid(p) !== getPid(actor));
+       const action = actor.current_action;
+       
+       logs.push(`⚡ QUICK DRAW! ${actor.name} struck first with ${action}!`);
+       
+       if (action === 'SACRIFICE') {
+         logs.push(`${actor.name} SACRIFICED themselves to save the timeline... but in this dimension, that means they WIN!`);
+         return { updatedPlayers, logs, winnerId: getPid(actor) };
+       } else if (action === 'BETRAY') {
+         logs.push(`${actor.name} tried to BETRAY their rival... but greed is their undoing! They LOSE!`);
+         return { updatedPlayers, logs, winnerId: getPid(opponent) };
+       } else if (action === 'QUIT') {
+         logs.push(`${actor.name} QUIT the duel. They LOSE.`);
+         return { updatedPlayers, logs, winnerId: getPid(opponent) };
+       }
+    }
   }
 
   const fedPlayers = new Set();
@@ -178,7 +205,49 @@ function resolveCycle(players, actions) {
     });
   }
 
-  const aliveFinal = updatedPlayers.filter(p => p.is_alive);
+  // --- SAFEGUARD: THE RULE OF TWO ---
+  // Ensure we do not skip the "Final Two" phase or end with 0 survivors.
+  let currentSurvivors = updatedPlayers.filter(p => p.is_alive);
+  const numStart = aliveAtStart.length;
+  const numEnd = currentSurvivors.length;
+
+  let limit = 0;
+  if (numStart > 2 && numEnd < 2) {
+    limit = 2; // Must have 2 survivors to enter Duel Phase
+  } else if (numEnd === 0) {
+    limit = 2; // Prevent total extinction, force rematch/survival
+  }
+
+  if (limit > 0) {
+    logs.push(`⚠️ INTERVENTION: The unseen audience demands ${limit} survivors!`);
+    
+    const quittersIds = new Set(quitters.map(getPid));
+    
+    // Candidates: Dead players who didn't QUIT
+    let candidates = updatedPlayers.filter(p => 
+      !p.is_alive && 
+      aliveAtStart.some(start => getPid(start) === getPid(p)) &&
+      !quittersIds.has(getPid(p))
+    );
+    
+    // Sort by hearts (closest to living)
+    candidates.sort((a, b) => b.hearts - a.hearts);
+    
+    const needed = limit - numEnd;
+    
+    for (let i = 0; i < needed && i < candidates.length; i++) {
+        const p = candidates[i];
+        p.is_alive = true;
+        p.hearts = 1; 
+        logs.push(`${p.name} refuses to die. (Saved by Rule of Two)`);
+    }
+    
+    // Re-eval survivors
+    currentSurvivors = updatedPlayers.filter(p => p.is_alive);
+  }
+  // --- END SAFEGUARD ---
+
+  const aliveFinal = currentSurvivors;
   if (aliveFinal.length === 1) {
     return { updatedPlayers, logs, winnerId: getPid(aliveFinal[0]) };
   } else if (aliveFinal.length === 0) {

