@@ -178,7 +178,49 @@ function resolveCycle(players, actions) {
     });
   }
 
-  const aliveFinal = updatedPlayers.filter(p => p.is_alive);
+  // --- SAFEGUARD: THE RULE OF TWO ---
+  // Ensure we do not skip the "Final Two" phase or end with 0 survivors.
+  let currentSurvivors = updatedPlayers.filter(p => p.is_alive);
+  const numStart = aliveAtStart.length;
+  const numEnd = currentSurvivors.length;
+
+  let limit = 0;
+  if (numStart > 2 && numEnd < 2) {
+    limit = 2; // Must have 2 survivors to enter Duel Phase
+  } else if (numEnd === 0) {
+    limit = 2; // Prevent total extinction, force rematch/survival
+  }
+
+  if (limit > 0) {
+    logs.push(`⚠️ INTERVENTION: The unseen audience demands ${limit} survivors!`);
+    
+    const quittersIds = new Set(quitters.map(getPid));
+    
+    // Candidates: Dead players who didn't QUIT
+    let candidates = updatedPlayers.filter(p => 
+      !p.is_alive && 
+      aliveAtStart.some(start => getPid(start) === getPid(p)) &&
+      !quittersIds.has(getPid(p))
+    );
+    
+    // Sort by hearts (closest to living)
+    candidates.sort((a, b) => b.hearts - a.hearts);
+    
+    const needed = limit - numEnd;
+    
+    for (let i = 0; i < needed && i < candidates.length; i++) {
+        const p = candidates[i];
+        p.is_alive = true;
+        p.hearts = 1; 
+        logs.push(`${p.name} refuses to die. (Saved by Rule of Two)`);
+    }
+    
+    // Re-eval survivors
+    currentSurvivors = updatedPlayers.filter(p => p.is_alive);
+  }
+  // --- END SAFEGUARD ---
+
+  const aliveFinal = currentSurvivors;
   if (aliveFinal.length === 1) {
     return { updatedPlayers, logs, winnerId: getPid(aliveFinal[0]) };
   } else if (aliveFinal.length === 0) {
