@@ -1408,6 +1408,12 @@ export default function Game() {
         }
         if (data.round6_state) setRound6State(data.round6_state);
         if (data.round7_state) setRound7State(data.round7_state);
+        if (data.lottery_pool) setLotteryPool(data.lottery_pool);
+        if (data.admin_users) setAdminUsers(data.admin_users);
+        if (data.admin_teams) setAdminTeams(data.admin_teams);
+        if (data.round3_matches) setRound3Matches(data.round3_matches);
+        if (data.round4_sessions) setRound4Sessions(data.round4_sessions);
+        if (data.round5_games) setRound5Games(data.round5_games);
       } else if (data.type === 'state_update') {
         console.log('RECEIVED STATE UPDATE:', data.state);
         setGameState(data.state);
@@ -3242,6 +3248,7 @@ function Round6PlayerView({
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   
   const me = state.players.find((p: any) => p.id === userId);
+  const myVote = state.votes?.find((v: any) => v.voter_id === userId);
   const isDead = me?.is_eliminated;
 
   if (isDead) {
@@ -3269,26 +3276,31 @@ function Round6PlayerView({
       {state.status === 'voting' && (
         <div className="admin-card">
           <h4 className="section-title">ACTIVE TARGETS</h4>
+          {myVote && (
+            <div style={{ background: '#000', color: '#fff', padding: '10px', marginBottom: '1rem', fontWeight: 'bold' }}>
+              VOTE RECORDED: {state.players.find((p: any) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
+            </div>
+          )}
           <div className="player-list">
             {state.players.filter((p: any) => !p.is_eliminated && p.id !== userId).map((p: any) => (
               <div 
                 key={p.id} 
-                className={`player-item ${selectedTarget === p.id ? 'selected' : ''}`}
+                className={`player-item ${selectedTarget === p.id || myVote?.target_id === p.id ? 'selected' : ''}`}
                 onClick={() => setSelectedTarget(p.id)}
               >
-                {p.name}
+                {p.name} {myVote?.target_id === p.id && ' (YOUR TARGET)'}
               </div>
             ))}
           </div>
           <button 
             className="primary-btn" 
             style={{ width: '100%', marginTop: '1rem' }}
-            disabled={!selectedTarget}
+            disabled={!selectedTarget || myVote?.target_id === selectedTarget}
             onClick={() => {
               if (selectedTarget) onVote(selectedTarget, false);
             }}
           >
-            CONFIRM VOTE
+            {myVote ? 'CHANGE VOTE' : 'CONFIRM VOTE'}
           </button>
         </div>
       )}
@@ -3324,11 +3336,20 @@ function Round6VolunteerView({
         <p>Cycle: {state.current_cycle} | Status: {state.status.toUpperCase()}</p>
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '1rem' }}>
-          <button className="primary-btn" onClick={onStartTimer} disabled={state.status === 'voting'}>START TIMER</button>
-          <button className="primary-btn" onClick={onResolve} disabled={state.status !== 'voting'}>RESOLVE</button>
+          <button className="primary-btn" onClick={onStartTimer} disabled={state.status === 'voting'}>START VOTING</button>
+          <button className="primary-btn" style={{ background: state.status === 'voting' ? '#ffaa00' : '' }} onClick={() => {
+            if (window.confirm("RESOLVE NOW? This will eliminate the top-voted player AND any players who failed to vote.")) {
+              onResolve();
+            }
+          }} disabled={state.status !== 'voting'}>RESOLVE & PURGE</button>
           <button className="primary-btn" onClick={onNext} disabled={state.status !== 'finished'}>NEXT CYCLE</button>
           <button className="primary-btn" style={{ background: '#ff4444' }} onClick={onFinish}>FINISH ROUND</button>
         </div>
+        {state.status === 'voting' && (
+          <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#ff4444', fontWeight: 'bold' }}>
+            ⚠️ WARNING: Resolving will automatically eliminate all players marked "WAITING..." below.
+          </p>
+        )}
       </div>
 
       <div className="admin-card" style={{ marginTop: '1rem' }}>
