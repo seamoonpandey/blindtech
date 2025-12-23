@@ -511,6 +511,46 @@ const broadcastRound6Update = async () => {
   broadcast({ type: 'round6_update', state: r6State });
 }
 
+
+async function performR7Resolution() {
+  console.log('Resolving Game of Hearts cycle...');
+  const r7State = await getRound7State();
+  if (!r7State) return;
+
+  const players = r7State.players;
+  const actions = players.filter(p => p.current_action).map(p => ({
+    user_id: p.user_id,
+    action: p.current_action,
+    target_id: p.target_id
+  }));
+
+  const result = heartsEngine.resolveCycle(players, actions);
+  
+  // Update players in DB
+  for (const p of result.updatedPlayers) {
+    await db.query(`
+      UPDATE hearts_players 
+      SET hearts = $1, is_alive = $2, current_action = NULL, target_id = NULL 
+      WHERE user_id = $3
+    `, [p.hearts, p.is_alive, p.user_id]);
+
+    if (!p.is_alive) {
+      await db.query('UPDATE users SET is_eliminated = true WHERE id = $1', [p.user_id]);
+    }
+  }
+
+  // Check for winner
+  if (result.winnerId) {
+    await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
+  } else {
+    // AUTO-CONTINUE: Increment cycle and keep status as 'acting'
+    await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'acting\' WHERE id = 1');
+  }
+
+  await broadcastRound7Update();
+  broadcast({ type: 'r7_cycle_logs', logs: result.logs });
+}
+
 async function getRound7State() {
   console.log('Fetching Round 7 State (Hearts)...');
   const stateRes = await db.query('SELECT * FROM hearts_game_state WHERE id = 1');
@@ -1614,13 +1654,12 @@ const performR5NextRound = async (gameId) => {
           console.log('Starting Round 7 (The Game of Hearts)...');
           
           await db.query('DELETE FROM hearts_players');
-          // Reset game state to cycle 1, status waiting, no winner. Ensure row exists.
-          // Reset game state to cycle 1, status waiting, no winner. Ensure row exists.
+          // Reset game state to cycle 1, status acting (AUTO START), no winner. Ensure row exists.
           const stateCheck = await db.query('SELECT id FROM hearts_game_state WHERE id = 1');
           if (stateCheck.rows.length === 0) {
-             await db.query(`INSERT INTO hearts_game_state (id, current_cycle, status, winner_id) VALUES (1, 1, 'waiting', NULL)`);
+             await db.query(`INSERT INTO hearts_game_state (id, current_cycle, status, winner_id) VALUES (1, 1, 'acting', NULL)`);
           } else {
-             await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'waiting\', winner_id = NULL WHERE id = 1');
+             await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'acting\', winner_id = NULL WHERE id = 1');
           }
           
           // Initialize hearts_players from alive players
@@ -1659,45 +1698,23 @@ const performR5NextRound = async (gameId) => {
             SET current_action = $1, target_id = $2 
             WHERE user_id = $3
           `, [action, targetId, currentUser.id]);
-          await broadcastRound7Update();
+
+          // Check for auto-resolution
+          const r7State = await getRound7State();
+          const alivePlayers = r7State.players.filter(p => p.is_alive);
+          const activeActions = alivePlayers.filter(p => p.current_action);
+
+          if (alivePlayers.length > 0 && activeActions.length === alivePlayers.length) {
+            console.log("ALL PLAYERS ACTED. AUTO-RESOLVING ROUND 7 CYCLE...");
+            await performR7Resolution();
+          } else {
+            await broadcastRound7Update();
+          }
         }
 
         if (data.type === 'r7_resolve_cycle' && currentUser.role === 'volunteer') {
-          console.log('Resolving Game of Hearts cycle...');
-          const r7State = await getRound7State();
-          if (!r7State) return;
-
-          const players = r7State.players;
-          const actions = players.filter(p => p.current_action).map(p => ({
-            user_id: p.user_id,
-            action: p.current_action,
-            target_id: p.target_id
-          }));
-
-          const result = heartsEngine.resolveCycle(players, actions);
-          
-          // Update players in DB
-          for (const p of result.updatedPlayers) {
-            await db.query(`
-              UPDATE hearts_players 
-              SET hearts = $1, is_alive = $2, current_action = NULL, target_id = NULL 
-              WHERE user_id = $3
-            `, [p.hearts, p.is_alive, p.user_id]);
-
-            if (!p.is_alive) {
-              await db.query('UPDATE users SET is_eliminated = true WHERE id = $1', [p.user_id]);
-            }
-          }
-
-          // Check for winner
-          if (result.winnerId) {
-            await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
-          } else {
-            await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'waiting\' WHERE id = 1');
-          }
-
-          await broadcastRound7Update();
-          broadcast({ type: 'r7_cycle_logs', logs: result.logs });
+           // Manual override just in case
+           await performR7Resolution();
         }
 
         if (data.type === 'r7_start_voting' && currentUser.role === 'volunteer') {
