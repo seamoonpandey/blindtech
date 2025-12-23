@@ -1514,10 +1514,16 @@ const performR5NextRound = async (gameId) => {
         }
 
         if (data.type === 'r5_end_now' && currentUser.role === 'volunteer') {
-          const { gameId } = data;
-          console.log(`FORCE ENDING R5 Game: ${gameId} -> MANUAL STOP (Double Elimination)`);
+          const { gameId, outcome } = data; // outcome: 'A', 'B', 'BOTH', 'NONE'
+          console.log(`FORCE ENDING R5 Game: ${gameId} -> MANUAL STOP (Outcome: ${outcome})`);
           
-          await db.query('UPDATE round5_games SET status = \'finished\', result = \'manual_stop\' WHERE id = $1', [gameId]);
+          let resultStr = 'manual_stop';
+          if (outcome === 'A') resultStr = 'team_a_won';
+          if (outcome === 'B') resultStr = 'team_b_won';
+          if (outcome === 'BOTH') resultStr = 'both_won_manual';
+          if (outcome === 'NONE') resultStr = 'manual_stop';
+
+          await db.query('UPDATE round5_games SET status = \'finished\', result = $1 WHERE id = $2', [resultStr, gameId]);
           
           const game = (await db.query(`
             SELECT g.*, 
@@ -1529,10 +1535,23 @@ const performR5NextRound = async (gameId) => {
             WHERE g.id = $1
           `, [gameId])).rows[0];
 
-          // Eliminate everyone
           if (game) {
-             const victims = [game.a1, game.a2, game.b1, game.b2].filter(Boolean);
-             await db.query('UPDATE users SET is_eliminated = true WHERE id = ANY($1)', [victims]);
+            if (outcome === 'A') {
+              // Eliminate Team B
+              const victims = [game.b1, game.b2].filter(Boolean);
+              if (victims.length) await db.query('UPDATE users SET is_eliminated = true WHERE id = ANY($1)', [victims]);
+            } else if (outcome === 'B') {
+               // Eliminate Team A
+              const victims = [game.a1, game.a2].filter(Boolean);
+              if (victims.length) await db.query('UPDATE users SET is_eliminated = true WHERE id = ANY($1)', [victims]);
+            } else if (outcome === 'NONE') {
+               // Eliminate Both
+               const victims = [game.a1, game.a2, game.b1, game.b2].filter(Boolean);
+               if (victims.length) await db.query('UPDATE users SET is_eliminated = true WHERE id = ANY($1)', [victims]);
+            } else if (outcome === 'BOTH') {
+               // Eliminate Nobody
+               console.log(`Manual Override: Both teams pass in Game ${gameId}`);
+            }
           }
 
           await broadcastRound5Update();

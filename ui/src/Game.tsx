@@ -1703,8 +1703,22 @@ export default function Game() {
   };
 
   const endR5GameNow = (gameId: string) => {
-    if (window.confirm("ARE YOU SURE? This will instantly stop this specific game.")) {
-      ws?.send(JSON.stringify({ type: 'r5_end_now', gameId }));
+    const choice = window.prompt(
+      "MANUAL STOP: Choose the outcome.\n" +
+      "Type 'A' -> Team A Wins (Pass)\n" +
+      "Type 'B' -> Team B Wins (Pass)\n" +
+      "Type 'BOTH' -> Both Teams Pass (Rare)\n" +
+      "Type 'NONE' -> Both Teams Eliminated (Fail)\n\n" +
+      "Type your choice (A/B/BOTH/NONE):"
+    );
+
+    if (choice) {
+      const formatted = choice.toUpperCase().trim();
+      if (['A', 'B', 'BOTH', 'NONE'].includes(formatted)) {
+         ws?.send(JSON.stringify({ type: 'r5_end_now', gameId, outcome: formatted }));
+      } else {
+        alert("Invalid choice. Operation cancelled.");
+      }
     }
   };
 
