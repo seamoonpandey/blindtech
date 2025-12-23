@@ -1515,8 +1515,26 @@ const performR5NextRound = async (gameId) => {
 
         if (data.type === 'r5_end_now' && currentUser.role === 'volunteer') {
           const { gameId } = data;
-          console.log(`FORCE ENDING R5 Game: ${gameId}`);
+          console.log(`FORCE ENDING R5 Game: ${gameId} -> MANUAL STOP (Double Elimination)`);
+          
           await db.query('UPDATE round5_games SET status = \'finished\', result = \'manual_stop\' WHERE id = $1', [gameId]);
+          
+          const game = (await db.query(`
+            SELECT g.*, 
+            ta.user1_id as a1, ta.user2_id as a2, 
+            tb.user1_id as b1, tb.user2_id as b2
+            FROM round5_games g 
+            JOIN teams ta ON g.team_a_id = ta.id 
+            LEFT JOIN teams tb ON g.team_b_id = tb.id
+            WHERE g.id = $1
+          `, [gameId])).rows[0];
+
+          // Eliminate everyone
+          if (game) {
+             const victims = [game.a1, game.a2, game.b1, game.b2].filter(Boolean);
+             await db.query('UPDATE users SET is_eliminated = true WHERE id = ANY($1)', [victims]);
+          }
+
           await broadcastRound5Update();
         }
 
@@ -1577,7 +1595,13 @@ const performR5NextRound = async (gameId) => {
           console.log('Starting Round 7 (The Game of Hearts)...');
           
           await db.query('DELETE FROM hearts_players');
-          await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'waiting\', winner_id = NULL WHERE id = 1');
+          // Reset game state to cycle 1, status waiting, no winner. Ensure row exists.
+          const stateCheck = await db.query('SELECT id FROM hearts_game_state WHERE id = 1');
+          if (stateCheck.rows.length === 0) {
+             await db.query(`INSERT INTO hearts_game_state (id, current_cycle, status) VALUES (1, 1, 'waiting')`);
+          } else {
+             await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'waiting\', winner_id = NULL WHERE id = 1');
+          }
           
           // Initialize hearts_players from alive players
           const alivePlayers = await db.query("SELECT id, name FROM users WHERE role = 'player' AND is_eliminated = false");
@@ -1592,6 +1616,7 @@ const performR5NextRound = async (gameId) => {
             `, [p.id, teammateId]);
           }
 
+          // Ensure state reflects current round
           await db.query("UPDATE game_state SET current_round = 7, status = 'active' WHERE id = 1");
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
@@ -1601,6 +1626,14 @@ const performR5NextRound = async (gameId) => {
         if (data.type === 'r7_submit_action') {
           const { action, targetId } = data;
           console.log(`Player ${currentUser.name} submitted R7 action: ${action}`);
+
+          // Verify player is alive
+          const playerCheck = await db.query('SELECT is_alive FROM hearts_players WHERE user_id = $1', [currentUser.id]);
+          if (!playerCheck.rows[0] || !playerCheck.rows[0].is_alive) {
+            console.log(`Action rejected: Player ${currentUser.name} is dead.`);
+            return;
+          }
+
           await db.query(`
             UPDATE hearts_players 
             SET current_action = $1, target_id = $2 
@@ -1648,7 +1681,16 @@ const performR5NextRound = async (gameId) => {
         }
 
         if (data.type === 'r7_start_voting' && currentUser.role === 'volunteer') {
+          console.log('Starting R7 Cycle Voting Phase...');
           await db.query("UPDATE hearts_game_state SET status = 'acting' WHERE id = 1");
+          await broadcastRound7Update();
+        }
+
+        if (data.type === 'r7_reset_cycle' && currentUser.role === 'volunteer') {
+          console.log('Resetting R7 Cycle...');
+          await db.query("UPDATE hearts_game_state SET status = 'waiting' WHERE id = 1");
+          // Clear current actions
+           await db.query("UPDATE hearts_players SET current_action = NULL, target_id = NULL");
           await broadcastRound7Update();
         }
 

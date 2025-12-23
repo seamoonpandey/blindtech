@@ -1608,6 +1608,12 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'r7_resolve_cycle' }));
   };
 
+  const resetR7Cycle = () => {
+    if (window.confirm("FORCE RESET Round 7 Cycle? This clears all current actions and sets status to WAITING.")) {
+      ws?.send(JSON.stringify({ type: 'r7_reset_cycle' }));
+    }
+  };
+
   const joinMatch = (matchId: string) => {
     ws?.send(JSON.stringify({ type: 'join_match', matchId }));
   };
@@ -2136,12 +2142,17 @@ export default function Game() {
                 logs={r7Logs}
               />
             ) : (
-              <Round7VolunteerView 
-                state={round7State}
-                onStartVoting={startR7Voting}
-                onResolve={resolveR7Cycle}
-                logs={r7Logs}
-              />
+              <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
+                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+                  GHAR JAA TERO KAAM SAKKIYO
+                </h3>
+                <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+                  (Go home, your work is done.)
+                </p>
+                <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
+                  Round 7 is running autonomously. You are dismissed.
+                </p>
+              </div>
             )
           )}
 
@@ -2181,10 +2192,26 @@ export default function Game() {
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                    ROUND {gameState.current_round} FINALIZED
-                  </p>
-                  <p style={{ opacity: 0.7 }}>Awaiting next phase instructions from the Game Master...</p>
+                  {gameState.current_round === 6 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
+                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+                        GHAR JAA TERO KAAM SAKKIYO
+                      </h3>
+                      <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+                        (Go home, your work is done.)
+                      </p>
+                      <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
+                        The system will handle the Final Round automatically (or mostly). Good job.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
+                        ROUND {gameState.current_round} FINALIZED
+                      </p>
+                      <p style={{ opacity: 0.7 }}>Awaiting next phase instructions from the Game Master...</p>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -3562,10 +3589,11 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
   );
 }
 
-function Round7VolunteerView({ state, onStartVoting, onResolve, logs }: { 
+function Round7VolunteerView({ state, onStartVoting, onResolve, onReset, logs }: { 
   state: any; 
   onStartVoting: () => void; 
   onResolve: () => void;
+  onReset: () => void;
   logs: string[];
 }) {
   const alivePlayers = state.players.filter((p: any) => p.is_alive);
@@ -3584,6 +3612,7 @@ function Round7VolunteerView({ state, onStartVoting, onResolve, logs }: {
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>CYCLE</div>
             <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{state.current_cycle}</div>
+             <button onClick={onReset} style={{ fontSize: '0.7rem', textDecoration: 'underline', background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer' }}>Reset Cycle</button>
           </div>
         </div>
 
@@ -3614,9 +3643,19 @@ function Round7VolunteerView({ state, onStartVoting, onResolve, logs }: {
         )}
 
         {state.status === 'finished' && (
-          <div style={{ textAlign: 'center', padding: '2rem', background: '#000', color: '#fff' }}>
-            <h3 style={{ fontSize: '2rem', margin: 0 }}>GAME FINISHED</h3>
-            <p>WINNER: {state.players.find((p:any)=>p.user_id === state.winner_id)?.name || 'NONE'}</p>
+          <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000' }}>
+            <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+              GHAR JAA TERO KAAM SAKKIYO
+            </h3>
+            <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+              (Go home, your work is done.)
+            </p>
+            <div style={{ marginTop: '2rem', padding: '1rem', borderTop: '1px solid #333' }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>CHAMPION DECLARED:</p>
+              <p style={{ fontSize: '2rem', margin: '0.5rem 0', color: '#4ade80' }}>
+                {state.players.find((p:any)=>p.user_id === state.winner_id)?.name || 'NONE'}
+              </p>
+            </div>
           </div>
         )}
       </div>
