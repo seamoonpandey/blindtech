@@ -3522,7 +3522,7 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
       {state.status === 'waiting' ? (
         <div style={{ textAlign: 'center', padding: '2rem', background: 'black', color: 'white' }}>
           <div className="loader-dots"><span></span><span></span><span></span></div>
-          <h3 style={{ fontSize: '1.2rem', letterSpacing: '2px' }}>AWAITING NEXT CYCLE...</h3>
+          <h3 style={{ fontSize: '1.2rem', letterSpacing: '2px' }}>CALCULATING CYCLE...</h3>
         </div>
       ) : me.current_action ? (
         <div style={{ textAlign: 'center', padding: '2rem', border: '3px dashed black' }}>
