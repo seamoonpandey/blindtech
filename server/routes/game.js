@@ -513,42 +513,46 @@ const broadcastRound6Update = async () => {
 
 
 async function performR7Resolution() {
-  console.log('Resolving Game of Hearts cycle...');
-  const r7State = await getRound7State();
-  if (!r7State) return;
+  try {
+    console.log('Resolving Game of Hearts cycle...');
+    const r7State = await getRound7State();
+    if (!r7State) return;
 
-  const players = r7State.players;
-  const actions = players.filter(p => p.current_action).map(p => ({
-    user_id: p.user_id,
-    action: p.current_action,
-    target_id: p.target_id
-  }));
+    const players = r7State.players;
+    const actions = players.filter(p => p.current_action).map(p => ({
+      user_id: p.user_id,
+      action: p.current_action,
+      target_id: p.target_id
+    }));
 
-  const result = heartsEngine.resolveCycle(players, actions);
-  
-  // Update players in DB
-  for (const p of result.updatedPlayers) {
-    await db.query(`
-      UPDATE hearts_players 
-      SET hearts = $1, is_alive = $2, current_action = NULL, target_id = NULL 
-      WHERE user_id = $3
-    `, [p.hearts, p.is_alive, p.user_id]);
+    const result = heartsEngine.resolveCycle(players, actions);
+    
+    // Update players in DB
+    for (const p of result.updatedPlayers) {
+      await db.query(`
+        UPDATE hearts_players 
+        SET hearts = $1, is_alive = $2, current_action = NULL, target_id = NULL 
+        WHERE user_id = $3
+      `, [p.hearts, p.is_alive, p.user_id]);
 
-    if (!p.is_alive) {
-      await db.query('UPDATE users SET is_eliminated = true WHERE id = $1', [p.user_id]);
+      if (!p.is_alive) {
+        await db.query('UPDATE users SET is_eliminated = true WHERE id = $1', [p.user_id]);
+      }
     }
-  }
 
-  // Check for winner
-  if (result.winnerId) {
-    await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
-  } else {
-    // AUTO-CONTINUE: Increment cycle and keep status as 'acting'
-    await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'acting\' WHERE id = 1');
-  }
+    // Check for winner
+    if (result.winnerId) {
+      await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
+    } else {
+      // AUTO-CONTINUE: Increment cycle and keep status as 'acting'
+      await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'acting\' WHERE id = 1');
+    }
 
-  await broadcastRound7Update();
-  broadcast({ type: 'r7_cycle_logs', logs: result.logs });
+    await broadcastRound7Update();
+    broadcast({ type: 'r7_cycle_logs', logs: result.logs });
+  } catch (err) {
+    console.error("ERROR IN R7 RESOLUTION:", err);
+  }
 }
 
 async function getRound7State() {
@@ -1704,6 +1708,8 @@ const performR5NextRound = async (gameId) => {
           const alivePlayers = r7State.players.filter(p => p.is_alive);
           const activeActions = alivePlayers.filter(p => p.current_action);
 
+          console.log(`[R7 Check] Alive: ${alivePlayers.length}, Acted: ${activeActions.length}`);
+          
           if (alivePlayers.length > 0 && activeActions.length === alivePlayers.length) {
             console.log("ALL PLAYERS ACTED. AUTO-RESOLVING ROUND 7 CYCLE...");
             await performR7Resolution();
