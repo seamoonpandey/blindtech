@@ -2147,8 +2147,18 @@ export default function Game() {
             )
           )}
 
-          {gameState.status === 'active' && gameState.current_round === 7 && round7State && (
-            user.role === 'player' ? (
+          {gameState.status === 'active' && gameState.current_round === 7 && (
+            !round7State ? (
+              <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+                <div className="loader-dots"><span></span><span></span><span></span></div>
+                <h3>CONNECTING TO HEARTS ENGINE...</h3>
+                <p style={{ opacity: 0.6 }}>Synchronizing game state...</p>
+                <button onClick={() => ws?.send(JSON.stringify({ type: 'start_round_7' }))} style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.5, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>
+                  Force Re-Sync (Admin Only)
+                </button>
+              </div>
+            ) : (
+             user.role === 'player' ? (
               <Round7PlayerView 
                 state={round7State} 
                 userId={user.id} 
@@ -2168,6 +2178,7 @@ export default function Game() {
                 </p>
               </div>
             )
+          )
           )}
 
           {gameState.status === 'finished' && (

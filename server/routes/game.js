@@ -1615,9 +1615,10 @@ const performR5NextRound = async (gameId) => {
           
           await db.query('DELETE FROM hearts_players');
           // Reset game state to cycle 1, status waiting, no winner. Ensure row exists.
+          // Reset game state to cycle 1, status waiting, no winner. Ensure row exists.
           const stateCheck = await db.query('SELECT id FROM hearts_game_state WHERE id = 1');
           if (stateCheck.rows.length === 0) {
-             await db.query(`INSERT INTO hearts_game_state (id, current_cycle, status) VALUES (1, 1, 'waiting')`);
+             await db.query(`INSERT INTO hearts_game_state (id, current_cycle, status, winner_id) VALUES (1, 1, 'waiting', NULL)`);
           } else {
              await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'waiting\', winner_id = NULL WHERE id = 1');
           }
