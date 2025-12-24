@@ -38,7 +38,7 @@ async function authRoutes(fastify, options) {
     const { email, password } = request.body;
 
     // Rigid Admin Login
-    if (email === 'moon@admin.com' && password === 'alisha') {
+    if (email === 'moon@admin.com' && password === 'ahsila') {
       const adminUser = { id: 'admin-id', name: 'Watchman', email: 'moon@admin.com', role: 'admin' };
       const token = fastify.jwt.sign({ id: adminUser.id, role: adminUser.role, name: adminUser.name });
       reply.setCookie('token', token, {

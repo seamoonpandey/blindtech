@@ -33,7 +33,7 @@
 1. **Login as Admin**:
 
    - Email: `moon@admin.com`
-   - Password: `alisha`
+   - Password: `ahsila`
    - URL: http://localhost:5173
 
 2. **Navigate to Admin View**:

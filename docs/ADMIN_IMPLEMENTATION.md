@@ -7,7 +7,7 @@ Successfully implemented the Admin-Mastered architecture for Blindtech. The admi
 ## Admin Credentials
 
 - **Email**: `moon@admin.com`
-- **Password**: `alisha`
+- **Password**: `ahsila`
 - **Role**: `admin`
 
 ## Backend Changes
@@ -119,7 +119,7 @@ Created a new `AdminView` component with 4 tabs:
 1. Navigate to http://localhost:5173
 2. Login with:
    - Email: `moon`
-   - Password: `alisha`
+   - Password: `ahsila`
 3. You should see the Admin View with 4 tabs
 
 ### Test Management Features:
