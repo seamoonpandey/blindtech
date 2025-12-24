@@ -23,17 +23,172 @@ import { CSS } from '@dnd-kit/utilities';
 interface Player {
   id: string;
   name: string;
+  email?: string;
+  role?: string;
+  is_eliminated?: boolean;
 }
 
 interface LeaderboardEntry {
   id: string;
   name: string;
   score: number;
+  is_eliminated?: boolean;
 }
 
 interface GameState {
   current_round: number;
   status: 'waiting' | 'active' | 'finished';
+  is_sudden_death?: boolean;
+}
+
+interface Round3Match {
+  id: string;
+  team1_id: string;
+  team1_name: string;
+  team1_user1: string;
+  team1_user2: string;
+  team1_scores: boolean[];
+  team2_id?: string;
+  team2_name?: string;
+  team2_user1?: string;
+  team2_user2?: string;
+  team2_scores: boolean[];
+  volunteer_id?: string;
+  volunteer_name?: string;
+  status: 'waiting' | 'active' | 'finished';
+  current_subround: number;
+  winner_name?: string;
+  winner_team_id?: string;
+}
+
+interface Round4Session {
+  id: string;
+  team_id: string;
+  team_name: string;
+  user1_id: string;
+  user1_name: string;
+  user2_id: string;
+  user2_name: string;
+  volunteer_id?: string;
+  volunteer_name?: string;
+  status: 'waiting' | 'active' | 'finished';
+  result?: 'pass' | 'fail';
+  user1_eliminated?: boolean;
+  user2_eliminated?: boolean;
+}
+
+interface Round5Game {
+  id: string;
+  team_a_id: string;
+  team_a_name: string;
+  team_a_user1: string;
+  team_a_user2: string;
+  team_a_momentum: number;
+  team_a_turn_order?: string[];
+  team_a_pact_used?: string;
+  team_b_id?: string;
+  team_b_name?: string;
+  team_b_user1?: string;
+  team_b_user2?: string;
+  team_b_momentum: number;
+  team_b_turn_order?: string[];
+  team_b_pact_used?: string;
+  status: 'waiting' | 'active' | 'finished';
+  result?: 'team_a_win' | 'team_b_win' | 'both_win' | 'both_lose';
+  current_round: number;
+  subround_started_at: string;
+  is_sudden_death: boolean;
+  turns: {
+    player_id: string;
+    team: 'A' | 'B';
+    card_selected: 'ATTACK' | 'FORTIFY' | 'CONVERGE';
+    pact_used?: string;
+    round_number: number;
+    is_revealed: boolean;
+  }[];
+}
+
+interface Round6State {
+  status: 'waiting' | 'voting' | 'finished';
+  current_cycle: number;
+  players: {
+    id: string;
+    name: string;
+    is_eliminated: boolean;
+    has_used_safety: boolean;
+  }[];
+  votes: {
+    voter_id: string;
+    target_id: string;
+    used_safety: boolean;
+  }[];
+  history: {
+    subround: number;
+    target_name?: string;
+    partner_name?: string;
+    reason: string;
+  }[];
+}
+
+interface Round7State {
+  status: 'waiting' | 'active' | 'finished';
+  current_cycle: number;
+  players: {
+    user_id: string;
+    name: string;
+    hearts: number;
+    is_alive: boolean;
+    teammate_id?: string;
+    current_action?: string;
+    target_id?: string;
+  }[];
+  winner_id?: string;
+}
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  is_eliminated: boolean;
+}
+
+interface AdminTeam {
+  id: string;
+  name: string;
+  user1_id: string;
+  user1_name: string;
+  user1_eliminated: boolean;
+  user2_id: string;
+  user2_name: string;
+  user2_eliminated: boolean;
+}
+
+interface AdminViewProps {
+  gameState: GameState;
+  leaderboard: Player[];
+  adminUsers: AdminUser[];
+  adminTeams: AdminTeam[];
+  round3Matches: Round3Match[];
+  round4Sessions: Round4Session[];
+  round5Games: Round5Game[];
+  onEliminateUser: (userId: string) => void;
+  onReviveUser: (userId: string) => void;
+  onEliminateTeam: (teamId: string) => void;
+  onReviveTeam: (teamId: string) => void;
+  onStartRound: (round: number) => void;
+  onFinishRound: (round: number) => void;
+  onStartRound2: () => void;
+  onStartRound3: () => void;
+  onFinishRound3: () => void;
+  onStartRound4: () => void;
+  onFinishRound4: () => void;
+  onStartRound5: () => void;
+  onFinishRound5: () => void;
+  onStartRound6: () => void;
+  onStartRound7: () => void;
+  onFinishRound6: () => void;
+  onResetRound: (round: number) => void;
 }
 
 const getRandomMessage = (messages: string[]) => {
@@ -160,7 +315,7 @@ function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: P
   );
 }
 
-function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: any[]; isEliminated: boolean; randomQuote: string }) {
+function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: Round3Match[]; isEliminated: boolean; randomQuote: string }) {
   const myMatch = matches.find(m => 
     m.team1_user1 === userId || m.team1_user2 === userId || 
     m.team2_user1 === userId || m.team2_user2 === userId
@@ -265,7 +420,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
 
 function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { 
   volunteerId: string; 
-  matches: any[]; 
+  matches: Round3Match[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
@@ -401,7 +556,7 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
   );
 }
 
-function Round4PlayerView({ session, isEliminated }: { session: any; isEliminated: boolean }) {
+function Round4PlayerView({ session, isEliminated }: { session: Round4Session; isEliminated: boolean }) {
   if (isEliminated) {
     return (
       <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
@@ -494,7 +649,7 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
 }
 
 function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
-  sessions: any[];
+  sessions: Round4Session[];
   volunteerId: string;
   onJoinSession: (sessionId: string) => void;
   onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
@@ -589,7 +744,7 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
         ))}
         {sessions.length === 0 && (
           <div className="card" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
-            <p>NO TEAMS IN EVALUATION QUEUE</p>
+            NO TEAMS IN EVALUATION QUEUE
           </div>
         )}
       </div>
@@ -598,24 +753,29 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
 }
 
 
-function Round5PlayerView({ game, userId, onSelectCard }: { 
-  game: any; 
+function Round5PlayerView({ 
+  game, 
+  userId, 
+  onSelectCard 
+}: { 
+  game: Round5Game; 
   userId: string;
   onSelectCard: (card: 'ATTACK' | 'FORTIFY' | 'CONVERGE', pact?: string) => void;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(60);
+  const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     if (!game || game.status !== 'active') return;
     
-    // Force set to 60/5 on round/revealed change
     const updateTimer = () => {
       const start = new Date(game.subround_started_at).getTime();
       const now = Date.now();
       const elapsed = Math.floor((now - start) / 1000);
       
-      const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
-      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: any) => t.is_revealed);
+      const currentRoundTurns = (game.turns ?? []).filter((t) => t.round_number === game.current_round);
+      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t) => t.is_revealed);
       
       const limit = game.current_round === 1 ? 120 : 60;
       if (revealed) {
@@ -648,13 +808,10 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   
   const isMyTurn = game.current_round === 1 || (turnOrder && turnOrder[(game.current_round - 1) % 2] === userId);
   
-  const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
-  const myTurn = currentRoundTurns.find((t: any) => t.player_id === userId);
+  const currentRoundTurns = (game.turns ?? []).filter((t) => t.round_number === game.current_round);
+  const myTurn = currentRoundTurns.find((t) => t.player_id === userId);
   const bothSubmitted = currentRoundTurns.length === 2;
-  const revealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
-
-  const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
-  const [showGuide, setShowGuide] = useState(false);
+  const revealed = bothSubmitted && currentRoundTurns.every((t) => t.is_revealed);
 
   const pactOptions = [
     { id: 'reduce_penalty', label: '🛡️ REDUCE PENALTY', desc: 'Convert penalty loss to -1' },
@@ -662,7 +819,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
     { id: 'ignore_negative', label: '🚫 IGNORE NEGATIVE', desc: 'Cancel any negative change' }
   ];
 
-  const MATRIX: any = {
+  const MATRIX: Record<string, Record<string, [number, number]>> = {
     ATTACK: { ATTACK: [-1, -1], FORTIFY: [2, -1], CONVERGE: [-2, 2] },
     FORTIFY: { ATTACK: [-1, 2], FORTIFY: [0, 0], CONVERGE: [1, -1] },
     CONVERGE: { ATTACK: [2, -2], FORTIFY: [-1, 1], CONVERGE: [3, 3] }
@@ -679,7 +836,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
           <>
             <h1 style={{ fontSize: '4rem', color: '#00ff00' }}>VICTORY</h1>
             <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</p>
-            <p style={{ opacity: 0.7 }}>You survived the Paradox. Don't be so happy.</p>
+            <p style={{ opacity: 0.7 }}>You survived the Paradox. Don't let it go to your head.</p>
           </>
         ) : (
           <>
@@ -804,17 +961,17 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1rem' }}>
             <div>
               <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM A</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'A')?.card_selected}</div>
-              {currentRoundTurns.find((t: any) => t.team === 'A')?.pact_used && (
-                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'A').pact_used}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t) => t.team === 'A')?.card_selected}</div>
+              {currentRoundTurns.find((t) => t.team === 'A')?.pact_used && (
+                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t) => t.team === 'A')?.pact_used}</div>
               )}
             </div>
             <div style={{ fontSize: '2rem', color: '#444' }}>VS</div>
             <div>
               <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM B</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'B')?.card_selected}</div>
-              {currentRoundTurns.find((t: any) => t.team === 'B')?.pact_used && (
-                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'B').pact_used}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t) => t.team === 'B')?.card_selected}</div>
+              {currentRoundTurns.find((t) => t.team === 'B')?.pact_used && (
+                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t) => t.team === 'B')?.pact_used}</div>
               )}
             </div>
           </div>
@@ -828,7 +985,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               <button 
                 key={card}
                 className="primary-btn"
-                onClick={() => onSelectCard(card as any, selectedPact)}
+                onClick={() => onSelectCard(card as 'ATTACK' | 'FORTIFY' | 'CONVERGE', selectedPact)}
                 style={{ padding: '2rem 1rem' }}
               >
                 {card}
@@ -885,14 +1042,14 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>BATTLE HISTORY</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {Array.isArray(game.turns) && game.turns
-            .filter((t:any) => t && t.is_revealed)
-            .sort((a:any, b:any) => (b.round_number || 0) - (a.round_number || 0))
-            .map((t: any, _: number, arr: any[]) => {
+            .filter((t) => t && t.is_revealed)
+            .sort((a, b) => (b.round_number || 0) - (a.round_number || 0))
+            .map((t, _idx, arr) => {
             // Group turns by round
-            if (t.team === 'B') return null; // We'll process A and find B
+            if (t.team === 'B') return null;
             const roundNum = t.round_number;
             const turnA = t;
-            const turnB = arr.find((alt: any) => alt.round_number === roundNum && alt.team === 'B');
+            const turnB = arr.find((alt) => alt.round_number === roundNum && alt.team === 'B');
             if (!turnB) return null;
 
             if (!MATRIX[turnA.card_selected] || !MATRIX[turnA.card_selected][turnB.card_selected]) return null;
@@ -930,7 +1087,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               </div>
             );
           })}
-          {(!Array.isArray(game.turns) || game.turns.filter((t: any) => t.is_revealed).length === 0) && (
+          {(!Array.isArray(game.turns) || game.turns.filter((t) => t.is_revealed).length === 0) && (
             <p style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>No history yet. The battle has just begun.</p>
           )}
         </div>
@@ -964,11 +1121,11 @@ function AdminView({
   onStartRound7,
   onFinishRound6,
   onResetRound
-}: any) {
+}: AdminViewProps) {
   const [activeTab, setActiveTab] = useState('control');
   const [leaderboardPage, setLeaderboardPage] = useState(1);
   const [dataSubTab, setDataSubTab] = useState('r3');
-  const surviversCount = adminUsers.filter((u: any) => !u.is_eliminated && u.role === 'player').length;
+  const surviversCount = adminUsers.filter((u) => !u.is_eliminated && u.role === 'player').length;
 
   return (
     <div className="admin-view-root">
@@ -1009,7 +1166,7 @@ function AdminView({
                   {surviversCount} 
                   {gameState.current_round >= 2 && (
                     <span style={{ fontSize: '0.6em', marginLeft: '6px', opacity: 0.8 }}>
-                      ({adminTeams.filter((t: any) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
+                      ({adminTeams.filter((t) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
                     </span>
                   )}
                 </span>
@@ -1314,7 +1471,7 @@ function AdminView({
 }
 
 function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
-  games: any[];
+  games: Round5Game[];
   onDisqualify: (gameId: string, team: 'A' | 'B') => void;
   onEndNow: (gameId: string) => void;
 }) {
@@ -1344,2346 +1501,105 @@ function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{g.team_a_name}</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{g.team_a_momentum}</div>
-                  <div style={{ fontSize: '0.7rem' }}>MOMENTUM</div>
-                  {g.status === 'active' && (
-                    <button 
-                      onClick={() => onDisqualify(g.id, 'A')}
-                      style={{ marginTop: '1rem', background: '#c53030', color: 'white', padding: '5px 10px', fontSize: '0.7rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    > RULE VIOLATION: DQ </button>
-                  )}
+                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>YOUR STATUS</div>
+                  <div style={{ fontSize: '3rem', fontWeight: '900' }}>{'❤️'.repeat(me.hearts)}</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{me.hearts} HEARTS</div>
                 </div>
-                <div style={{ opacity: 0.3, fontWeight: 'bold', textAlign: 'center' }}>VS</div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{g.team_b_name || 'BYE'}</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{g.team_b_momentum}</div>
-                  <div style={{ fontSize: '0.7rem' }}>MOMENTUM</div>
-                  {g.status === 'active' && g.team_b_id && (
-                    <button 
-                      onClick={() => onDisqualify(g.id, 'B')}
-                      style={{ marginTop: '1rem', background: '#c53030', color: 'white', padding: '5px 10px', fontSize: '0.7rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    > RULE VIOLATION: DQ </button>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '4px', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                  <strong>SUB-ROUND:</strong> {g.current_round}/9 
-                  {g.is_sudden_death && <span style={{ color: '#c53030', fontWeight: 'bold' }}> (SUDDEN DEATH)</span>}
-                </div>
-                {g.status === 'active' && (
-                  <div style={{ fontSize: '0.8rem' }}>
-                    <strong>STATUS:</strong> {isRevealed ? 'REVEALED - AUTO-NEXT SOON' : (bothSubmitted ? 'BOTH READY' : `WAITING (${currentRoundTurns.length}/2)`)}
+                {me.teammate_id && (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>PARTNER</div>
+                    <div style={{ fontWeight: 'bold' }}>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.name || 'UNKNOWN'}</div>
+                    <div>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive ? '❤️'.repeat(state.players.find((p:any)=>p.user_id === me.teammate_id)?.hearts) : '💀 DEAD'}</div>
                   </div>
                 )}
               </div>
 
-              {isRevealed && turnA && turnB && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>
-                  <div style={{ padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px' }}>
-                    <div style={{ opacity: 0.6 }}>A played:</div>
-                    <div style={{ fontWeight: 'bold' }}>{turnA.card_selected}</div>
-                  </div>
-                  <div style={{ padding: '0.5rem', background: '#e2e8f0', borderRadius: '4px' }}>
-                    <div style={{ opacity: 0.6 }}>B played:</div>
-                    <div style={{ fontWeight: 'bold' }}>{turnB.card_selected}</div>
-                  </div>
+              {state.status === 'waiting' ? (
+                <div style={{ textAlign: 'center', padding: '2rem', background: 'black', color: 'white' }}>
+                  <div className="loader-dots"><span></span><span></span><span></span></div>
+                  <h3 style={{ fontSize: '1.2rem', letterSpacing: '2px' }}>CALCULATING CYCLE...</h3>
                 </div>
-              )}
-              
-
-
-              {g.status === 'finished' && (
-                <div style={{ marginTop: '1rem', padding: '1rem', background: '#000', color: '#fff', textAlign: 'center', fontWeight: 'bold', borderRadius: '4px' }}>
-                  RESULT: {g.result?.replace('_', ' ').toUpperCase()}
+              ) : me.current_action ? (
+                <div style={{ textAlign: 'center', padding: '2rem', border: '3px dashed black' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '900' }}>ACTION RECORDED</h3>
+                  <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>{me.current_action}: {state.players.find((p:any)=>p.user_id === me.target_id)?.name || 'NONE'}</p>
+                  <p style={{ opacity: 0.6 }}>Waiting for others to act...</p>
                 </div>
-              )}
-
-              {g.status === 'active' && (
-                <button 
-                  onClick={() => onEndNow(g.id)}
-                  style={{ width: '100%', marginTop: '1rem', background: '#4a5568', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                > ⏹️ END THIS ROUND NOW </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-export default function Game() {
-  const { user, logout, token } = useAuth();
-  const navigate = useNavigate();
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
-  const [submitted, setSubmitted] = useState(false);
-  const [initialSubmission, setInitialSubmission] = useState<{target_id: string, rank: number}[] | null>(null);
-  const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
-  
-  // Round 2 States
-  const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string, team_name?: string}[]>([]);
-  const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
-  const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
-  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
-  const [isEliminated, setIsEliminated] = useState(false);
-  const [round3Matches, setRound3Matches] = useState<any[]>([]);
-  const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
-  const [round5Games, setRound5Games] = useState<any[]>([]);
-  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE (VOTING)
-  const [round7State, setRound7State] = useState<any>(null); // ROUND 7 STATE (HEARTS)
-  const [r7Logs, setR7Logs] = useState<string[]>([]);
-  const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
-  const [adminTeams, setAdminTeams] = useState<any[]>([]); // Admin/Volunteer teams list
-  const [randomQuote] = useState(() => {
-    const quotes = [
-      "The only way to win is to not play.",
-      "Your silence is your best weapon.",
-      "Trust is a luxury you can't afford.",
-      "In the end, we all stand alone.",
-      "The system has no mercy.",
-      "Your contribution has been noted and discarded.",
-      "Efficiency is the only virtue.",
-      "The code is the law.",
-      "You were a variable, now you are a constant: Zero.",
-      "Connection terminated.",
-      "Access denied permanently.",
-      "Your existence is a syntax error.",
-      "Null pointer exception in your soul.",
-      "Garbage collection in progress.",
-      "Process killed.",
-      "Segmentation fault (core dumped)."
-    ];
-    return quotes[Math.floor(Math.random() * quotes.length)];
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  useEffect(() => {
-    if (!user) return;
-
-    const socket = new WebSocket(WS_URL);
-    
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: 'auth', token }));
-    };
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('WS MESSAGE RECEIVED:', data.type, data);
-      if (data.type === 'init') {
-        setGameState(data.state);
-        setLeaderboard(data.leaderboard);
-        setIsEliminated(data.isEliminated);
-        if (data.submission) {
-          setInitialSubmission(data.submission);
-          setSubmitted(true);
-        }
-        if (data.round6_state) setRound6State(data.round6_state);
-        if (data.round7_state) setRound7State(data.round7_state);
-        if (data.lottery_pool) setLotteryPool(data.lottery_pool);
-        if (data.admin_users) setAdminUsers(data.admin_users);
-        if (data.admin_teams) setAdminTeams(data.admin_teams);
-        if (data.round3_matches) setRound3Matches(data.round3_matches);
-        if (data.round4_sessions) setRound4Sessions(data.round4_sessions);
-        if (data.round5_games) setRound5Games(data.round5_games);
-      } else if (data.type === 'state_update') {
-        console.log('RECEIVED STATE UPDATE:', data.state);
-        setGameState(data.state);
-      } else if (data.type === 'error') {
-        alert('SYSTEM ERROR: ' + data.message);
-      } else if (data.type === 'leaderboard_update') {
-        setLeaderboard(data.leaderboard);
-      } else if (data.type === 'round_finished') {
-        alert('END OF ROUND 1');
-      } else if (data.type === 'lottery_pool') {
-        setLotteryPool(data.pool);
-      } else if (data.type === 'round2_role') {
-        setRound2Role(data.role);
-      } else if (data.type === 'card_taken') {
-        setLotteryPool(prev => prev.map(c => c.id === data.cardId ? { ...c, is_taken: true, taken_by: data.taken_by } : c));
-      } else if (data.type === 'selection_result') {
-        setSelectionResult(data.result);
-      } else if (data.type === 'duel_result') {
-        // Update elimination status without showing alerts
-        if (data.result === 'disqualified') {
-          setIsEliminated(true);
-        } else if (data.result === 'won_by_dq') {
-          setIsEliminated(false);
-        }
-      } else if (data.type === 'round3_init' || data.type === 'round3_update') {
-        const matches = data.matches as any[];
-        console.log('Updating Round 3 Matches:', matches);
-        setRound3Matches(matches);
-        
-        // Check if current user is now eliminated based on match results
-        if (user && user.role === 'player') {
-          const myMatch = matches.find(m => 
-            m.team1_user1 === user.id || m.team1_user2 === user.id || 
-            m.team2_user1 === user.id || m.team2_user2 === user.id
-          );
-          if (myMatch && myMatch.status === 'finished') {
-            const isTeam1 = myMatch.team1_user1 === user.id || myMatch.team1_user2 === user.id;
-            const scores = isTeam1 ? myMatch.team1_scores : myMatch.team2_scores;
-            const positives = Array.isArray(scores) ? scores.filter((s: boolean) => s === true).length : 0;
-            if (positives < 2) {
-               console.log('Setting isEliminated: TRUE (Positives < 2)');
-               setIsEliminated(true);
-            } else {
-               console.log('Setting isEliminated: FALSE (Positives >= 2)');
-               setIsEliminated(false);
-            }
-          }
-        }
-      } else if (data.type === 'round4_init' || data.type === 'round4_update') {
-        const sessions = data.sessions as any[];
-        console.log('Updating Round 4 Sessions:', sessions);
-        setRound4Sessions(sessions);
-        
-        // Check if current user is eliminated based on session results
-        if (user && user.role === 'player') {
-          const mySession = sessions.find(s => 
-            s.user1_id === user.id || s.user2_id === user.id
-          );
-          if (mySession && mySession.status === 'finished') {
-            if (mySession.result === 'fail') {
-              console.log('Setting isEliminated: TRUE (Team failed)');
-              setIsEliminated(true);
-            } else {
-              console.log('Setting isEliminated: FALSE (Team passed)');
-              setIsEliminated(false);
-            }
-          }
-        }
-      } else if (data.type === 'round5_init' || data.type === 'round5_update') {
-        const games = data.games as any[];
-        console.log('Updating Round 5 Games:', games);
-        setRound5Games(games);
-        
-        // Check elimination based on game results
-        if (user && user.role === 'player') {
-          const myGame = games.find(g => 
-            g.team_a_user1 === user.id || g.team_a_user2 === user.id || 
-            g.team_b_user1 === user.id || g.team_b_user2 === user.id
-          );
-          if (myGame && myGame.status === 'finished') {
-            const isTeamA = myGame.team_a_user1 === user.id || myGame.team_a_user2 === user.id;
-            if (myGame.result === 'team_a_win' && !isTeamA) {
-              setIsEliminated(true);
-            } else if (myGame.result === 'team_b_win' && isTeamA) {
-              setIsEliminated(true);
-            } else if (myGame.result === 'both_lose') {
-              setIsEliminated(true);
-            } else if (myGame.result === 'both_win' || 
-                       (myGame.result === 'team_a_win' && isTeamA) || 
-                       (myGame.result === 'team_b_win' && !isTeamA)) {
-              setIsEliminated(false);
-            }
-          }
-        }
-      } else if (data.type === 'round6_update') {
-        console.log('Using Round 6 Update:', data.state);
-        setRound6State(data.state);
-      } else if (data.type === 'round7_update') {
-        console.log('Using Round 7 Update:', data.state);
-        setRound7State(data.state);
-      } else if (data.type === 'r7_cycle_logs') {
-        setR7Logs(data.logs);
-      } else if (data.type === 'admin_users') {
-        setAdminUsers(data.users);
-      } else if (data.type === 'admin_teams') {
-        setAdminTeams(data.teams);
-      } else if (data.type === 'status_update') {
-        setIsEliminated(data.isEliminated);
-      }
-    };
-
-    setWs(socket);
-
-    // Fetch players
-    fetch(`${API_URL}/players`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setPlayers(data);
-      })
-      .catch(err => console.error('Failed to fetch players:', err));
-
-    return () => {
-      socket.close();
-    };
-  }, [user, navigate, token]);
-
-  // Sync initial submission with players list
-  useEffect(() => {
-    if (players.length > 0 && initialSubmission) {
-      const mapped = initialSubmission
-        .sort((a, b) => a.rank - b.rank)
-        .map(s => players.find(p => p.id === s.target_id))
-        .filter((p): p is Player => !!p);
-      setSelectedPlayers(mapped);
-      // Only do this once
-      setInitialSubmission(null);
-    }
-  }, [players, initialSubmission]);
-
-  const startRound = () => {
-    ws?.send(JSON.stringify({ type: 'start_round' }));
-  };
-
-
-
-  const finishRound = () => {
-    ws?.send(JSON.stringify({ type: 'finish_round' }));
-  };
-
-  const startRound2 = (leadersCount?: number) => {
-    ws?.send(JSON.stringify({ type: 'start_round_2', leadersCount }));
-  };
-
-  const startRound3 = () => {
-    if (ws) {
-      ws.send(JSON.stringify({ type: 'start_round_3' }));
-    }
-  };
-
-  // ROUND 6 HANDLERS
-  const startR6Timer = () => {
-    ws?.send(JSON.stringify({ type: 'r6_start_timer' }));
-  };
-
-  const submitR6Vote = (targetId: string, safety: boolean) => {
-    ws?.send(JSON.stringify({ type: 'r6_vote', targetId, useSafety: safety }));
-  };
-
-  const resolveR6 = () => {
-    ws?.send(JSON.stringify({ type: 'r6_resolve' }));
-  };
-
-  const nextR6Cycle = () => {
-    ws?.send(JSON.stringify({ type: 'r6_next_subround' }));
-  };
-
-  const finishR6 = () => {
-    ws?.send(JSON.stringify({ type: 'r6_finish' }));
-  };
-
-  const submitR7Action = (action: string, targetId?: string) => {
-    ws?.send(JSON.stringify({ type: 'r7_submit_action', action, targetId }));
-  };
-
-  const joinMatch = (matchId: string) => {
-    ws?.send(JSON.stringify({ type: 'join_match', matchId }));
-  };
-
-  const scoreTeam = (matchId: string, teamIndex: 1 | 2, score: boolean) => {
-    ws?.send(JSON.stringify({ type: 'score_team', matchId, teamIndex, score }));
-  };
-
-  const disqualifyTeam = (matchId: string, teamIndex: 1 | 2) => {
-    console.log(`Attempting to disqualify match ${matchId} team ${teamIndex}`);
-    if (window.confirm("ARE YOU SURE? This will instantly ELIMINATE the team and pass their opponent.")) {
-      console.log("Calling DQ API...");
-      fetch(`${API_URL}/round3/disqualify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ matchId, teamIndex })
-      })
-      .then(async res => {
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || 'Failed to disqualify');
-        }
-        return res.json();
-      })
-      .then(data => {
-        console.log('DQ API Success:', data);
-        // Optimistic update for immediate feedback
-        setRound3Matches(prev => prev.map(m => {
-            if (m.id === matchId) {
-                const team1_scores = teamIndex === 1 ? [false,false,false] : [true,true,true];
-                const team2_scores = teamIndex === 2 ? [false,false,false] : [true,true,true];
-                return { ...m, status: 'finished', team1_scores, team2_scores };
-            }
-            return m;
-        }));
-      })
-      .catch(err => {
-        console.error('DQ API Error:', err);
-        alert(`Error: ${err.message}`);
-      });
-    }
-  };
-
-  const finishRound3 = () => {
-    console.log('Finishing Round 3...', ws ? 'WS connected' : 'WS NOT connected');
-    ws?.send(JSON.stringify({ type: 'finish_round_3' }));
-  };
-
-  const startRound4 = () => {
-    console.log('Starting Round 4...', ws ? 'WS connected' : 'WS NOT connected');
-    if (ws) {
-      console.log('WebSocket readyState:', ws.readyState, '(1=OPEN)');
-      const message = JSON.stringify({ type: 'start_round_4' });
-      console.log('Sending message:', message);
-      ws.send(message);
-      console.log('Message sent');
-    }
-  };
-  const finishRound4 = () => {
-    console.log('Finishing Round 4...');
-    ws?.send(JSON.stringify({ type: 'finish_round_4' }));
-  };
-
-  const joinSession = (sessionId: string) => {
-    ws?.send(JSON.stringify({ type: 'volunteer_session', sessionId }));
-  };
-
-  const evaluateTeam = (sessionId: string, result: 'pass' | 'fail') => {
-    if (window.confirm(`Are you sure you want to ${result.toUpperCase()} this team?`)) {
-      ws?.send(JSON.stringify({ type: 'evaluate_team', sessionId, result }));
-    }
-  };
-
-  const startRound5 = () => {
-    ws?.send(JSON.stringify({ type: 'start_round_5' }));
-  };
-
-  const selectCard5 = (gameId: string, card: 'ATTACK' | 'FORTIFY' | 'CONVERGE', pact?: string) => {
-    ws?.send(JSON.stringify({ type: 'r5_select_card', gameId, card, pact }));
-  };
-
-  const finishRound5 = () => {
-    ws?.send(JSON.stringify({ type: 'finish_round_5' }));
-  };
-
-  const endR5GameNow = (gameId: string) => {
-    const choice = window.prompt(
-      "MANUAL STOP: Choose the outcome.\n" +
-      "Type 'A' -> Team A Wins (Pass)\n" +
-      "Type 'B' -> Team B Wins (Pass)\n" +
-      "Type 'BOTH' -> Both Teams Pass (Rare)\n" +
-      "Type 'NONE' -> Both Teams Eliminated (Fail)\n\n" +
-      "Type your choice (A/B/BOTH/NONE):"
-    );
-
-    if (choice) {
-      const formatted = choice.toUpperCase().trim();
-      if (['A', 'B', 'BOTH', 'NONE'].includes(formatted)) {
-         ws?.send(JSON.stringify({ type: 'r5_end_now', gameId, outcome: formatted }));
-      } else {
-        alert("Invalid choice. Operation cancelled.");
-      }
-    }
-  };
-
-
-
-  const disqualifyTeam5 = (gameId: string, team: 'A' | 'B') => {
-    if (window.confirm(`Are you sure you want to disqualify Team ${team} from game ${gameId}? This will eliminate them.`)) {
-      ws?.send(JSON.stringify({ type: 'r5_disqualify_team', gameId, team }));
-    }
-  };
-
-  const startRound6 = () => {
-    ws?.send(JSON.stringify({ type: 'start_round_6' }));
-  };
-
-  const startRound7 = () => {
-    ws?.send(JSON.stringify({ type: 'start_round_7' }));
-  };
-
-  const resetRound = (round: number) => {
-    if (window.confirm(`⚠️ WARNING: YOU ARE ABOUT TO RESET THE GAME TO ROUND ${round}. THIS WILL DELETE DATA FROM ALL SUBSEQUENT ROUNDS. ARE YOU ABSOLUTELY SURE?`)) {
-      ws?.send(JSON.stringify({ type: 'admin_reset_round', round }));
-    }
-  };
-
-
-  const selectCard = (cardId: string) => {
-    setPendingCardId(cardId);
-  };
-
-  const confirmSelection = () => {
-    if (pendingCardId) {
-      ws?.send(JSON.stringify({ type: 'select_card', cardId: pendingCardId }));
-      setPendingCardId(null);
-    }
-  };
-
-  const cancelSelection = () => {
-    setPendingCardId(null);
-  };
-
-  const eliminateUser = (userId: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_manage_user', userId, isEliminated: true }));
-  };
-
-  const reviveUser = (userId: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_manage_user', userId, isEliminated: false }));
-  };
-
-  const eliminateTeam = (teamId: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: true }));
-  };
-
-  const reviveTeam = (teamId: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: false }));
-  };
-
-  const togglePlayer = (player: Player) => {
-    if (selectedPlayers.find(p => p.id === player.id)) {
-      setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
-    } else {
-      if (selectedPlayers.length >= 10) {
-        alert('MISSION LIMIT REACHED: MAXIMUM 10 TARGETS ALLOWED.');
-        return;
-      }
-      setSelectedPlayers([...selectedPlayers, player]);
-    }
-  };
-
-  const movePlayer = (index: number, direction: 'up' | 'down') => {
-    const newSelected = [...selectedPlayers];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newSelected.length) return;
-    
-    const temp = newSelected[index];
-    newSelected[index] = newSelected[targetIndex];
-    newSelected[targetIndex] = temp;
-    setSelectedPlayers(newSelected);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      setSelectedPlayers((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
-
-  const submitRanking = () => {
-    const payload = selectedPlayers.map((p, i) => ({
-      target_id: p.id,
-      rank: i + 1
-    }));
-    ws?.send(JSON.stringify({ type: 'submit_ranking', payload }));
-    setSubmitted(true);
-  };
-
-  if (!user || !gameState) return <div className="container">Loading...</div>;
-
-  // Admin View
-  if (user.role === 'admin') {
-    return (
-      <div className="container" style={{ minHeight: '100vh', padding: '0' }}>
-        <div className="nav" style={{ padding: '0.5rem 1rem' }}>
-          <div className="logo">BLINDTECH.EXE - ADMIN</div>
-          <div className="user-info">
-            <div className="user-meta">
-              <div className="user-name">{user.name.toUpperCase()}</div>
-              <div className="user-role" style={{ color: '#ff4444' }}>GAME MASTER</div>
-            </div>
-            <button onClick={logout} className="exit-btn">EXIT</button>
-          </div>
-        </div>
-        <AdminView 
-          gameState={gameState}
-          leaderboard={leaderboard}
-          adminUsers={adminUsers}
-          adminTeams={adminTeams}
-          round3Matches={round3Matches}
-          round4Sessions={round4Sessions}
-          round5Games={round5Games}
-          onEliminateUser={eliminateUser}
-          onReviveUser={reviveUser}
-          onEliminateTeam={eliminateTeam}
-          onReviveTeam={reviveTeam}
-          onStartRound={startRound}
-          onFinishRound={finishRound}
-          onStartRound2={startRound2}
-          onStartRound3={startRound3}
-          onFinishRound3={finishRound3}
-          onStartRound4={startRound4}
-          onFinishRound4={finishRound4}
-          onStartRound5={startRound5}
-          onFinishRound5={finishRound5}
-          onStartRound6={startRound6}
-          onStartRound7={startRound7}
-          onFinishRound6={finishR6}
-          onResetRound={resetRound}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="container" style={{ maxWidth: '1200px', padding: '10px' }}>
-      <div className="nav">
-        <div className="logo">BLINDTECH.EXE</div>
-        <div className="user-info">
-          <div className="user-meta">
-            <div className="user-name">{user.name.toUpperCase()}</div>
-            <div className="user-role">{user.role.toUpperCase()}</div>
-          </div>
-          <button onClick={logout} className="exit-btn">EXIT</button>
-        </div>
-      </div>
-
-      {/* Mobile Tab Switcher */}
-      <div className="mobile-tabs">
-        <button 
-          className={`tab-btn ${activeTab === 'game' ? 'active' : ''}`}
-          onClick={() => setActiveTab('game')}
-        >
-          MISSION
-        </button>
-        {(user.role === 'volunteer' || gameState.current_round <= 1) && (
-          <button 
-            className={`tab-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('leaderboard')}
-          >
-            {user.role === 'volunteer' ? 'DATA' : 'RANKINGS'}
-          </button>
-        )}
-      </div>
-
-      <div className="game-layout">
-        {/* Left Column: Game Interaction */}
-        <div className={`main-area ${activeTab === 'game' ? 'show' : 'hide'}`}>
-          {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 0 && (
-            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div className="loader-dots"><span></span><span></span><span></span></div>
-              <h2 className="section-title">INITIALIZING ARENA</h2>
-              <p>Waiting for the <strong>Game Master</strong> to authorize the start of <strong>Round 1</strong>.</p>
-            </div>
-          )}
-
-          {gameState.current_round === 1 && gameState.status === 'active' && user.role === 'player' && (
-            <div className="card interaction-card">
-              <h2 className="section-title">ROUND 1: POPULARITY HELL</h2>
-              {!submitted ? (
-                <>
-                  <div className="instruction-box">
-                    <p><strong>MISSION:</strong> Select and rank players. Mutual selections grant massive bonuses.</p>
-                  </div>
+              ) : (
+                <div>
+                  <h3 style={{ fontWeight: '900', marginBottom: '1.5rem', borderBottom: '2px solid black', display: 'inline-block' }}>CHOOSE YOUR ACTION</h3>
                   
-                  <div className="selection-grid">
-                    <div className="player-pool">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <h3>TARGETS</h3>
-                        <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>{selectedPlayers.length} / 10 SELECTED</span>
-                      </div>
-                      <div className="player-list">
-                        {players.map(p => {
-                          const isSelected = selectedPlayers.find(sp => sp.id === p.id);
-                          return (
-                            <div 
-                              key={p.id} 
-                              className={`player-item ${isSelected ? 'selected' : ''}`}
-                              onClick={() => togglePlayer(p)}
-                            >
-                              <span className="player-name">{p.name}</span>
-                              <span className="player-status">{isSelected ? '✓' : '+'}</span>
-                            </div>
-                          );
-                        })}
+                  {others.length === 1 && state.players.filter((p:any)=>p.is_alive).length === 2 ? (
+                    <div style={{ textAlign: 'center', background: 'black', color: 'white', padding: '2rem' }}>
+                      <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>FINAL DUEL</h1>
+                      <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                        <button 
+                          onClick={() => onAction('PROTECT', others[0].user_id)}
+                          style={{ padding: '2rem', border: '4px solid white', background: 'transparent', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                        > PROTECT OTHER FRIEND </button>
+                        <button 
+                          onClick={() => onAction('BETRAY', others[0].user_id)}
+                          style={{ padding: '2rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                        > BETRAY </button>
                       </div>
                     </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div style={{ border: '2px solid black', padding: '1rem' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', fontWeight: '900' }}>BETRAY</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          {others.map((p:any) => (
+                            <button key={p.user_id} onClick={() => onAction('BETRAY', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
+                              BETRAY {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                    <div className="ranking-area">
-                      <h3>YOUR RANKING</h3>
-                      <p style={{ fontSize: '0.7rem', opacity: 0.7, marginBottom: '0.5rem' }}>DRAG TO REORDER</p>
-                      {selectedPlayers.length > 0 ? (
-                        <div className="ranked-list">
-                          <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                          >
-                            <SortableContext
-                              items={selectedPlayers.map(p => p.id)}
-                              strategy={verticalListSortingStrategy}
-                            >
-                              {selectedPlayers.map((p, i) => (
-                                <SortablePlayer 
-                                  key={p.id} 
-                                  player={p} 
-                                  index={i} 
-                                  isLast={i === selectedPlayers.length - 1}
-                                  onMove={movePlayer}
-                                  onRemove={togglePlayer}
-                                />
-                              ))}
-                            </SortableContext>
-                          </DndContext>
-                          <button onClick={submitRanking} className="submit-btn">
-                            FINALIZE
+                      <div style={{ border: '2px solid black', padding: '1rem' }}>
+                        <h4 style={{ margin: '0 0 1rem 0', fontWeight: '900' }}>PROTECT (Cost: 1 ❤️)</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          <button onClick={() => onAction('PROTECT', userId)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
+                            PROTECT SELF
                           </button>
+                          {others.map((p:any) => (
+                            <button key={p.user_id} onClick={() => onAction('PROTECT', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
+                              PROTECT {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {me.teammate_id && state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive && (
+                        <>
                           <button 
-                            onClick={() => setSelectedPlayers([])} 
-                            className="secondary-btn"
-                            style={{ marginTop: '0.5rem', width: '100%', fontSize: '0.8rem', padding: '8px' }}
-                          >
-                            CLEAR ALL
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="empty-state">
-                          Select players to start ranking.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="submitted-state">
-                  <div className="success-icon">✓</div>
-                  <h3>TRANSMISSION COMPLETE</h3>
-                  <p>Your rankings have been recorded.</p>
-                  <button 
-                    onClick={() => setSubmitted(false)} 
-                    className="secondary-btn"
-                    style={{ marginTop: '2rem' }}
-                  >
-                    CHANGE RANKING
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {gameState.status === 'waiting' && user.role === 'player' && (
-            <div className="card waiting-card">
-              <div className="loader-dots">
-                <span></span><span></span><span></span>
-              </div>
-              <h2 className="section-title">SYSTEM STANDBY</h2>
-              <p>Awaiting authorization...</p>
-            </div>
-          )}
-
-          {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 3 && (
-            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div className="loader-dots"><span></span><span></span><span></span></div>
-              <h2 className="section-title">ROUND 3 COMPLETE</h2>
-              <p>Waiting for the <strong>Game Master</strong> to activate <strong>Round 4: Coding Club</strong>.</p>
-            </div>
-          )}
-
-          {gameState.status === 'waiting' && user.role === 'volunteer' && gameState.current_round === 4 && (
-            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div className="loader-dots"><span></span><span></span><span></span></div>
-              <h2 className="section-title">ROUND 4 COMPLETE</h2>
-              <p>Waiting for the <strong>Game Master</strong> to activate <strong>Round 5: The Paradox</strong>.</p>
-            </div>
-          )}
-
-          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 1 && (
-            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <h2 className="section-title">ROUND 1: POPULARITY HELL</h2>
-              <p>Players are currently submitting their mission parameters.</p>
-              <div className="stats-grid" style={{ marginTop: '1.5rem' }}>
-                <div className="stat-item" style={{ textAlign: 'center' }}>
-                  <div className="stat-value">{players.length}</div>
-                  <div className="stat-label">TOTAL OPERATIVES</div>
-                </div>
-              </div>
-              <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>Waiting for game master to conclude this phase.</p>
-            </div>
-          )}
-
-          {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 3 && (
-            <Round3PlayerView 
-              userId={user.id} 
-              matches={round3Matches} 
-              isEliminated={isEliminated}
-              randomQuote={randomQuote}
-            />
-          )}
-
-          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 3 && (
-            <Round3VolunteerView 
-              volunteerId={user.id}
-              matches={round3Matches}
-              onJoin={joinMatch}
-              onScore={scoreTeam}
-              onDisqualify={disqualifyTeam}
-            />
-          )}
-
-          {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 4 && (
-            <Round4PlayerView 
-              session={round4Sessions[0]}
-              isEliminated={isEliminated}
-            />
-          )}
-
-          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 4 && (
-            <Round4VolunteerView 
-              sessions={round4Sessions}
-              volunteerId={user.id}
-              onJoinSession={joinSession}
-              onEvaluate={evaluateTeam}
-            />
-          )}
-
-          {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 5 && (
-            (() => {
-              const myGame = round5Games.find((g: any) => 
-                g.team_a_user1 === user.id || g.team_a_user2 === user.id || 
-                g.team_b_user1 === user.id || g.team_b_user2 === user.id
-              );
-              
-              if (!myGame) {
-                return (
-                  <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div className="loader-dots"><span></span><span></span><span></span></div>
-                    <h3>SEARCHING FOR GAME DATA...</h3>
-                    <p style={{ opacity: 0.6 }}>Synchronizing with the Paradox server.</p>
-                  </div>
-                );
-              }
-
-              return (
-                <Round5PlayerView 
-                  game={myGame}
-                  userId={user.id}
-                  onSelectCard={(card, pact) => selectCard5(myGame.id, card, pact)}
-                />
-              );
-            })()
-          )}
-
-          {user.role === 'player' && gameState.status === 'waiting' && gameState.current_round === 5 && (
-            <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <h2 className="section-title">ROUND 5 CONCLUDED</h2>
-              <p style={{ fontSize: '1.2rem', margin: '1rem 0' }}>If you are reading this, you are still alive.</p>
-              <div className="loader-dots" style={{ margin: '2rem auto' }}><span></span><span></span><span></span></div>
-              <p style={{ opacity: 0.7 }}>Preparing the final arena...</p>
-            </div>
-          )}
-
-          {gameState.status === 'active' && user.role === 'volunteer' && gameState.current_round === 5 && (
-            <Round5VolunteerView 
-              games={round5Games}
-              onDisqualify={disqualifyTeam5}
-              onEndNow={endR5GameNow}
-            />
-          )}
-
-          {user.role === 'volunteer' && gameState.status === 'waiting' && gameState.current_round === 5 && (
-            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div className="loader-dots"><span></span><span></span><span></span></div>
-              <h2 className="section-title">THE PARADOX HAS ENDED</h2>
-              <p>Waiting for the <strong>Game Master</strong> to activate the final arena: <strong>The Game of Hearts</strong>.</p>
-            </div>
-          )}
-
-          {gameState.status === 'active' && gameState.current_round === 6 && round6State && (
-            user.role === 'player' ? (
-              <Round6PlayerView 
-                state={round6State} 
-                userId={user.id} 
-                onVote={submitR6Vote}
-              />
-            ) : (
-              <Round6VolunteerView 
-                state={round6State}
-                onStartTimer={startR6Timer}
-                onResolve={resolveR6}
-                onNext={nextR6Cycle}
-                onFinish={finishR6}
-              />
-            )
-          )}
-
-          {gameState.status === 'active' && gameState.current_round === 7 && (
-            !round7State ? (
-              <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div className="loader-dots"><span></span><span></span><span></span></div>
-                <h3>CONNECTING TO HEARTS ENGINE...</h3>
-                <p style={{ opacity: 0.6 }}>Synchronizing game state...</p>
-                <button onClick={() => ws?.send(JSON.stringify({ type: 'start_round_7' }))} style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.5, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>
-                  Force Re-Sync (Admin Only)
-                </button>
-              </div>
-            ) : (
-             user.role === 'player' ? (
-              <Round7PlayerView 
-                state={round7State} 
-                userId={user.id} 
-                onAction={submitR7Action}
-                logs={r7Logs}
-              />
-            ) : (
-              <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
-                  GHAR JAA TERO KAAM SAKKIYO
-                </h3>
-                <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                  (Go home, your work is done.)
-                </p>
-                <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
-                  Round 7 is running autonomously. You are dismissed.
-                </p>
-              </div>
-            )
-          )
-          )}
-
-          {gameState.status === 'finished' && (
-            <div className="card finished-card">
-              <div className="loader-dots">
-                <span></span><span></span><span></span>
-              </div>
-              <h2 className="section-title">ROUND {gameState.current_round} COMPLETE</h2>
-              {user.role === 'player' ? (
-                <>
-                  {isEliminated ? (
-                    <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-                      <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
-                        OOPSIE!
-                      </p>
-                      <p style={{ fontStyle: 'italic', fontSize: '1.1rem', opacity: 0.8, marginBottom: '1.5rem' }}>
-                        "{randomQuote}"
-                      </p>
-                      <p style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>
-                        You are eliminated and cannot continue.
-                      </p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ff4444' }}>
-                        GET OUT AND GO TO THE NEXT ROOM.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem', color: '#00ff00' }}>
-                        CONGRATULATIONS ON COMPLETING THAT BITCHY ROUND.
-                      </p>
-                      <p style={{ opacity: 0.7, marginTop: '0.5rem' }}>
-                        Commencing to Round {gameState.current_round + 1}... Hold your seats.
-                      </p>
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {gameState.current_round === 6 ? (
-                    <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
-                        GHAR JAA TERO KAAM SAKKIYO
-                      </h3>
-                      <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                        (Go home, your work is done.)
-                      </p>
-                      <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
-                        The system will handle the Final Round automatically (or mostly). Good job.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                        ROUND {gameState.current_round} FINALIZED
-                      </p>
-                      <p style={{ opacity: 0.7 }}>Awaiting next phase instructions from the Game Master...</p>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {gameState.current_round === 2 && gameState.status === 'active' && (
-            <div className="round2-container">
-              {round2Role === 'leader' ? (
-                <div className="card leader-card">
-                  {selectionResult ? (
-                    <div className="selection-result" style={{ textAlign: 'center', padding: '2rem 0' }}>
-                      <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
-                      <p>Your permanent partner is:</p>
-                      <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
-                        {selectionResult.partner}
-                      </p>
-                      {selectionResult.teamName && (
-                        <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                          {selectionResult.teamName.toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="loader-dots">
-                        <span></span><span></span><span></span>
-                      </div>
-                      <h2 className="section-title">ROUND 2: LOTTERY</h2>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem' }}>YOU ARE A LEADER</p>
-                      <p style={{ opacity: 0.7 }}>Wait till someone chooses you...</p>
-                    </>
-                  )}
-                </div>
-              ) : user.role === 'player' ? (
-                <div className="card selector-card">
-                  <h2 className="section-title">ROUND 2: LOTTERY</h2>
-                  {selectionResult ? (
-                    <div className="selection-result" style={{ textAlign: 'center', padding: '2rem 0' }}>
-                      {selectionResult.type === 'team' ? (
-                        <>
-                          <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
-                          <p>Your permanent partner is:</p>
-                          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
-                            {selectionResult.partner}
-                          </p>
-                          {selectionResult.teamName && (
-                            <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
-                              {selectionResult.teamName.toUpperCase()}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#ff4444' }}>ELIMINATED</h3>
-                          <p className="quote" style={{ fontStyle: 'italic', fontSize: '1.2rem', opacity: 0.8 }}>
-                            "{selectionResult.quote}"
-                          </p>
+                            onClick={() => onAction('SACRIFICE', me.teammate_id)}
+                            disabled={me.hearts < 2}
+                            style={{ 
+                              padding: '1rem', 
+                              background: me.hearts < 2 ? '#feb2b2' : '#c53030', 
+                              color: 'white', 
+                              border: 'none', 
+                              fontWeight: '900', 
+                              cursor: me.hearts < 2 ? 'not-allowed' : 'pointer',
+                              opacity: me.hearts < 2 ? 0.7 : 1
+                            }}
+                          > SACRIFICE PARTNER (Cost: 2 ❤️) </button>
+                          <button 
+                            onClick={() => onAction('QUIT')}
+                            style={{ padding: '1rem', background: '#4a5568', color: 'white', border: 'none', fontWeight: '900', cursor: 'pointer' }}
+                          > QUIT (Eliminate Team) </button>
                         </>
                       )}
                     </div>
-                  ) : (
-                    <>
-                      <p style={{ marginBottom: '1.5rem' }}>Select a card to find your partner or your fate.</p>
-                      <div className="card-grid">
-                        {lotteryPool.filter(c => !c.is_taken).map(card => (
-                          <div 
-                            key={card.id} 
-                            className="lottery-card"
-                            onClick={() => selectCard(card.id)}
-                          >
-                            <div className="card-inner">
-                              <div className="card-front">?</div>
-                              <div className="card-back"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
                   )}
                 </div>
-              ) : null}
-            </div>
-          )}
-
-
-          {gameState.current_round === 2 && gameState.status === 'active' && user.role === 'volunteer' && (
-            <div className="card waiting-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div className="loader-dots"><span></span><span></span><span></span></div>
-              <h2 className="section-title">ROUND 2: LOTTERY</h2>
-              <p>Lottery is currently in progress. Players are selecting their fate.</p>
-              <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>Waiting for game master to stop the lottery and eliminate single players.</p>
-            </div>
-          )}
-        </div>
-
-        {pendingCardId && (
-          <div className="modal-overlay">
-            <div className="card modal-card">
-              <h2 className="section-title">CONFIRM SELECTION</h2>
-              <p style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                Are you sure you want to select this card? This action is permanent and will determine your fate.
-              </p>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button 
-                  onClick={cancelSelection} 
-                  className="secondary-btn" 
-                  style={{ flex: 1 }}
-                >
-                  CANCEL
-                </button>
-                <button 
-                  onClick={confirmSelection} 
-                  className="primary-btn" 
-                  style={{ flex: 1 }}
-                >
-                  CONFIRM
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Right Column: Leaderboard / Volunteer Data */}
-        {(user.role === 'volunteer' || gameState.current_round <= 1) && (
-          <div className={`sidebar ${activeTab === 'leaderboard' ? 'show' : 'hide'}`}>
-            <div className="card leaderboard-card">
-              {user.role === 'volunteer' ? (
-                <>
-                  {gameState.current_round === 1 && (
-                    <>
-                      <h2 className="section-title">R1 RANKINGS</h2>
-                      <div className="leaderboard-container">
-                        {leaderboard.length === 0 ? (
-                          <div className="empty-leaderboard">
-                            <p>INITIALIZING DATA...</p>
-                          </div>
-                        ) : (
-                          <div className="leaderboard-list">
-                            {leaderboard.map((entry, i) => (
-                              <div key={entry.id} className={`leaderboard-item rank-${i + 1}`}>
-                                <div className="entry-rank">{i + 1}</div>
-                                <div className="entry-info">
-                                  <div className="entry-name">{entry.name}</div>
-                                  <div className="entry-bar-bg">
-                                    <div 
-                                      className="entry-bar-fill" 
-                                      style={{ width: `${Math.min(100, (entry.score / (leaderboard[0].score || 1)) * 100)}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                                <div className="entry-score">{entry.score}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                  {gameState.current_round === 2 && (
-                    <>
-                      <h2 className="section-title">R2 LOTTERY STATUS</h2>
-                      <div className="volunteer-data-list">
-                        <p style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '1rem' }}>
-                          Current Round: {gameState.status.toUpperCase()}
-                        </p>
-                        {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').length === 0 ? (
-                          <p>No teams formed yet.</p>
-                        ) : (
-                          <div className="data-items">
-                            {lotteryPool.filter(c => c.is_taken && c.content_name !== 'QUOTE').map(card => (
-                              <div key={card.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-                                  <span className="data-user">{card.taken_by_name || 'Unknown'}</span>
-                                  <span className="data-arrow">→</span>
-                                  <span className="data-result">{card.content_name || 'Picked'}</span>
-                                </div>
-                                {card.team_name && (
-                                  <div style={{ fontSize: '0.75rem', color: '#00ff00', marginTop: '0.2rem', fontWeight: 'bold' }}>
-                                    TEAM: {card.team_name}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-
-                   {gameState.current_round === 3 && (
-                    <>
-                      <h2 className="section-title">R3 DUEL MONITOR</h2>
-                      <div className="volunteer-data-list">
-                        <div className="data-items">
-                          {round3Matches.map(m => {
-                            const isFinished = m.status === 'finished';
-                            const getStatusColor = (scores: any, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
-                              if (!isFinished) return 'inherit';
-                              if (isLuckyPassSlot) return '#888'; 
-                              if (!hasOpponent) return '#00cc00'; 
-                              const s = Array.isArray(scores) ? scores : [];
-                              const positives = s.filter((val: any) => val === true).length;
-                              return positives >= 2 ? '#00cc00' : '#ff4444';
-                            };
-
-                            return (
-                              <div key={m.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                      <span style={{ color: getStatusColor(m.team1_scores, false, !!m.team2_id) }}>{m.team1_name}</span>
-                                      {(m.status === 'active' || m.status === 'waiting') && (
-                                        <button 
-                                          onClick={(e) => { e.stopPropagation(); disqualifyTeam(m.id, 1); }}
-                                          style={{ background: 'none', border: 'none', color: '#ff4444', fontSize: '0.6rem', cursor: 'pointer', marginLeft: '4px', padding: '0 2px', borderBottom: '1px solid #ff4444' }}
-                                        >DQ</button>
-                                      )}
-                                    </div>
-                                    <span style={{ opacity: 0.4 }}>vs</span>
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                      <span style={{ color: getStatusColor(m.team2_scores, !m.team2_id, !!m.team2_id) }}>{m.team2_name || 'LUCKY PASS'}</span>
-                                      {(m.status === 'active' || m.status === 'waiting') && m.team2_id && (
-                                        <button 
-                                          onClick={(e) => { e.stopPropagation(); disqualifyTeam(m.id, 2); }}
-                                          style={{ background: 'none', border: 'none', color: '#ff4444', fontSize: '0.6rem', cursor: 'pointer', marginLeft: '4px', padding: '0 2px', borderBottom: '1px solid #ff4444' }}
-                                        >DQ</button>
-                                      )}
-                                    </div>
-                                </div>
-                                <span style={{ 
-                                  color: m.status === 'active' ? '#00ff00' : 
-                                         m.status === 'finished' ? (
-                                           (() => {
-                                             if (!m.team2_id) return '#00cc00'; 
-                                             const t1Positives = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s: boolean) => s === true).length : 0;
-                                             return t1Positives >= 2 ? '#00cc00' : '#ff4444';
-                                           })()
-                                         ) : '#888',
-                                  fontSize: '0.7rem' 
-                                }}>
-                                  {m.status.toUpperCase()}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                Ref: {m.volunteer_name || 'NONE'} | Subround: {m.current_subround}/3
-                              </div>
-                            </div>
-                            );
-                          })}
-                          {round3Matches.length === 0 && <p className="empty">No active duels found.</p>}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                   {gameState.current_round === 4 && (
-                    <>
-                      <h2 className="section-title">R4 EVALUATION MONITOR</h2>
-                      <div className="volunteer-data-list">
-                        <div className="data-items">
-                          {round4Sessions.map(s => (
-                            <div key={s.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                <div>
-                                  <div>{s.team_name}</div>
-                                  <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                    {s.user1_name}, {s.user2_name}
-                                  </div>
-                                </div>
-                                <span style={{ 
-                                  color: s.status === 'waiting' ? '#f59e0b' : s.status === 'active' ? '#3b82f6' : '#6b7280',
-                                  fontSize: '0.7rem' 
-                                }}>
-                                  {s.status.toUpperCase()}
-                                </span>
-                              </div>
-                              {s.status === 'finished' && (
-                                <div style={{ 
-                                  fontSize: '0.8rem', 
-                                  fontWeight: 'bold',
-                                  color: s.result === 'pass' ? '#10b981' : '#ef4444',
-                                  marginTop: '0.3rem'
-                                }}>
-                                  {s.result === 'pass' ? '✓ PASSED' : '✗ FAILED'}
-                                </div>
-                              )}
-                              <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                Evaluator: {s.volunteer_name || 'NONE'}
-                              </div>
-                            </div>
-                          ))}
-                          {round4Sessions.length === 0 && <p className="empty">No evaluation sessions found.</p>}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                   {gameState.current_round === 5 && (
-                    <>
-                      <h2 className="section-title">R5 PARADOX MONITOR</h2>
-                      <div className="volunteer-data-list">
-                        <div className="data-items">
-                          {round5Games.map(g => (
-                            <div key={g.id} className="data-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                <div>
-                                  <div>{g.team_a_name} vs {g.team_b_name || 'BYE'}</div>
-                                  <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '0.2rem' }}>
-                                    Momentum: {g.team_a_momentum} - {g.team_b_momentum} | Round: {g.current_round}/9
-                                  </div>
-                                </div>
-                                <span style={{ 
-                                  color: g.status === 'waiting' ? '#f59e0b' : g.status === 'active' ? '#3b82f6' : '#6b7280',
-                                  fontSize: '0.7rem' 
-                                }}>
-                                  {g.status.toUpperCase()}
-                                </span>
-                              </div>
-                              {g.status === 'finished' && (
-                                <div style={{ 
-                                  fontSize: '0.8rem', 
-                                  fontWeight: 'bold',
-                                  color: '#10b981',
-                                  marginTop: '0.3rem'
-                                }}>
-                                  Result: {g.result}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {round5Games.length === 0 && <p className="empty">No active Paradox games found.</p>}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  
-                  {gameState.current_round === 0 && (
-                    <div style={{ textAlign: 'center', padding: '2rem' }}>
-                      <h3>WAITING FOR GAME START</h3>
-                      <p>Automation will activate once Round 1 begins.</p>
-                    </div>
-                  )}
-
-                  {gameState.current_round >= 6 && (
-                    <div style={{ textAlign: 'center', padding: '2rem' }}>
-                      <h3>FINAL ROUND ACTIVE</h3>
-                      <p>Monitoring is now handled via the main interface.</p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <h2 className="section-title">LIVE RANKINGS</h2>
-                  <div className="leaderboard-container">
-                    {leaderboard.length === 0 ? (
-                      <div className="empty-leaderboard">
-                        <p>INITIALIZING DATA...</p>
-                      </div>
-                    ) : (
-                      <div className="leaderboard-list">
-                        {leaderboard.map((entry, i) => (
-                          <div key={entry.id} className={`leaderboard-item rank-${i + 1}`}>
-                            <div className="entry-rank">{i + 1}</div>
-                            <div className="entry-info">
-                              <div className="entry-name">{entry.name}</div>
-                              <div className="entry-bar-bg">
-                                <div 
-                                  className="entry-bar-fill" 
-                                  style={{ width: `${Math.min(100, (entry.score / (leaderboard[0].score || 1)) * 100)}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                            <div className="entry-score">{entry.score}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
               )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <style>{`
-        .nav {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-          padding: 10px 0;
-          border-bottom: 3px solid black;
-        }
-
-        .logo {
-          font-weight: 900;
-          font-size: 1.2rem;
-          letter-spacing: -1px;
-        }
-
-        @media (min-width: 768px) {
-          .logo {
-            font-size: 1.8rem;
-          }
-        }
-
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-        }
-
-        .user-meta {
-          text-align: left;
-          display: none;
-        }
-
-        @media (min-width: 480px) {
-          .user-meta {
-            display: block;
-          }
-        }
-
-        .user-name {
-          font-weight: bold;
-          font-size: 0.8rem;
-        }
-
-        .user-role {
-          font-size: 0.6rem;
-          opacity: 0.7;
-        }
-
-        .exit-btn {
-          padding: 5px 10px;
-          font-size: 0.7rem;
-        }
-
-        .mobile-tabs {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin-bottom: 1.5rem;
-        }
-
-        @media (min-width: 800px) {
-          .mobile-tabs {
-            display: none;
-          }
-        }
-
-        .tab-btn {
-          padding: 12px;
-          font-weight: 900;
-          background: white;
-          border: 3px solid black;
-          box-shadow: 4px 4px 0px 0px black;
-          cursor: pointer;
-          font-size: 0.8rem;
-        }
-
-        .tab-btn.active {
-          background: black;
-          color: white;
-          transform: translate(2px, 2px);
-          box-shadow: 2px 2px 0px 0px black;
-        }
-
-        .game-layout {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 1.5rem;
-          align-items: start;
-        }
-
-        @media (min-width: 800px) {
-          .game-layout {
-            grid-template-columns: 1fr 350px;
-          }
-        }
-
-        .section-title {
-          font-size: 1.1rem;
-          margin-bottom: 1rem;
-          border-bottom: 3px solid black;
-          display: inline-block;
-          padding-bottom: 2px;
-        }
-
-        .instruction-box {
-          background: #000;
-          color: #fff;
-          padding: 0.8rem;
-          margin-bottom: 1.5rem;
-          border: 3px solid black;
-          font-size: 0.8rem;
-          line-height: 1.4;
-        }
-
-        .selection-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 2rem;
-        }
-
-        @media (min-width: 600px) {
-          .selection-grid {
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-          }
-        }
-
-        .player-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          max-height: 40vh;
-          overflow-y: auto;
-          padding-right: 5px;
-        }
-
-        .player-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px;
-          border: 2px solid black;
-          cursor: pointer;
-          font-weight: bold;
-          font-size: 0.8rem;
-          transition: all 0.1s;
-        }
-
-        .admin-card {
-          border: 2px solid #ff4444;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.8);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-
-        .modal-card {
-          max-width: 400px;
-          width: 100%;
-          animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .volunteer-tabs {
-          display: flex;
-          gap: 0.5rem;
-          margin-bottom: 1.5rem;
-          border-bottom: 2px solid black;
-          padding-bottom: 0.5rem;
-        }
-
-        .v-tab {
-          flex: 1;
-          background: white;
-          border: 2px solid black;
-          padding: 0.3rem;
-          font-family: 'Courier New', Courier, monospace;
-          font-weight: bold;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .v-tab.active {
-          background: black;
-          color: white;
-        }
-
-        .volunteer-data-list {
-          padding: 0.5rem;
-        }
-
-        .data-items {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .data-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem;
-          border: 1px solid #eee;
-          font-size: 0.9rem;
-        }
-
-        .data-user {
-          font-weight: bold;
-          flex: 1;
-        }
-
-        .data-arrow {
-          opacity: 0.5;
-        }
-
-        .data-result {
-          color: #ff4444;
-          font-weight: bold;
-        }
-
-        @keyframes modal-pop {
-          from { transform: scale(0.8); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-
-        .player-item:hover {
-          transform: translate(-1px, -1px);
-          box-shadow: 2px 2px 0px 0px black;
-        }
-
-        .player-item.selected {
-          background: black;
-          color: white;
-        }
-
-        .ranked-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          max-height: 40vh;
-          overflow-y: auto;
-        }
-
-        .ranked-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 10px;
-          border: 2px solid black;
-          background: #f8f8f8;
-          user-select: none;
-          font-size: 0.8rem;
-        }
-
-        .ranked-item.dragging {
-          background: #eee;
-          box-shadow: 4px 4px 0px 0px black;
-          opacity: 0.8;
-        }
-
-        .drag-handle {
-          cursor: grab;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #888;
-          padding: 4px;
-          touch-action: none;
-        }
-
-        .rank-num {
-          font-weight: 900;
-          width: 20px;
-          font-size: 0.9rem;
-        }
-
-        .rank-name {
-          flex: 1;
-          font-weight: bold;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .rank-controls {
-          display: flex;
-          gap: 2px;
-        }
-
-        .rank-controls button {
-          padding: 4px 8px;
-          box-shadow: 1px 1px 0px 0px black;
-          font-size: 0.7rem;
-        }
-
-        .submit-btn {
-          margin-top: 1.5rem;
-          background: #00ff00;
-          font-size: 1.1rem;
-          padding: 15px;
-          font-weight: 900;
-          width: 100%;
-          box-shadow: 4px 4px 0px 0px black;
-        }
-
-        .submit-btn:active {
-          transform: translate(2px, 2px);
-          box-shadow: 2px 2px 0px 0px black;
-        }
-
-        .approve-btn {
-          background: #00ff00;
-          color: black;
-          border: 3px solid black;
-          padding: 12px;
-          font-weight: 900;
-          box-shadow: 4px 4px 0px 0px black;
-          cursor: pointer;
-          font-family: inherit;
-          transition: all 0.1s;
-        }
-
-        .approve-btn:active {
-          transform: translate(2px, 2px);
-          box-shadow: 2px 2px 0px 0px black;
-        }
-
-        .terminate-btn {
-          background: #ff4444;
-          color: white;
-          border: 3px solid black;
-          padding: 12px;
-          font-weight: 900;
-          box-shadow: 4px 4px 0px 0px black;
-          cursor: pointer;
-          font-family: inherit;
-          transition: all 0.1s;
-        }
-
-        .terminate-btn:active {
-          transform: translate(2px, 2px);
-          box-shadow: 2px 2px 0px 0px black;
-        }
-
-        .secondary-btn {
-          background: white;
-          border: 3px solid black;
-          padding: 12px 24px;
-          font-weight: 900;
-          cursor: pointer;
-          box-shadow: 4px 4px 0px 0px black;
-          width: 100%;
-        }
-
-        @media (min-width: 480px) {
-          .secondary-btn {
-            width: auto;
-          }
-        }
-
-        .empty-state {
-          border: 2px dashed #ccc;
-          padding: 2rem;
-          text-align: left;
-          color: #888;
-          font-size: 0.8rem;
-          font-style: italic;
-        }
-
-        .submitted-state {
-          text-align: left;
-          padding: 2rem 0;
-        }
-
-        .stat-item {
-          text-align: left;
-        }
-
-        .stat-value {
-          font-size: 2rem;
-          font-weight: 900;
-        }
-
-        .stat-label {
-          font-size: 0.7rem;
-          opacity: 0.7;
-        }
-
-        /* Round 2 Styles */
-        .card-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-          gap: 10px;
-          margin-top: 1rem;
-        }
-
-        /* Round 3 Styles */
-        .match-card {
-          border: 3px solid black;
-          padding: 1rem;
-          margin-bottom: 1rem;
-          background: white;
-          box-shadow: 4px 4px 0px 0px black;
-        }
-
-        .match-header {
-          display: flex;
-          justify-content: space-between;
-          font-weight: 900;
-          border-bottom: 2px solid black;
-          padding-bottom: 0.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .match-teams {
-          display: flex;
-          align-items: center;
-          justify-content: space-around;
-          gap: 1rem;
-        }
-
-        .team-box {
-          flex: 1;
-          text-align: center;
-        }
-
-        .score-dots {
-          display: flex;
-          gap: 4px;
-          justify-content: center;
-          margin-top: 0.5rem;
-        }
-
-        .score-dot {
-          width: 8px;
-          height: 8px;
-          border: 1px solid black;
-          border-radius: 50%;
-        }
-
-        .score-dot.plus { background: #00ff00; }
-        .score-dot.minus { background: #ff4444; }
-
-        .vs-badge {
-          background: black;
-          color: white;
-          padding: 0.2rem 0.5rem;
-          font-size: 0.8rem;
-          font-weight: bold;
-        }
-
-        .scoring-controls {
-          margin-top: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .score-row {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          justify-content: space-between;
-        }
-
-        .score-btns {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .score-btn {
-          width: 40px;
-          height: 40px;
-          border: 2px solid black;
-          font-weight: 900;
-          cursor: pointer;
-          background: white;
-          box-shadow: 2px 2px 0px 0px black;
-        }
-
-        .score-btn.plus:hover { background: #00ff00; }
-        .score-btn.minus:hover { background: #ff4444; }
-        .score-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0px 0px black; }
-
-        .lottery-card {
-          aspect-ratio: 2/3;
-          perspective: 1000px;
-          cursor: pointer;
-        }
-
-        .card-inner {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          text-align: center;
-          transition: transform 0.6s;
-          transform-style: preserve-3d;
-          border: 2px solid #000;
-          background: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.5rem;
-          font-weight: bold;
-        }
-
-        .lottery-card.taken .card-inner {
-          background: #eee;
-          color: #ccc;
-          cursor: not-allowed;
-        }
-
-        .lottery-card:not(.taken):hover .card-inner {
-          background: #000;
-          color: #fff;
-          transform: translateY(-5px);
-          box-shadow: 4px 4px 0 #000;
-        }
-
-        .card-front, .card-back {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          backface-visibility: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .card-back {
-          transform: rotateY(180deg);
-        }
-
-        .selection-result h3 {
-          letter-spacing: 2px;
-        }
-
-        @media (max-width: 600px) {
-          .card-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-
-        .leaderboard-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.8rem;
-        }
-
-        .leaderboard-item {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-          padding: 10px;
-          border: 2px solid black;
-          background: white;
-        }
-
-        .entry-rank {
-          font-size: 1.2rem;
-          font-weight: 900;
-          width: 30px;
-          text-align: center;
-        }
-
-        .entry-info {
-          flex: 1;
-        }
-
-        .entry-name {
-          font-weight: bold;
-          font-size: 0.85rem;
-          margin-bottom: 2px;
-        }
-
-        .entry-bar-bg {
-          height: 4px;
-          background: #eee;
-          border: 1px solid black;
-        }
-
-        .entry-bar-fill {
-          height: 100%;
-          background: black;
-        }
-
-        .entry-score {
-          font-size: 1rem;
-          font-weight: bold;
-          min-width: 50px;
-          text-align: right;
-        }
-
-        .rank-1 { background: #ffd700; }
-        .rank-2 { background: #c0c0c0; }
-        .rank-3 { background: #cd7f32; }
-
-        .main-area.hide, .sidebar.hide {
-          display: none;
-        }
-
-        @media (min-width: 800px) {
-          .main-area.hide, .sidebar.hide {
-            display: block;
-          }
-        }
-
-        .loader-dots {
-          display: flex;
-          justify-content: center;
-          gap: 8px;
-          margin-bottom: 1rem;
-        }
-
-        .loader-dots span {
-          width: 12px;
-          height: 12px;
-          background: black;
-          border-radius: 50%;
-          animation: bounce 0.5s infinite alternate;
-        }
-
-        @keyframes bounce {
-          from { transform: translateY(0); }
-          to { transform: translateY(-8px); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// ROUND 6 COMPONENTS
-
-// ROUND 6 COMPONENTS (THE GAME OF HEARTS)
-
-function Round6History({ history }: { history: any[] }) {
-  if (history.length === 0) return null;
-  return (
-    <div className="admin-card" style={{ marginTop: '1rem', background: '#f8f8f8' }}>
-      <h4 className="section-title">ELIMINATION HISTORY</h4>
-      <div className="admin-user-list">
-        {history.map((h, idx) => {
-          const isStandoff = h.reason === 'standoff';
-          return (
-            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : '4px solid #ff4444' }}>
-              <div className="admin-user-info">
-                {isStandoff ? (
-                  <strong>STANDOFF REACHED</strong>
-                ) : (
-                  <strong>{h.target_name} eliminated</strong>
-                )}
-                {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
-                <small>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : `Reason: ${h.reason.toUpperCase()}`}</small>
-              </div>
             </div>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function Round6PlayerView({ 
-  state, 
-  userId, 
-  onVote 
-}: { 
-  state: any, 
-  userId: string,
-  onVote: (targetId: string, safety: boolean) => void
-}) {
-  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-  const [useSafety, setUseSafety] = useState<boolean>(false);
-  
-  const me = state.players.find((p: any) => p.id === userId);
-  const myVote = state.votes?.find((v: any) => v.voter_id === userId);
-  const isDead = me?.is_eliminated;
-
-  // Update useSafety if they already cast a vote with safety in this subround
-  useEffect(() => {
-    if (myVote) {
-      setUseSafety(!!myVote.used_safety);
-      setSelectedTarget(myVote.target_id);
-    }
-  }, [myVote]);
-
-  if (isDead) {
-    return (
-      <div className="player-view">
-        <div className="instruction-box" style={{ background: '#ff4444' }}>
-          <h3>DE-CALIBRATED</h3>
-          <p>{getRandomMessage(LOSER_MESSAGES)}</p>
-        </div>
-        <Round6History history={state.history} />
-      </div>
-    );
-  }
-
-  const alreadyUsedSafetyInPast = me?.has_used_safety && !myVote?.used_safety;
-
-  return (
-    <div className="player-view">
-      <div className="instruction-box">
-        <h3>ROUND 6: THE PIGEON ROUND</h3>
-        <p>Variable Elimination Protocol Engaging. Choose a target. If your target is eliminated, their unit partner is also purged.</p>
-        {state.status === 'voting' && (
-          <p style={{ color: '#4ade80', fontWeight: 'bold' }}>VOTING IN PROGRESS</p>
-        )}
-      </div>
-
-      {state.status === 'voting' && (
-        <div className="admin-card">
-          <h4 className="section-title">ACTIVE TARGETS</h4>
-          {myVote && (
-            <div style={{ background: '#000', color: '#fff', padding: '10px', marginBottom: '1rem', fontWeight: 'bold' }}>
-              VOTE RECORDED: {state.players.find((p: any) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
-              {myVote.used_safety && <span style={{ color: '#00ff00', marginLeft: '10px' }}>[SAFETY ACTIVE]</span>}
-            </div>
-          )}
-          <div className="player-list">
-            {state.players.filter((p: any) => !p.is_eliminated && p.id !== userId).map((p: any) => (
-              <div 
-                key={p.id} 
-                className={`player-item ${selectedTarget === p.id || myVote?.target_id === p.id ? 'selected' : ''}`}
-                onClick={() => setSelectedTarget(p.id)}
-              >
-                {p.name} {myVote?.target_id === p.id && ' (YOUR TARGET)'}
-              </div>
-            ))}
-          </div>
-
-          <div style={{ marginTop: '1.5rem', padding: '15px', border: '2px dashed black', background: '#f0f0f0' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: alreadyUsedSafetyInPast ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-              <input 
-                type="checkbox" 
-                checked={useSafety} 
-                disabled={alreadyUsedSafetyInPast}
-                onChange={(e) => setUseSafety(e.target.checked)}
-                style={{ width: '20px', height: '20px' }}
-              />
-              {alreadyUsedSafetyInPast ? 'SAFETY CARD ALREADY EXHAUSTED' : 'APPLY SAFETY CARD (One-time use)'}
-            </label>
-            <p style={{ fontSize: '0.7rem', marginTop: '5px', opacity: 0.7 }}>
-              Safety prevents your elimination even if you are the top-voted target this cycle.
-            </p>
-          </div>
-
-          <button 
-            className="primary-btn" 
-            style={{ width: '100%', marginTop: '1rem' }}
-            disabled={!selectedTarget || (myVote?.target_id === selectedTarget && myVote?.used_safety === useSafety)}
-            onClick={() => {
-              if (selectedTarget) onVote(selectedTarget, useSafety);
-            }}
-          >
-            {myVote ? 'UPDATE VOTE/SAFETY' : 'CONFIRM VOTE'}
-          </button>
-        </div>
-      )}
-
-      {state.status !== 'voting' && (
-        <div className="instruction-box" style={{ background: '#333' }}>
-          <p>WAITING FOR NEXT CYCLE...</p>
-        </div>
-      )}
-
-      <Round6History history={state.history} />
-    </div>
-  );
-}
-
-function Round6VolunteerView({ 
-  state, 
-  onStartTimer, 
-  onResolve, 
-  onNext,
-  onFinish 
-}: { 
-  state: any, 
-  onStartTimer: () => void, 
-  onResolve: () => void,
-  onNext: () => void,
-  onFinish: () => void
-}) {
-  return (
-    <div className="volunteer-view" style={{ padding: '1rem' }}>
-      <div className="admin-card">
-        <h3>PIGEON ROUND CONTROL</h3>
-        <p>Cycle: {state.current_cycle} | Status: {state.status.toUpperCase()}</p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '1rem' }}>
-          <button className="primary-btn" onClick={onStartTimer} disabled={state.status === 'voting'}>START VOTING</button>
-          <button className="primary-btn" style={{ background: state.status === 'voting' ? '#ffaa00' : '' }} onClick={() => {
-            if (window.confirm("RESOLVE NOW? This will eliminate the top-voted player AND any players who failed to vote.")) {
-              onResolve();
-            }
-          }} disabled={state.status !== 'voting'}>RESOLVE & PURGE</button>
-          <button className="primary-btn" onClick={onNext} disabled={state.status !== 'finished'}>NEXT CYCLE</button>
-          <button className="primary-btn" style={{ background: '#ff4444' }} onClick={onFinish}>FINISH ROUND</button>
-        </div>
-        {state.status === 'voting' && (
-          <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#ff4444', fontWeight: 'bold' }}>
-            ⚠️ WARNING: Resolving will automatically eliminate all players marked "WAITING..." below.
-          </p>
-        )}
-      </div>
-
-      <div className="admin-card" style={{ marginTop: '1rem' }}>
-        <h4 className="section-title">LIVE VOTES ({state.votes.length})</h4>
-        <div className="admin-user-list">
-          {state.players.filter((p: any) => !p.is_eliminated).map((p: any) => {
-             const vote = state.votes.find((v: any) => v.voter_id === p.id);
-             return (
-               <div key={p.id} className="admin-user-item">
-                 <div className="admin-user-info">
-                   <strong>{p.name}</strong>
-                   <small>{vote ? `Voted for ${state.players.find((t: any) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
-                 </div>
-               </div>
-             )
-          })}
-        </div>
-      </div>
-
-      <Round6History history={state.history} />
-    </div>
-  );
-}
-
-function Round7PlayerView({ state, userId, onAction, logs }: { 
-  state: any; 
-  userId: string; 
-  onAction: (action: string, targetId?: string) => void;
-  logs: string[];
-}) {
-  const me = state.players.find((p: any) => p.user_id === userId);
-  const alivePlayers = state.players.filter((p: any) => p.is_alive);
-  const others = alivePlayers.filter((p: any) => p.user_id !== userId);
-
-  if (!me) return <div className="card">CALIBRATING HEARTS...</div>;
-
-  if (!me.is_alive) {
-    return (
-      <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: '5px solid #ff4444' }}>
-        <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1rem' }}>TERMINATED</h1>
-        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
-      </div>
-    );
-  }
-
-  if (state.status === 'finished') {
-    const won = state.winner_id === userId;
-    return (
-      <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: won ? '5px solid #00ff00' : '5px solid #000' }}>
-        <h1 style={{ fontSize: '4rem', color: won ? '#00ff00' : '#000' }}>{won ? 'CHAMPION' : 'DEFEATED'}</h1>
-        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? getRandomMessage(WINNER_MESSAGES) : getRandomMessage(LOSER_MESSAGES)}</p>
-      </div>
-    );
-  }
-
-
-  return (
-    <div className="card" style={{ padding: '2rem', border: '4px solid black' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', fontWeight: '900', margin: 0 }}>ROUND 6: THE GAME OF HEARTS</h2>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>CYCLE</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{state.current_cycle}</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '2rem', marginBottom: '2.5rem', background: '#f8f9fa', padding: '1.5rem', border: '3px solid black' }}>
-        <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>YOUR STATUS</div>
-          <div style={{ fontSize: '3rem', fontWeight: '900' }}>{'❤️'.repeat(me.hearts)}</div>
-          <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{me.hearts} HEARTS</div>
-        </div>
-        {me.teammate_id && (
-          <div style={{ textAlign: 'center', flex: 1, borderLeft: '2px solid black' }}>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>PARTNER</div>
-            <div style={{ fontWeight: 'bold' }}>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.name || 'UNKNOWN'}</div>
-            <div>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive ? '❤️'.repeat(state.players.find((p:any)=>p.user_id === me.teammate_id)?.hearts) : '💀 DEAD'}</div>
-          </div>
-        )}
-      </div>
-
-      {state.status === 'waiting' ? (
-        <div style={{ textAlign: 'center', padding: '2rem', background: 'black', color: 'white' }}>
-          <div className="loader-dots"><span></span><span></span><span></span></div>
-          <h3 style={{ fontSize: '1.2rem', letterSpacing: '2px' }}>CALCULATING CYCLE...</h3>
-        </div>
-      ) : me.current_action ? (
-        <div style={{ textAlign: 'center', padding: '2rem', border: '3px dashed black' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: '900' }}>ACTION RECORDED</h3>
-          <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>{me.current_action}: {state.players.find((p:any)=>p.user_id === me.target_id)?.name || 'NONE'}</p>
-          <p style={{ opacity: 0.6 }}>Waiting for others to act...</p>
-        </div>
-      ) : (
-        <div>
-          <h3 style={{ fontWeight: '900', marginBottom: '1.5rem', borderBottom: '2px solid black', display: 'inline-block' }}>CHOOSE YOUR ACTION</h3>
-          
-          {others.length === 1 && state.players.filter((p:any)=>p.is_alive).length === 2 ? (
-            <div style={{ textAlign: 'center', background: 'black', color: 'white', padding: '2rem' }}>
-              <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>FINAL DUEL</h1>
-              <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                <button 
-                  onClick={() => onAction('PROTECT', others[0].user_id)}
-                  style={{ padding: '2rem', border: '4px solid white', background: 'transparent', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > PROTECT OTHER FRIEND </button>
-                <button 
-                  onClick={() => onAction('BETRAY', others[0].user_id)}
-                  style={{ padding: '2rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > BETRAY </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div style={{ border: '2px solid black', padding: '1rem' }}>
-                <h4 style={{ margin: '0 0 1rem 0', fontWeight: '900' }}>BETRAY</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {others.map((p:any) => (
-                    <button key={p.user_id} onClick={() => onAction('BETRAY', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
-                      BETRAY {p.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ border: '2px solid black', padding: '1rem' }}>
-                <h4 style={{ margin: '0 0 1rem 0', fontWeight: '900' }}>PROTECT (Cost: 1 ❤️)</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <button onClick={() => onAction('PROTECT', userId)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
-                    PROTECT SELF
-                  </button>
-                  {others.map((p:any) => (
-                    <button key={p.user_id} onClick={() => onAction('PROTECT', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
-                      PROTECT {p.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {me.teammate_id && state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive && (
-                <>
-                  <button 
-                    onClick={() => onAction('SACRIFICE', me.teammate_id)}
-                    disabled={me.hearts < 2}
-                    style={{ 
-                      padding: '1rem', 
-                      background: me.hearts < 2 ? '#feb2b2' : '#c53030', 
-                      color: 'white', 
-                      border: 'none', 
-                      fontWeight: '900', 
-                      cursor: me.hearts < 2 ? 'not-allowed' : 'pointer',
-                      opacity: me.hearts < 2 ? 0.7 : 1
-                    }}
-                  > SACRIFICE PARTNER (Cost: 2 ❤️) </button>
-                  <button 
-                    onClick={() => onAction('QUIT')}
-                    style={{ padding: '1rem', background: '#4a5568', color: 'white', border: 'none', fontWeight: '900', cursor: 'pointer' }}
-                  > QUIT (Eliminate Team) </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {logs.length > 0 && (
-        <div style={{ marginTop: '2.5rem', borderTop: '4px solid black', paddingTop: '1.5rem' }}>
-          <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>LAST CYCLE RESULTS</h3>
-          <div style={{ maxHeight: '200px', overflowY: 'auto', background: '#f8f9fa', padding: '1rem', border: '2px solid black', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-            {logs.map((log, i) => <div key={i} style={{ marginBottom: '4px' }}>{`> ${log}`}</div>)}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

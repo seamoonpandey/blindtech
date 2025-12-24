@@ -31,9 +31,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token') || getTokenFromCookie());
   const [loading, setLoading] = useState(!!token);
 
+    const login = (userData: User, authToken: string) => {
+    setUser(userData);
+    setToken(authToken);
+    localStorage.setItem('token', authToken);
+  };
+
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  };
+
   useEffect(() => {
     if (token) {
-      setLoading(true);
       console.log('Fetching /me with token:', token);
       fetch(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -47,31 +59,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .then(data => {
         console.log('/me data:', data);
         setUser(data);
+        setLoading(false);
       })
       .catch(err => {
         console.error('/me fetch failed:', err);
         logout();
-      })
-      .finally(() => {
         setLoading(false);
       });
-    } else {
-      setLoading(false);
     }
   }, [token]);
 
-  const login = (userData: User, authToken: string) => {
-    setUser(userData);
-    setToken(authToken);
-    localStorage.setItem('token', authToken);
-  };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  };
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout }}>
