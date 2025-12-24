@@ -596,6 +596,19 @@ async function performR7Resolution() {
     if (result.winnerId) {
       await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
     } else {
+      // Check if we've transitioned to the final two
+      const aliveCount = result.updatedPlayers.filter(p => p.is_alive).length;
+      
+      if (aliveCount === 2) {
+        console.log('⚔️ FINAL DUEL INITIATED: Setting both survivors to 1 heart each');
+        // Set both remaining players to 1 heart for the final duel
+        await db.query(`
+          UPDATE hearts_players 
+          SET hearts = 1 
+          WHERE is_alive = true
+        `);
+      }
+      
       // AUTO-CONTINUE: Increment cycle and keep status as 'acting'
       await db.query('UPDATE hearts_game_state SET current_cycle = current_cycle + 1, status = \'acting\' WHERE id = 1');
     }
@@ -1722,13 +1735,15 @@ const performR5NextRound = async (gameId) => {
           const alivePlayers = await db.query("SELECT id, name FROM users WHERE role = 'player' AND is_eliminated = false");
           const teams = await db.query("SELECT * FROM teams WHERE round_formed = 2");
 
+          const initialHearts = alivePlayers.rows.length === 2 ? 1 : 3;
+
           for (const p of alivePlayers.rows) {
             const myTeam = teams.rows.find(t => t.user1_id === p.id || t.user2_id === p.id);
             const teammateId = myTeam ? (myTeam.user1_id === p.id ? myTeam.user2_id : myTeam.user1_id) : null;
             await db.query(`
               INSERT INTO hearts_players (user_id, teammate_id, hearts, is_alive)
-              VALUES ($1, $2, 3, true)
-            `, [p.id, teammateId]);
+              VALUES ($1, $2, $3, true)
+            `, [p.id, teammateId, initialHearts]);
           }
 
           // Ensure state reflects current round

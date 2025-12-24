@@ -226,7 +226,7 @@ node scripts/test-ws.js
 
 **Features**:
 
-- Resets game to the beginning of specified round (1-5)
+- Resets game to the beginning of specified round (1-7)
 - Preserves all data from previous rounds
 - Clears data from current and future rounds
 - Restores correct player elimination states
@@ -243,11 +243,11 @@ node scripts/reset-to-round.js <round_number>
 # Reset to Round 2 (keeps Round 1 data)
 node scripts/reset-to-round.js 2
 
-# Reset to Round 3 (keeps Round 1-2 data)
-node scripts/reset-to-round.js 3
+# Reset to Round 6 (keeps Round 1-5 data)
+node scripts/reset-to-round.js 6
 
-# Reset to Round 5 (keeps Round 1-4 data)
-node scripts/reset-to-round.js 5
+# Reset to Round 7 (keeps Round 1-6 data)
+node scripts/reset-to-round.js 7
 ```
 
 **When to use**:
@@ -263,6 +263,8 @@ node scripts/reset-to-round.js 5
 - **Round 3**: Restores Round 2 survivors (those in teams)
 - **Round 4**: Restores Round 3 survivors (teams with ≥2 positives)
 - **Round 5**: Restores Round 4 survivors (teams with 'pass' result)
+- **Round 6**: Restores Round 5 survivors (winners of Paradox games)
+- **Round 7**: Preserves current survival state from Round 6 voting phase
 
 ---
 
