@@ -36,6 +36,95 @@ interface GameState {
   status: 'waiting' | 'active' | 'finished';
 }
 
+const getRandomMessage = (messages: string[]) => {
+  return messages[Math.floor(Math.random() * messages.length)];
+};
+
+const WINNER_MESSAGES = [
+  "Tujhe toh agli baar main dekhlunga...",
+  "Don't be so happy, it's just luck.",
+  "Lucky coincidence? We'll see.",
+  "Enjoy your 5 seconds of fame.",
+  "Almost competent. Almost.",
+  "Tujhse thoda zyada umeed thi, par theek hai.",
+  "Surviving isn't winning. Yet.",
+  "Don't get used to the safety.",
+  "Your partner carried you, didn't they?",
+  "Calibration success... for now.",
+  "Beta, luck hamesha saath nahi deta.",
+  "Safe? For now. Next time? Probably a grave.",
+  "Dank level: 1/100. Survival level: 100/100.",
+  "Beginner's luck activated. Don't let it go to your head.",
+  "You won? The system must be feeling generous today.",
+  "Congrats on not being the weakest link... this time.",
+  "Victory achieved. Error rate: Still 99%.",
+  "You survived. Color me mildly surprised.",
+  "One win doesn't make you good. It makes us suspicious.",
+  "Fluke detected. Reverting to reality next round.",
+  "Enjoy it while it lasts. Mediocrity returns shortly.",
+  "The algorithm blinked. That's the only explanation.",
+  "You peaked. It's all downhill from here.",
+  "Temporary admin privileges granted. Revoking soon.",
+  "Won the battle, still losing the war against competence."
+];
+
+const LOSER_MESSAGES = [
+  "Absolute dogwater performance.",
+  "Uninstalling your importance...",
+  "Brutal. Honestly just embarrassing.",
+  "Your parents deserve an apology.",
+  "Go back to Tutorial Island.",
+  "Skill issue detected: Life deleted.",
+  "Imagine losing this early. Pathetic.",
+  "Dank meme banne ke layak bhi nahi ho.",
+  "Ghar ja beta, coding seekh le pehle.",
+  "Worthless. Discarded. Forgotten.",
+  "Tu variable bhi nahi, tu runtime error hai.",
+  "Aukat dikha di system ne.",
+  "Your existence is a bug the system finally patched.",
+  "Error 404: Skill not found.",
+  "Garbage collection in progress... it's targeting you.",
+  "Even a random() function has more value than this.",
+  "Process terminated. Reason: Extreme incompetence.",
+  "You're the reason we can't have nice things.",
+  "Your performance just broke the embarrassment meter.",
+  "Selection sort would've eliminated you faster.",
+  "Zero impact, zero skill, zero comeback.",
+  "The system has no mercy for units like you.",
+  "You were the 'Hello World' of disappointment.",
+  "Access denied. Permanently. Try existing better next life.",
+  "Out of memory. Out of talent. Out of excuses.",
+  "You didn't last this round, that's why she left you.",
+  "Your Git history is cleaner than your gameplay — it's empty.",
+  "Even AI refuses to carry you after seeing this.",
+  "You're not bad, you're statistically significant proof of failure.",
+  "Bro tried to flex... and pulled a muscle in confidence.",
+  "Your comeback story starts with 'Once upon a never'."
+];
+
+const WAITING_MESSAGES = [
+  "Calibrating your inevitable failure...",
+  "Searching for your lost brain cells...",
+  "The system is judging your every breath.",
+  "Your silence is appreciated. Your existence, not so much.",
+  "Waiting for someone to make a mistake. Probably you.",
+  "Loading... just like your career prospects.",
+  "Patience is a virtue you clearly don't have.",
+  "Analyzing the depth of your mediocrity.",
+  "Don't blink. The end is near.",
+  "Your fate is being decided by a superior algorithm.",
+  "Buffering your disappointment in 4K.",
+  "Predicting next move... yep, it's another blunder.",
+  "The suspense is killing me. Please hurry up and lose.",
+  "Scanning for talent... scan complete: nothing found.",
+  "Your turn. Try not to disappoint the universe again.",
+  "Processing your excuses in advance.",
+  "Queue position: Right behind 'hopeless'.",
+  "Loading next L... estimated time: any second now.",
+  "The calm before your storm of failure.",
+  "Holding pattern activated. Crash landing imminent."
+];
+
 function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: Player; index: number; isLast: boolean; onMove: (index: number, direction: 'up' | 'down') => void; onRemove: (player: Player) => void }) {
   const {
     attributes,
@@ -107,21 +196,21 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                     return isSafe ? (
                       <div className="victory-announcement">
                         <div style={{ color: '#00ff00', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(0,255,0,0.4)', marginBottom: '0.5rem' }}>VICTORY</div>
-                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>DUEL COMPLETE: YOU ARE SAFE</h3>
-                        <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>Congratulations! You have survived the physical trials and advanced to the final stage.</p>
+                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h3>
+                        <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>You survived the physical trials. Don't let it go to your head.</p>
                         <div style={{ padding: '15px 30px', border: '2px solid #00ff00', color: '#00ff00', display: 'inline-block', fontWeight: 'bold', letterSpacing: '2px' }}>
-                          STATUS: ACCESS GRANTED
+                          STATUS: TEMPORARILY ALIVE
                         </div>
                       </div>
                     ) : (
                       <div className="defeat-announcement">
                         <div style={{ color: '#ff4444', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(255,0,0,0.4)', marginBottom: '0.5rem' }}>DEFEAT</div>
-                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>DUEL TERMINATED: ELIMINATED</h3>
+                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{getRandomMessage(LOSER_MESSAGES)}</h3>
                         <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>
-                          {positives === 0 ? "Your team was disqualified or failed to secure a single win." : "You failed to secure enough wins to stay in the game."}
+                          {positives === 0 ? "Purged for total incompetence." : "Not enough talent to stay in the system."}
                         </p>
                         <div style={{ padding: '15px 30px', border: '2px solid #ff4444', color: '#ff4444', display: 'inline-block', fontWeight: 'bold', letterSpacing: '2px' }}>
-                          STATUS: CONNECTION SEVERED
+                          STATUS: TRASH DISCARDED
                         </div>
                       </div>
                     );
@@ -165,7 +254,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
             <div className="empty-state" style={{ textAlign: 'center', padding: '4rem 2rem', border: '2px dashed #ccc', borderRadius: '12px' }}>
               <div className="loader-dots" style={{ marginBottom: '1.5rem' }}><span></span><span></span><span></span></div>
               <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>CALIBRATING DUELS</h3>
-              <p style={{ opacity: 0.7 }}>Our algorithms are pairing you for the trials. Stand by.</p>
+              <p style={{ opacity: 0.7 }}>{getRandomMessage(WAITING_MESSAGES)}</p>
             </div>
           )}
         </div>
@@ -328,7 +417,7 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="loader-dots"><span></span><span></span><span></span></div>
-        <p>LOADING EVALUATION DATA...</p>
+        <p>{getRandomMessage(WAITING_MESSAGES)}</p>
       </div>
     );
   }
@@ -342,9 +431,9 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
           border: '3px solid #fff'
         }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
-          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>BARELY ACCEPTABLE</h1>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h1>
           <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>You've proven you're not completely useless. Yet.</p>
-          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. THE REAL TEST BEGINS NOW.</p>
+          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. I'LL SEE YOU IN THE NEXT ROUND.</p>
         </div>
       );
     } else {
@@ -352,7 +441,7 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
         <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
           <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>INCOMPETENT</h1>
-          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Did you even try? What a waste of oxygen.</p>
+          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
           <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>YOUR MEDIOCRITY IS NO LONGER TOLERATED.</p>
         </div>
       );
@@ -399,7 +488,7 @@ function Round4PlayerView({ session, isEliminated }: { session: any; isEliminate
       <div className="loader-dots" style={{ marginBottom: '1rem' }}>
         <span></span><span></span><span></span>
       </div>
-      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>Waiting for someone to decide if you're worth keeping...</p>
+      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>{getRandomMessage(WAITING_MESSAGES)}</p>
     </div>
   );
 }
@@ -546,7 +635,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="loader-dots"><span></span><span></span><span></span></div>
-        <p>LOADING PARADOX DATA...</p>
+        <p>{getRandomMessage(WAITING_MESSAGES)}</p>
       </div>
     );
   }
@@ -589,12 +678,14 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         {won ? (
           <>
             <h1 style={{ fontSize: '4rem', color: '#00ff00' }}>VICTORY</h1>
-            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>YOU HAVE CONQUERED THE PARADOX</p>
+            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</p>
+            <p style={{ opacity: 0.7 }}>You survived the Paradox. Don't be so happy.</p>
           </>
         ) : (
           <>
             <h1 style={{ fontSize: '4rem', color: '#ff4444' }}>DEFEAT</h1>
-            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>THE PARADOX HAS CONSUMED YOU</p>
+            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(LOSER_MESSAGES)}</p>
+            <p style={{ opacity: 0.7 }}>The Paradox has consumed your low-tier logic.</p>
           </>
         )}
       </div>
@@ -3324,7 +3415,7 @@ function Round6PlayerView({
       <div className="player-view">
         <div className="instruction-box" style={{ background: '#ff4444' }}>
           <h3>DE-CALIBRATED</h3>
-          <p>You are no longer an active variable in this trial.</p>
+          <p>{getRandomMessage(LOSER_MESSAGES)}</p>
         </div>
         <Round6History history={state.history} />
       </div>
@@ -3477,8 +3568,8 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
   if (!me.is_alive) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: '5px solid #ff4444' }}>
-        <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1rem' }}>ELIMINATED</h1>
-        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>Your heart has stopped beating. You are no longer part of this game.</p>
+        <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1rem' }}>TERMINATED</h1>
+        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
       </div>
     );
   }
@@ -3487,8 +3578,8 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
     const won = state.winner_id === userId;
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: won ? '5px solid #00ff00' : '5px solid #000' }}>
-        <h1 style={{ fontSize: '4rem', color: won ? '#00ff00' : '#000' }}>{won ? 'CHAMPION' : 'GAME OVER'}</h1>
-        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? 'YOU ARE THE LAST ONE STANDING.' : 'A WINNER HAS BEEN DECIDED.'}</p>
+        <h1 style={{ fontSize: '4rem', color: won ? '#00ff00' : '#000' }}>{won ? 'CHAMPION' : 'DEFEATED'}</h1>
+        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? getRandomMessage(WINNER_MESSAGES) : getRandomMessage(LOSER_MESSAGES)}</p>
       </div>
     );
   }
