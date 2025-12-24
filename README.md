@@ -21,9 +21,9 @@ The documentation is organized to provide clarity without redundancy:
 
 ## 🕹️ CORE SYSTEM COMPONENTS
 
-1.  **The Pulse (Metrics)**: Life is measured via **Hearts** and **Momentum**. Depletion of either results in immediate de-calibration (elimination).
-2.  **The Silence Rule**: Many rounds enforce absolute communication blackouts. Violation terminates the participating unit.
-3.  **The Unit (Pacts)**: Permanent pairings formed early in the trials intertwine the fates of participants.
+1. **The Pulse (Metrics)**: Life is measured via **Hearts** and **Momentum**. Depletion of either results in immediate de-calibration (elimination).
+2. **The Silence Rule**: Many rounds enforce absolute communication blackouts. Violation terminates the participating unit.
+3. **The Unit (Pacts)**: Permanent pairings formed early in the trials intertwine the fates of participants.
 
 ---
 
@@ -47,4 +47,4 @@ We welcome contributions! Please see our **[Contributing Guidelines](.github/CON
 
 ---
 
-_“The system is fair. The participants are not.”_
+> "The system is fair. The participants are not."
