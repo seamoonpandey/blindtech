@@ -7,7 +7,6 @@ export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('player');
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -18,7 +17,7 @@ export default function Register() {
       const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role: 'player' }),
         credentials: 'include'
       });
       const data = await res.json();
@@ -47,16 +46,9 @@ export default function Register() {
             <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem' }}>EMAIL</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="user@example.com" />
           </div>
-          <div style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '2rem' }}>
             <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem' }}>PASSWORD</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
-          </div>
-          <div style={{ marginBottom: '2rem' }}>
-            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.3rem' }}>ROLE</label>
-            <select value={role} onChange={e => setRole(e.target.value)}>
-              <option value="player">PLAYER</option>
-              <option value="volunteer">VOLUNTEER (GM)</option>
-            </select>
           </div>
           <button type="submit" style={{ width: '100%', padding: '15px', fontSize: '1.2rem' }}>INITIALIZE.EXE</button>
         </form>
