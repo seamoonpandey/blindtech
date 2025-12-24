@@ -1687,22 +1687,8 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'r6_finish' }));
   };
 
-  const startR7Voting = () => {
-    ws?.send(JSON.stringify({ type: 'r7_start_voting' }));
-  };
-
   const submitR7Action = (action: string, targetId?: string) => {
     ws?.send(JSON.stringify({ type: 'r7_submit_action', action, targetId }));
-  };
-
-  const resolveR7Cycle = () => {
-    ws?.send(JSON.stringify({ type: 'r7_resolve_cycle' }));
-  };
-
-  const resetR7Cycle = () => {
-    if (window.confirm("FORCE RESET Round 7 Cycle? This clears all current actions and sets status to WAITING.")) {
-      ws?.send(JSON.stringify({ type: 'r7_reset_cycle' }));
-    }
   };
 
   const joinMatch = (matchId: string) => {
@@ -3704,102 +3690,3 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
     </div>
   );
 }
-
-function Round7VolunteerView({ state, onStartVoting, onResolve, onReset, logs }: { 
-  state: any; 
-  onStartVoting: () => void; 
-  onResolve: () => void;
-  onReset: () => void;
-  logs: string[];
-}) {
-  const alivePlayers = state.players.filter((p: any) => p.is_alive);
-  const actingPlayers = state.players.filter((p: any) => p.is_alive && p.current_action).length;
-
-  return (
-    <div style={{ marginTop: '1rem' }}>
-      <h2 className="section-title">HEARTS COMMAND CENTER</h2>
-      
-      <div className="card" style={{ padding: '2rem', border: '4px solid black', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>CURRENT STATUS</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{state.status.toUpperCase()}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>CYCLE</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{state.current_cycle}</div>
-             <button onClick={onReset} style={{ fontSize: '0.7rem', textDecoration: 'underline', background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer' }}>Reset Cycle</button>
-          </div>
-        </div>
-
-        {state.status === 'waiting' && (
-          <button 
-            onClick={onStartVoting}
-            className="submit-btn" 
-            style={{ width: '100%', padding: '1.5rem', fontSize: '1.2rem', background: 'black', color: 'white' }}
-          >
-            ▶️ START NEXT CYCLE
-          </button>
-        )}
-
-        {state.status === 'acting' && (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '2px solid black', background: '#fafafa' }}>
-              <div style={{ fontSize: '2rem', fontWeight: '900' }}>{actingPlayers} / {alivePlayers.length}</div>
-              <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>PLAYERS HAVE ACTED</div>
-            </div>
-            <button 
-              onClick={onResolve}
-              className="submit-btn" 
-              style={{ width: '100%', padding: '1.5rem', fontSize: '1.2rem', background: '#c53030', color: 'white' }}
-            >
-              ⚠️ RESOLVE CYCLE NOW
-            </button>
-          </div>
-        )}
-
-        {state.status === 'finished' && (
-          <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000' }}>
-            <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
-              GHAR JAA TERO KAAM SAKKIYO
-            </h3>
-            <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-              (Go home, your work is done.)
-            </p>
-            <div style={{ marginTop: '2rem', padding: '1rem', borderTop: '1px solid #333' }}>
-              <p style={{ margin: 0, fontWeight: 'bold' }}>CHAMPION DECLARED:</p>
-              <p style={{ fontSize: '2rem', margin: '0.5rem 0', color: '#4ade80' }}>
-                {state.players.find((p:any)=>p.user_id === state.winner_id)?.name || 'NONE'}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="card" style={{ padding: '1.5rem', border: '2px solid black' }}>
-        <h3 style={{ fontWeight: '900', marginBottom: '1rem' }}>LIVING PLAYERS MONITOR</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-          {alivePlayers.map((p: any) => (
-            <div key={p.user_id} style={{ padding: '10px', border: '2px solid black', background: p.current_action ? '#ebffeb' : '#fff' }}>
-              <div style={{ fontWeight: 'bold' }}>{p.name}</div>
-              <div style={{ color: p.hearts <= 1 ? '#ff4444' : 'inherit' }}>{'❤️'.repeat(p.hearts)} ({p.hearts})</div>
-              <div style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: '4px' }}>
-                {p.current_action ? `ACTED: ${p.current_action}` : 'WAITING...'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {logs.length > 0 && (
-        <div className="card" style={{ marginTop: '2rem', padding: '1.5rem', border: '2px solid black' }}>
-          <h3 style={{ fontWeight: '900', marginBottom: '1rem' }}>CYCLE LOGS</h3>
-          <div style={{ maxHeight: '300px', overflowY: 'auto', background: '#f8f9fa', padding: '1rem', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-            {logs.map((log, i) => <div key={i} style={{ marginBottom: '4px' }}>{`> ${log}`}</div>)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
