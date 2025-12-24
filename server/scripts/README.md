@@ -280,6 +280,50 @@ node scripts/reset-team-test.js
 
 ---
 
+### `purge-lonely-players.js`
+
+**Purpose**: Eliminate players who don't have a team after Round 2.
+
+**Features**:
+
+- Identifies players not in any Round 2 team
+- Automatically eliminates them
+- Syncs with Round 6 (Hearts) if active
+- Safe to run multiple times (idempotent)
+
+**Usage**:
+
+```bash
+node scripts/purge-lonely-players.js
+```
+
+**When to use**:
+
+- After Round 2 lottery when some players didn't get paired
+- Clean up orphaned players before advancing to Round 3
+- Fix team formation issues where players are stuck without partners
+
+**What it does**:
+
+1. Finds all active players NOT in any Round 2 team
+2. Sets `is_eliminated = true` for those players
+3. If Round 6 is active, removes them from `hearts_players` table
+4. Shows detailed log of who was eliminated
+
+**Example Output**:
+
+```
+--- SYSTEM SCAN: SEARCHING FOR UNIT-LESS PLAYERS ---
+Found 3 players with no teammates. Commencing de-calibration...
+[DE-CALIBRATED] Player 15 (uuid-here)
+[DE-CALIBRATED] Player 23 (uuid-here)
+[DE-CALIBRATED] Player 31 (uuid-here)
+
+Purge complete.
+```
+
+---
+
 ### `auto_build_teams.js`
 
 **Purpose**: Automatically build teams for testing (bypasses Round 2 lottery).
