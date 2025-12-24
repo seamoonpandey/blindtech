@@ -35,25 +35,23 @@ async function reset() {
     console.log('--- STARTING COMPLETE DATABASE RESET ---');
     await client.query('BEGIN');
 
-    // 1. Truncate all tables
-    console.log('Truncating all tables...');
-    const tables = [
-      'users', 
-      'teams', 
-      'round3_matches', 
-      'lottery_pool', 
-      'submissions', 
-      'game_state', 
-      'round4_sessions', 
-      'round5_games', 
-      'round5_turns', 
-      'round6_history', 
-      'round6_votes', 
-      'hearts_game_state', 
-      'hearts_players', 
-      'round6_state'
-    ];
-    await client.query(`TRUNCATE ${tables.join(', ')} CASCADE`);
+    // 1. Truncate all tables dynamically
+    console.log('Fetching tables to truncate...');
+    const tablesRes = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name != 'pgmigrations'
+    `);
+    
+    const tables = tablesRes.rows.map(r => r.table_name);
+    
+    if (tables.length > 0) {
+      console.log(`Truncating tables: ${tables.join(', ')}...`);
+      await client.query(`TRUNCATE ${tables.join(', ')} CASCADE`);
+    } else {
+      console.log('No tables to truncate.');
+    }
 
     // 2. Reset Game State to Round 0
     console.log('Resetting game state...');
