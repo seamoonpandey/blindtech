@@ -4,126 +4,85 @@ require('dotenv').config();
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
+const volunteers = [
+  { name: 'Sagar Sharma', email: 'volunteer1@blindtech.com' },
+  { name: 'Pratiksha Paudel', email: 'volunteer2@blindtech.com' },
+  { name: 'Aayush Adhikari', email: 'volunteer3@blindtech.com' },
+  { name: 'Binita Dahal', email: 'volunteer4@blindtech.com' },
+  { name: 'Rohan Shrestha', email: 'volunteer5@blindtech.com' },
+  { name: 'Anjali Thapa', email: 'volunteer6@blindtech.com' },
+  { name: 'Sushant Karki', email: 'volunteer7@blindtech.com' },
+  { name: 'Deepa Gurung', email: 'volunteer8@blindtech.com' },
+  { name: 'Niraj Tamang', email: 'volunteer9@blindtech.com' },
+  { name: 'Shreya Magar', email: 'volunteer10@blindtech.com' },
+  { name: 'Bimal Rai', email: 'volunteer11@blindtech.com' },
+  { name: 'Kabita Bista', email: 'volunteer12@blindtech.com' },
+  { name: 'Sailesh Khatri', email: 'volunteer13@blindtech.com' },
+  { name: 'Pooja Bhandari', email: 'volunteer14@blindtech.com' },
+  { name: 'Rahul Neupane', email: 'volunteer15@blindtech.com' },
+  { name: 'Manisha Gautam', email: 'volunteer16@blindtech.com' },
+  { name: 'Bibek Basnet', email: 'volunteer17@blindtech.com' },
+  { name: 'Sabina Khadka', email: 'volunteer18@blindtech.com' },
+  { name: 'Manish Acharya', email: 'volunteer19@blindtech.com' },
+  { name: 'Kriti Sapkota', email: 'volunteer20@blindtech.com' }
+];
+
 async function reset() {
   const client = new Client({ connectionString: DATABASE_URL });
   await client.connect();
 
   try {
-    console.log('--- STARTING DATABASE RESET ---');
+    console.log('--- STARTING COMPLETE DATABASE RESET ---');
     await client.query('BEGIN');
 
     // 1. Truncate all tables
-    console.log('Truncating tables...');
-    await client.query('TRUNCATE users, teams, round3_matches, lottery_pool, submissions, game_state CASCADE');
+    console.log('Truncating all tables...');
+    const tables = [
+      'users', 
+      'teams', 
+      'round3_matches', 
+      'lottery_pool', 
+      'submissions', 
+      'game_state', 
+      'round4_sessions', 
+      'round5_games', 
+      'round5_turns', 
+      'round6_history', 
+      'round6_votes', 
+      'hearts_game_state', 
+      'hearts_players', 
+      'round6_state'
+    ];
+    await client.query(`TRUNCATE ${tables.join(', ')} CASCADE`);
 
-    // 2. Reset Game State
+    // 2. Reset Game State to Round 0
     console.log('Resetting game state...');
     await client.query("INSERT INTO game_state (id, current_round, status) VALUES (1, 0, 'waiting')");
 
-    // 3. Seed Users
-    console.log('Seeding users...');
+    // 3. Seed Volunteers
+    console.log('Seeding volunteers...');
     const passwordHash = await bcrypt.hash('password123', 10);
     
-    const players = [];
-    for (let i = 1; i <= 40; i++) {
-      const res = await client.query(
-        'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name',
-        [`Player ${i}`, `player${i}@test.com`, passwordHash, 'player']
+    // Add Admin first
+    const adminPasswordHash = await bcrypt.hash('admin123', 10);
+    await client.query(
+      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+      ['Admin', 'admin@blindtech.exe', adminPasswordHash, 'volunteer']
+    );
+    console.log('Added admin: Admin');
+
+    for (const vol of volunteers) {
+      await client.query(
+        'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+        [vol.name, vol.email, passwordHash, 'volunteer']
       );
-      players.push(res.rows[0]);
+      console.log(`Added volunteer: ${vol.name}`);
     }
-
-    const volunteers = [];
-    for (let i = 1; i <= 5; i++) {
-      const res = await client.query(
-        'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name',
-        [`Volunteer ${i}`, `vol${i}@test.com`, passwordHash, 'volunteer']
-      );
-      volunteers.push(res.rows[0]);
-    }
-
-    // 4. Simulate Round 2 Finished State with 11 Teams
-    console.log('Simulating Round 2 formation...');
-    
-    const leaders = players.slice(0, 20);
-    const selectors = players.slice(20, 40);
-
-    const TEAM_NAMES = [
-      "The Bug Hunters", "Null Pointers", "Merge Conflict", "Stack Overflow", 
-      "Binary Beasts", "Code Ninjas", "Logic Bombs", "The Bit Shifters",
-      "Git Pushers", "Async Avengers", "The Solo Hackers"
-    ];
-
-    // Create 11 Successful Teams
-    for (let i = 0; i < 11; i++) {
-        const leader = leaders[i];
-        const selector = selectors[i];
-        const teamName = TEAM_NAMES[i];
-        
-        await client.query(
-            'INSERT INTO teams (user1_id, user2_id, round_formed, name) VALUES ($1, $2, 2, $3)',
-            [selector.id, leader.id, teamName]
-        );
-
-        await client.query(
-            'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
-            [JSON.stringify({ type: 'player', id: leader.id, name: leader.name }), true, selector.id]
-        );
-        
-        console.log(`Team Created: ${teamName} (${selector.name} + ${leader.name})`);
-    }
-
-    const QUOTES = [
-        "The system has no mercy.", 
-        "Efficiency is the only virtue.",
-        "Your silence is your best weapon."
-    ];
-
-    // 5. Eliminate selectors who picked quotes
-    for (let i = 11; i < 20; i++) {
-        const selector = selectors[i];
-        const quote = QUOTES[(i - 11) % QUOTES.length];
-
-        await client.query(
-            'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
-            [JSON.stringify({ type: 'quote', text: quote }), true, selector.id]
-        );
-
-        await client.query('UPDATE users SET is_eliminated = true WHERE id = $1', [selector.id]);
-        console.log(`Selector Eliminated: ${selector.name} picked a death card.`);
-    }
-
-    // 6. Eliminate unpicked leaders
-    for (let i = 11; i < 20; i++) {
-        const leader = leaders[i];
-        
-        await client.query(
-            'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
-            [JSON.stringify({ type: 'player', id: leader.id, name: leader.name }), false, null]
-        );
-
-        await client.query('UPDATE users SET is_eliminated = true WHERE id = $1', [leader.id]);
-        console.log(`Leader Eliminated: ${leader.name} was not picked.`);
-    }
-
-    // Add remaining quotes to pool
-    for (let i = 0; i < 9; i++) {
-        const quote = QUOTES[i % QUOTES.length];
-        await client.query(
-            'INSERT INTO lottery_pool (content, is_taken, taken_by) VALUES ($1, $2, $3)',
-            [JSON.stringify({ type: 'quote', text: quote }), false, null]
-        );
-    }
-
-    // 7. Set Game State to Round 2 Finished
-    console.log('Finalizing game state...');
-    await client.query("UPDATE game_state SET current_round = 2, status = 'finished' WHERE id = 1");
 
     await client.query('COMMIT');
     console.log('--- RESET COMPLETE ---');
-    console.log('Total Players: 40');
-    console.log('Total Teams: 11');
-    console.log('Status: Round 2 Finished, Ready for Round 3');
+    console.log(`Total Volunteers Added: ${volunteers.length + 1} (including admin)`);
+    console.log('Status: All other accounts and data cleared. Game state reset to Round 0.');
 
   } catch (err) {
     await client.query('ROLLBACK');
