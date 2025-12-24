@@ -4,9 +4,10 @@ require('dotenv').config();
 fastify.register(require('@fastify/cors'), { 
   origin: process.env.NODE_ENV === 'production' 
     ? [
-    'https://blindtech.ices.edu.np',      // Production UI
-    /\.pages\.dev$/                        // Cloudflare Pages preview deployments
-  ] :true,
+        'https://blindtech.ices.edu.np',      // Production UI
+        /\.pages\.dev$/                        // Cloudflare Pages preview deployments
+      ]
+    : true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
