@@ -2,12 +2,16 @@ const fastify = require('fastify')({ logger: true });
 require('dotenv').config();
 
 fastify.register(require('@fastify/cors'), { 
-  origin: true, // identifying the origin dynamically
-  credentials: true, // Allow cookies to be sent/received
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: [
+    'https://blinddate.ices.edu.np',      // Production UI
+    'http://localhost:5173',               // Local Vite dev
+    'http://localhost:3000',               // Local alternative
+    /\.pages\.dev$/                        // Cloudflare Pages preview deployments
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 });
-
 if (!process.env.JWT_SECRET) {
   console.warn('WARNING: JWT_SECRET is not set. Using default insecure secret.');
 }
