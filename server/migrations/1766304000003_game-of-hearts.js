@@ -1,8 +1,8 @@
 exports.up = (pgm) => {
-  // Drop previous Round 6 attempt if exists
-  pgm.dropTable('round6_votes', { ifExists: true });
-  pgm.dropTable('round6_history', { ifExists: true });
-  pgm.dropTable('round6_state', { ifExists: true });
+  // DO NOT drop previous Round 6 attempt if you still want to play Round 6!
+  // pgm.dropTable('round6_votes', { ifExists: true });
+  // pgm.dropTable('round6_history', { ifExists: true });
+  // pgm.dropTable('round6_state', { ifExists: true });
 
   pgm.createTable('hearts_game_state', {
     id: { type: 'integer', primaryKey: true, default: 1 },
