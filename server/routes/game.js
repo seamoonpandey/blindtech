@@ -1712,7 +1712,11 @@ const performR5NextRound = async (gameId) => {
           console.log('Starting Round 6 (Pigeon Round)...');
           await db.query('DELETE FROM round6_votes');
           await db.query('DELETE FROM round6_history');
-          await db.query("UPDATE round6_state SET current_cycle = 1, status = 'waiting' WHERE id = 1");
+          await db.query(`
+            INSERT INTO round6_state (id, current_cycle, status) 
+            VALUES (1, 1, 'waiting') 
+            ON CONFLICT (id) DO UPDATE SET current_cycle = 1, status = 'waiting'
+          `);
           await db.query("UPDATE game_state SET current_round = 6, status = 'active' WHERE id = 1");
           const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
           broadcast({ type: 'state_update', state: stateRes.rows[0] });
@@ -1724,12 +1728,11 @@ const performR5NextRound = async (gameId) => {
           
           await db.query('DELETE FROM hearts_players');
           // Reset game state to cycle 1, status acting (AUTO START), no winner. Ensure row exists.
-          const stateCheck = await db.query('SELECT id FROM hearts_game_state WHERE id = 1');
-          if (stateCheck.rows.length === 0) {
-             await db.query(`INSERT INTO hearts_game_state (id, current_cycle, status, winner_id) VALUES (1, 1, 'acting', NULL)`);
-          } else {
-             await db.query('UPDATE hearts_game_state SET current_cycle = 1, status = \'acting\', winner_id = NULL WHERE id = 1');
-          }
+          await db.query(`
+            INSERT INTO hearts_game_state (id, current_cycle, status, winner_id) 
+            VALUES (1, 1, 'acting', NULL) 
+            ON CONFLICT (id) DO UPDATE SET current_cycle = 1, status = 'acting', winner_id = NULL
+          `);
           
           // Initialize hearts_players from alive players
           const alivePlayers = await db.query("SELECT id, name FROM users WHERE role = 'player' AND is_eliminated = false");
@@ -2159,12 +2162,20 @@ const performR5NextRound = async (gameId) => {
             // 2. Clear data for future rounds
             if (targetRound < 7) {
               await db.query("DELETE FROM hearts_players");
-              await db.query("UPDATE hearts_game_state SET current_cycle = 1, status = 'waiting', winner_id = NULL WHERE id = 1");
+              await db.query(`
+                INSERT INTO hearts_game_state (id, current_cycle, status, winner_id) 
+                VALUES (1, 1, 'waiting', NULL) 
+                ON CONFLICT (id) DO UPDATE SET current_cycle = 1, status = 'waiting', winner_id = NULL
+              `);
             }
             if (targetRound < 6) {
               await db.query("DELETE FROM round6_votes");
               await db.query("DELETE FROM round6_history");
-              await db.query("UPDATE round6_state SET current_cycle = 1, status = 'waiting' WHERE id = 1");
+              await db.query(`
+                INSERT INTO round6_state (id, current_cycle, status) 
+                VALUES (1, 1, 'waiting') 
+                ON CONFLICT (id) DO UPDATE SET current_cycle = 1, status = 'waiting'
+              `);
             }
             if (targetRound < 5) {
               await db.query("DELETE FROM round5_turns");

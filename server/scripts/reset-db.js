@@ -54,8 +54,10 @@ async function reset() {
     }
 
     // 2. Reset Game State to Round 0
-    console.log('Resetting game state...');
+    console.log('Resetting game states...');
     await client.query("INSERT INTO game_state (id, current_round, status) VALUES (1, 0, 'waiting')");
+    await client.query("INSERT INTO round6_state (id, current_cycle, status) VALUES (1, 1, 'waiting')");
+    await client.query("INSERT INTO hearts_game_state (id, current_cycle, status) VALUES (1, 1, 'acting')");
 
     // 3. Seed Volunteers
     console.log('Seeding volunteers...');
