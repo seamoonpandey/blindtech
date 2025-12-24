@@ -1475,10 +1475,7 @@ export default function Game() {
   );
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    if (!user) return;
 
     const socket = new WebSocket(WS_URL);
     

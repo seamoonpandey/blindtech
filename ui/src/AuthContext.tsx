@@ -12,6 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  loading: boolean;
   login: (userData: User, authToken: string) => void;
   logout: () => void;
 }
@@ -28,9 +29,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const [token, setToken] = useState<string | null>(localStorage.getItem('token') || getTokenFromCookie());
+  const [loading, setLoading] = useState(!!token);
 
   useEffect(() => {
     if (token) {
+      setLoading(true);
       console.log('Fetching /me with token:', token);
       fetch(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -48,7 +51,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .catch(err => {
         console.error('/me fetch failed:', err);
         logout();
+      })
+      .finally(() => {
+        setLoading(false);
       });
+    } else {
+      setLoading(false);
     }
   }, [token]);
 
@@ -66,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
