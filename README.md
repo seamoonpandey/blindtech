@@ -41,4 +41,10 @@ cd ui && npm install && npm run dev
 
 ---
 
+## 🤝 CONTRIBUTING
+
+We welcome contributions! Please see our **[Contributing Guidelines](.github/CONTRIBUTING.md)** and **[Security Policy](.github/SECURITY.md)** for more details.
+
+---
+
 _“The system is fair. The participants are not.”_
