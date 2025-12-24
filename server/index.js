@@ -2,12 +2,11 @@ const fastify = require('fastify')({ logger: true });
 require('dotenv').config();
 
 fastify.register(require('@fastify/cors'), { 
-  origin: [
-    'https://blinddate.ices.edu.np',      // Production UI
-    'http://localhost:5173',               // Local Vite dev
-    'http://localhost:3000',               // Local alternative
+  origin: process.env.NODE_ENV === 'production' 
+    ? [
+    'https://blindtech.ices.edu.np',      // Production UI
     /\.pages\.dev$/                        // Cloudflare Pages preview deployments
-  ],
+  ] :true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
