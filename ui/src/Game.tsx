@@ -622,7 +622,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
           <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h1>
           <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>You've proven you're not completely useless. Yet.</p>
-          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. I'LL SEE YOU IN THE NEXT ROUND.</p>
+          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. I'LL SHOW YOU IN THE NEXT ROUND.</p>
         </div>
       );
     } else {
