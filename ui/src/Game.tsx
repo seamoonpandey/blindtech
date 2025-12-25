@@ -1149,7 +1149,7 @@ function AdminView({
         <button className={activeTab === 'management' ? 'active' : ''} onClick={() => setActiveTab('management')}>MANAGEMENT</button>
         <button className={activeTab === 'volunteers' ? 'active' : ''} onClick={() => setActiveTab('volunteers')}>VOLUNTEERS</button>
         <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>DATA HISTORY</button>
-        <button className={activeTab === 'deletion' ? 'active' : ''} onClick={() => setActiveTab('deletion')}>DELETION</button>
+        <button className={activeTab === 'deletion' ? 'active' : ''} onClick={() => setActiveTab('deletion')}>Users</button>
         <button className={activeTab === 'recovery' ? 'active' : ''} onClick={() => setActiveTab('recovery')}>RECOVERY</button>
       </div>
 
