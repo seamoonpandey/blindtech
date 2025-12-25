@@ -47,7 +47,7 @@ fastify.register(require('./routes/game'));
 fastify.post('/admin/reset-db', async (request, reply) => {
   const { exec } = require('child_process');
   // Optionally, add authentication/authorization checks here
-  exec('node server/scripts/reset-db.js', (error, stdout, stderr) => {
+    exec('node ./scripts/reset-db.js', (error, stdout, stderr) => {
     if (error) {
       fastify.log.error('Reset DB error:', error);
       return reply.status(500).send({ success: false, error: stderr || error.message });
