@@ -28,31 +28,63 @@ function resolveCycle(players, actions) {
       if (p.is_alive) p.hearts = 1;
     });
 
-    // QUICK DRAW MECHANIC (First to act decides the fate)
-    const actors = updatedPlayers.filter(p => p.current_action && p.current_action !== 'REFUSE'); // Refuse is passive?
-    // actually just check current_action.
-    
-    // We only trigger this logic if NOT everyone has acted (i.e. strictly 1 person acted and we are resolving)
-    // OR if we decided that the first action is definitive regardless of the second.
-    // Given the prompt "one button click ends the thingy", we treat the first valid action as final.
-    
-    if (actors.length === 1) {
-       const actor = actors[0];
-       const opponent = aliveAtStart.find(p => getPid(p) !== getPid(actor));
-       const action = actor.current_action;
-       
-       logs.push(`⚡ QUICK DRAW! ${actor.name} struck first with ${action}!`);
-       
-       if (action === 'SACRIFICE') {
-         logs.push(`${actor.name} SACRIFICED themselves to save the timeline... but in this dimension, that means they WIN!`);
-         return { updatedPlayers, logs, winnerId: getPid(actor) };
-       } else if (action === 'BETRAY') {
-         logs.push(`${actor.name} tried to BETRAY their rival... but greed is their undoing! They LOSE!`);
-         return { updatedPlayers, logs, winnerId: getPid(opponent) };
-       } else if (action === 'QUIT') {
-         logs.push(`${actor.name} QUIT the duel. They LOSE.`);
-         return { updatedPlayers, logs, winnerId: getPid(opponent) };
-       }
+    const p1 = aliveAtStart[0];
+    const p2 = aliveAtStart[1];
+    const a1 = getAction(getPid(p1))?.action || 'REFUSE';
+    const a2 = getAction(getPid(p2))?.action || 'REFUSE';
+
+    // Normalize PROTECT to REFUSE for Final Duel
+    const act1 = a1 === 'PROTECT' ? 'REFUSE' : a1;
+    const act2 = a2 === 'PROTECT' ? 'REFUSE' : a2;
+
+    logs.push(`RESOLUTION: ${p1.name} chose ${act1} | ${p2.name} chose ${act2}`);
+
+    // 1. Immediate Losers (BETRAY/QUIT)
+    const is1Bad = act1 === 'BETRAY' || act1 === 'QUIT';
+    const is2Bad = act2 === 'BETRAY' || act2 === 'QUIT';
+
+    if (is1Bad && is2Bad) {
+      logs.push("BOTH ATTEMPTED DISHONORABLE ACTIONS. BOTH TERMINATED.");
+      p1.is_alive = false; p1.hearts = 0;
+      p2.is_alive = false; p2.hearts = 0;
+      return { updatedPlayers, logs, winnerId: null };
+    }
+    if (is1Bad) {
+      logs.push(`${p1.name} attempted ${act1} and was terminated by the system.`);
+      p1.is_alive = false; p1.hearts = 0;
+      return { updatedPlayers, logs, winnerId: getPid(p2) };
+    }
+    if (is2Bad) {
+      logs.push(`${p2.name} attempted ${act2} and was terminated by the system.`);
+      p2.is_alive = false; p2.hearts = 0;
+      return { updatedPlayers, logs, winnerId: getPid(p1) };
+    }
+
+    // 2. SACRIFICE vs REFUSE
+    if (act1 === 'SACRIFICE' && act2 === 'REFUSE') {
+      logs.push(`${p1.name} chose SACRIFICE. They are the CHAMPION.`);
+      return { updatedPlayers, logs, winnerId: getPid(p1) };
+    }
+    if (act2 === 'SACRIFICE' && act1 === 'REFUSE') {
+      logs.push(`${p2.name} chose SACRIFICE. They are the CHAMPION.`);
+      return { updatedPlayers, logs, winnerId: getPid(p2) };
+    }
+
+    // 3. SACRIFICE vs SACRIFICE
+    if (act1 === 'SACRIFICE' && act2 === 'SACRIFICE') {
+      logs.push("MUTUAL SACRIFICE. THE TIMELINE COLLAPSES. NO WINNER.");
+      p1.is_alive = false; p1.hearts = 0;
+      p2.is_alive = false; p2.hearts = 0;
+      return { updatedPlayers, logs, winnerId: null };
+    }
+
+    // 4. REFUSE vs REFUSE (Final Bleed)
+    if (act1 === 'REFUSE' && act2 === 'REFUSE') {
+      logs.push("MUTUAL REFUSAL. APPLYING FINAL BLEED...");
+      p1.is_alive = false; p1.hearts = 0;
+      p2.is_alive = false; p2.hearts = 0;
+      logs.push("BOTH BLED OUT. THE SYSTEM REMAINS EMPTY.");
+      return { updatedPlayers, logs, winnerId: null };
     }
   }
 
