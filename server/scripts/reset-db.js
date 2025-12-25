@@ -59,28 +59,9 @@ async function reset() {
     await client.query("INSERT INTO round6_state (id, current_cycle, status) VALUES (1, 1, 'waiting')");
     await client.query("INSERT INTO hearts_game_state (id, current_cycle, status) VALUES (1, 1, 'acting')");
 
-    // 3. Seed Volunteers
-    console.log('Seeding volunteers...');
-    const passwordHash = await bcrypt.hash('password123', 10);
-    
-    // Add Admin first
-    const adminPasswordHash = await bcrypt.hash('admin123', 10);
-    await client.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
-      ['Admin', 'admin@blindtech.exe', adminPasswordHash, 'volunteer']
-    );
-    console.log('Added admin: Admin');
-
-    for (const vol of volunteers) {
-      await client.query(
-        'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
-        [vol.name, vol.email, passwordHash, 'volunteer']
-      );
-      console.log(`Added volunteer: ${vol.name}`);
-    }
-
     await client.query('COMMIT');
     console.log('--- RESET COMPLETE ---');
+      console.log('Status: All accounts and data cleared. Game state reset to Round 0.');
     console.log(`Total Volunteers Added: ${volunteers.length + 1} (including admin)`);
     console.log('Status: All other accounts and data cleared. Game state reset to Round 0.');
 

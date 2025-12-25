@@ -5,26 +5,23 @@ require('dotenv').config();
 const client = new Client({ connectionString: process.env.DATABASE_URL || 'postgres://postgres@localhost:5432/blindtech' });
 
 const volunteers = [
-  { name: 'Sagar Sharma', email: 'volunteer1@blindtech.com' },
-  { name: 'Pratiksha Paudel', email: 'volunteer2@blindtech.com' },
-  { name: 'Aayush Adhikari', email: 'volunteer3@blindtech.com' },
-  { name: 'Binita Dahal', email: 'volunteer4@blindtech.com' },
-  { name: 'Rohan Shrestha', email: 'volunteer5@blindtech.com' },
-  { name: 'Anjali Thapa', email: 'volunteer6@blindtech.com' },
-  { name: 'Sushant Karki', email: 'volunteer7@blindtech.com' },
-  { name: 'Deepa Gurung', email: 'volunteer8@blindtech.com' },
-  { name: 'Niraj Tamang', email: 'volunteer9@blindtech.com' },
-  { name: 'Shreya Magar', email: 'volunteer10@blindtech.com' },
-  { name: 'Bimal Rai', email: 'volunteer11@blindtech.com' },
-  { name: 'Kabita Bista', email: 'volunteer12@blindtech.com' },
-  { name: 'Sailesh Khatri', email: 'volunteer13@blindtech.com' },
-  { name: 'Pooja Bhandari', email: 'volunteer14@blindtech.com' },
-  { name: 'Rahul Neupane', email: 'volunteer15@blindtech.com' },
-  { name: 'Manisha Gautam', email: 'volunteer16@blindtech.com' },
-  { name: 'Bibek Basnet', email: 'volunteer17@blindtech.com' },
-  { name: 'Sabina Khadka', email: 'volunteer18@blindtech.com' },
-  { name: 'Manish Acharya', email: 'volunteer19@blindtech.com' },
-  { name: 'Kriti Sapkota', email: 'volunteer20@blindtech.com' }
+  { name: 'Upendra Raj Joshi', email: 'upendra@ices.edu' },
+  { name: 'Nabin Regmi', email: 'nabin@ices.edu' },
+  { name: 'Anurag Adhikari', email: 'anurag@ices.edu' },
+  { name: 'Rakshya Raut', email: 'rakshya@ices.edu' },
+  { name: 'Swostika Poudel', email: 'swostika@ices.edu' },
+  { name: 'Aelu', email: 'baby@ices.edu' },
+  { name: 'Dhiraj Kumar Chaurasiya', email: 'dhiraj@ices.edu' },
+  { name: 'Samar Dotel', email: 'samar@ices.edu' },
+  { name: 'Priya Jha', email: 'priya@ices.edu' },
+  { name: 'Yojana Ghimire', email: 'yojana@ices.edu' },
+  { name: 'Swarn Kumar Chaudhary', email: 'swarn@ices.edu' },
+  { name: 'Rabin Poudel', email: 'rabin@ices.edu' },
+  { name: 'Aayushma Khanal', email: 'aayushma@ices.edu' },
+  { name: 'Abhinaya Chaurasiya', email: 'abhinaya@ices.edu' },
+  { name: 'Pradeep Bhandari', email: 'pradeep@ices.edu' },
+  { name: 'Santosh Regmi', email: 'santosh@ices.edu' },
+  { name: 'Roman Shrestha', email: 'roman@ices.edu' }
 ];
 
 async function seed() {
@@ -32,7 +29,7 @@ async function seed() {
     await client.connect();
     console.log('Connected to database');
 
-    const passwordHash = await bcrypt.hash('password', 10);
+    const passwordHash = await bcrypt.hash('helloworld', 10);
 
     for (const volunteer of volunteers) {
       try {
