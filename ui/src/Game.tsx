@@ -4134,7 +4134,7 @@ function Round7PlayerView({ state, userId, onAction }: {
                 > COMPROMISE </button>
                 <button 
                   onClick={() => onAction('SHARE', others[0].user_id)}
-                  style={{ padding: '1.5rem', border: '4px solid white', background: 'transparent', color: white, fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                  style={{ padding: '1.5rem', border: '4px solid white', background: 'transparent', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
                 > SHARE </button>
                 <button 
                   onClick={() => onAction('BETRAY', others[0].user_id)}
