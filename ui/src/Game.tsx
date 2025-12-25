@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL, WS_URL } from './config';
@@ -324,6 +324,10 @@ function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: P
 }
 
 function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayName }: { userId: string; matches: Round3Match[]; isEliminated: boolean; randomQuote: string; displayName: (id?: string | null) => string }) {
+  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
+  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
+  const waitingMsg = useMemo(() => getRandomMessage(WAITING_MESSAGES), []);
+
   const myMatch = matches.find(m => 
     m.team1_user1 === userId || m.team1_user2 === userId || 
     m.team2_user1 === userId || m.team2_user2 === userId
@@ -359,7 +363,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
                     return isSafe ? (
                       <div className="victory-announcement">
                         <div style={{ color: '#00ff00', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(0,255,0,0.4)', marginBottom: '0.5rem' }}>VICTORY</div>
-                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h3>
+                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{winnerMsg}</h3>
                         <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>You survived the physical trials. Don't let it go to your head.</p>
                         <div style={{ padding: '15px 30px', border: '2px solid #00ff00', color: '#00ff00', display: 'inline-block', fontWeight: 'bold', letterSpacing: '2px' }}>
                           STATUS: TEMPORARILY ALIVE
@@ -368,7 +372,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
                     ) : (
                       <div className="defeat-announcement">
                         <div style={{ color: '#ff4444', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(255,0,0,0.4)', marginBottom: '0.5rem' }}>DEFEAT</div>
-                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{getRandomMessage(LOSER_MESSAGES)}</h3>
+                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{loserMsg}</h3>
                         <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>
                           {positives === 0 ? "Purged for total incompetence." : "Not enough talent to stay in the system."}
                         </p>
@@ -427,7 +431,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
             <div className="empty-state" style={{ textAlign: 'center', padding: '4rem 2rem', border: '2px dashed #ccc', borderRadius: '12px' }}>
               <div className="loader-dots" style={{ marginBottom: '1.5rem' }}><span></span><span></span><span></span></div>
               <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>CALIBRATING DUELS</h3>
-              <p style={{ opacity: 0.7 }}>{getRandomMessage(WAITING_MESSAGES)}</p>
+              <p style={{ opacity: 0.7 }}>{waitingMsg}</p>
             </div>
           )}
         </div>
@@ -591,13 +595,35 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
 }
 
 function Round4PlayerView({ session, isEliminated }: { session: Round4Session; isEliminated: boolean }) {
+  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
+  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
+  const waitingMsg = useMemo(() => getRandomMessage(WAITING_MESSAGES), []);
+
+  const failureLines = [
+    "Coding Club shut down your build.",
+    "Your merge failed review. Ship denied.",
+    "Your pipeline stalled and time ran out.",
+    "Your code crashed in the live demo." 
+  ];
+  const outroLines = [
+    "Step aside. The arena moves on.",
+    "Others advance while you debug in the lobby.",
+    "You'll get another shot in the next season—maybe.",
+    "Next time, ship it before the timer hits zero.",
+    "That's why they left you—no one waits for broken builds." 
+  ];
+
+  const mainLine = useMemo(() => getRandomMessage(failureLines), []);
+  const subLine = useMemo(() => getRandomMessage(outroLines), []);
+
   if (isEliminated) {
+    const headline = "ELIMINATED";
     return (
       <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>PATHETIC</h1>
-        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team couldn't even code their way out of a paper bag.</p>
-        <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>WORTHLESS. DISCARDED. FORGOTTEN.</p>
+        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>{headline}</h1>
+        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{mainLine}</p>
+        <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>{subLine}</p>
       </div>
     );
   }
@@ -606,7 +632,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="loader-dots"><span></span><span></span><span></span></div>
-        <p>{getRandomMessage(WAITING_MESSAGES)}</p>
+        <p>{waitingMsg}</p>
       </div>
     );
   }
@@ -620,7 +646,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
           border: '3px solid #fff'
         }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
-          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h1>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>{winnerMsg}</h1>
           <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>You've proven you're not completely useless. Yet.</p>
           <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. I'LL SHOW YOU IN THE NEXT ROUND.</p>
         </div>
@@ -630,7 +656,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
         <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
           <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>INCOMPETENT</h1>
-          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
+          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{loserMsg}</p>
           <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>YOUR MEDIOCRITY IS NO LONGER TOLERATED.</p>
         </div>
       );
@@ -677,7 +703,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
       <div className="loader-dots" style={{ marginBottom: '1rem' }}>
         <span></span><span></span><span></span>
       </div>
-      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>{getRandomMessage(WAITING_MESSAGES)}</p>
+      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>{waitingMsg}</p>
     </div>
   );
 }
@@ -796,6 +822,10 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
   const [showGuide, setShowGuide] = useState(false);
 
+  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
+  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
+  const waitingMsg = useMemo(() => getRandomMessage(WAITING_MESSAGES), []);
+
   useEffect(() => {
     if (!game || game.status !== 'active') return;
     
@@ -826,7 +856,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="loader-dots"><span></span><span></span><span></span></div>
-        <p>{getRandomMessage(WAITING_MESSAGES)}</p>
+        <p>{waitingMsg}</p>
       </div>
     );
   }
@@ -866,13 +896,13 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         {won ? (
           <>
             <h1 style={{ fontSize: '4rem', color: '#00ff00' }}>VICTORY</h1>
-            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</p>
+            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{winnerMsg}</p>
             <p style={{ opacity: 0.7 }}>You survived the Paradox. Don't be so happy.</p>
           </>
         ) : (
           <>
             <h1 style={{ fontSize: '4rem', color: '#ff4444' }}>DEFEAT</h1>
-            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(LOSER_MESSAGES)}</p>
+            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{loserMsg}</p>
             <p style={{ opacity: 0.7 }}>The Paradox has consumed your low-tier logic.</p>
           </>
         )}
@@ -1734,6 +1764,24 @@ export default function Game() {
   const [initialSubmission, setInitialSubmission] = useState<{target_id: string, rank: number}[] | null>(null);
   const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Auto-close user menu on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
   
   // Round 2 States
   const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string, team_name?: string}[]>([]);
@@ -2329,7 +2377,7 @@ export default function Game() {
     <div className="container" style={{ maxWidth: '1200px', padding: '10px' }}>
       <div className="nav">
         <div className="logo">BLINDTECH.EXE</div>
-        <div className="user-menu">
+        <div className="user-menu" ref={userMenuRef}>
           <button className="avatar-btn" onClick={() => setShowUserMenu(!showUserMenu)}>{avatarLetter}</button>
           {showUserMenu && (
             <div className="user-menu-pop">
@@ -3785,6 +3833,8 @@ function Round6PlayerView({
 }) {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [useSafety, setUseSafety] = useState<boolean>(false);
+
+  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
   
   const me = state.players.find((p: Round6Player) => p.id === userId);
   const myVote = state.votes?.find((v: Round6Vote) => v.voter_id === userId);
@@ -3805,7 +3855,7 @@ function Round6PlayerView({
       <div className="player-view">
         <div className="instruction-box" style={{ background: '#ff4444' }}>
           <h3>DE-CALIBRATED</h3>
-          <p>{getRandomMessage(LOSER_MESSAGES)}</p>
+          <p>{loserMsg}</p>
         </div>
         <Round6History history={state.history} />
       </div>
@@ -3949,6 +3999,9 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
   onAction: (action: string, targetId?: string) => void;
   logs: string[];
 }) {
+  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
+  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
+
   const me = state.players.find((p: Round7Player) => p.user_id === userId);
   const alivePlayers = state.players.filter((p: Round7Player) => p.is_alive);
   const others = alivePlayers.filter((p: Round7Player) => p.user_id !== userId);
@@ -3959,7 +4012,7 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: '5px solid #ff4444' }}>
         <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1rem' }}>TERMINATED</h1>
-        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
+        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{loserMsg}</p>
       </div>
     );
   }
@@ -3969,7 +4022,7 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: won ? '5px solid #00ff00' : '5px solid #000' }}>
         <h1 style={{ fontSize: '4rem', color: won ? '#00ff00' : '#000' }}>{won ? 'CHAMPION' : 'DEFEATED'}</h1>
-        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? getRandomMessage(WINNER_MESSAGES) : getRandomMessage(LOSER_MESSAGES)}</p>
+        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? winnerMsg : loserMsg}</p>
       </div>
     );
   }
