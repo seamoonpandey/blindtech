@@ -806,6 +806,11 @@ const performR6Resolution = async () => {
       const targetVoteRecord = votes.find(v => v.voter_id === targetId);
       if (targetVoteRecord && targetVoteRecord.used_safety) {
         console.log(`Player ${targetId} used SAFETY and survived!`);
+        // Record safety usage in history
+        await db.query(`
+          INSERT INTO round6_history (subround, target_id, reason)
+          VALUES ($1, $2, 'safety')
+        `, [r6State.current_cycle, targetId]);
       } else {
         eliminatedId = targetId;
         console.log(`Player ${targetId} eliminated with ${maxVotes} votes.`);

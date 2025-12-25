@@ -2656,6 +2656,23 @@ export default function Game() {
             </div>
           )}
 
+          {user.role === 'volunteer' && gameState.status === 'waiting' && (gameState.current_round === 6 || gameState.current_round === 7) && (
+            <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
+              <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#ff4444' }}>
+                GET OUT OF MY FACE
+              </h3>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
+                YOUR USAGE IS GONE NOW.
+              </p>
+              <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
+                (Ghar jaa tero kaam sakkiyo.)
+              </p>
+              <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
+                The system is preparing the final phase. You are no longer needed.
+              </p>
+            </div>
+          )}
+
           {gameState.status === 'active' && gameState.current_round === 6 && round6State && (
             user.role === 'player' ? (
               <Round6PlayerView 
@@ -2694,11 +2711,14 @@ export default function Game() {
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
-                  GHAR JAA TERO KAAM SAKKIYO
+                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#ff4444' }}>
+                  GET OUT OF MY FACE
                 </h3>
+                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
+                  YOUR USAGE IS GONE NOW.
+                </p>
                 <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                  (Go home, your work is done.)
+                  (Ghar jaa tero kaam sakkiyo.)
                 </p>
                 <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
                   Round 7 is running autonomously. You are dismissed.
@@ -2746,14 +2766,17 @@ export default function Game() {
                 <>
                   {gameState.current_round === 6 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
-                        GHAR JAA TERO KAAM SAKKIYO
+                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#ff4444' }}>
+                        GET OUT OF MY FACE
                       </h3>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
+                        YOUR USAGE IS GONE NOW.
+                      </p>
                       <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                        (Go home, your work is done.)
+                        (Ghar jaa tero kaam sakkiyo.)
                       </p>
                       <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
-                        The system will handle the Final Round automatically (or mostly). Good job.
+                        The system will handle the Final Round automatically. Good job.
                       </p>
                     </div>
                   ) : (
@@ -3803,16 +3826,24 @@ function Round6History({ history }: { history: Round6HistoryEntry[] }) {
       <div className="admin-user-list">
         {history.map((h, idx) => {
           const isStandoff = h.reason === 'standoff';
+          const isSafety = h.reason === 'safety';
           return (
-            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : '4px solid #ff4444' }}>
+            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : (isSafety ? '4px solid #6366f1' : '4px solid #ff4444') }}>
               <div className="admin-user-info">
                 {isStandoff ? (
                   <strong>STANDOFF REACHED</strong>
+                ) : isSafety ? (
+                  <strong style={{ color: '#6366f1' }}>{h.target_name} SURVIVED</strong>
                 ) : (
                   <strong>{h.target_name} eliminated</strong>
                 )}
                 {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
-                <small>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : `Reason: ${h.reason.toUpperCase()}`}</small>
+                {isSafety && (
+                  <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(99, 102, 241, 0.1)', borderLeft: '3px solid #6366f1', fontSize: '0.85rem', fontStyle: 'italic', color: '#4338ca' }}>
+                    "You tried to kill this guy but puss in boots has 0 lives left now. Try again."
+                  </div>
+                )}
+                <small style={{ display: 'block', marginTop: '4px' }}>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : isSafety ? 'SAFETY CARD ACTIVATED' : `Reason: ${h.reason.toUpperCase()}`}</small>
               </div>
             </div>
           );
