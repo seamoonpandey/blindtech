@@ -4073,7 +4073,7 @@ function Round7PlayerView({ state, userId, onAction }: {
   }
 
   if (state.status === 'finished') {
-    const won = state.winner_id === userId;
+    const won = state.winner_id === userId || (state.winner_id === null && me.is_alive);
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: won ? '5px solid #00ff00' : '5px solid #000' }}>
         <h1 style={{ fontSize: '4rem', color: won ? '#00ff00' : '#000' }}>{won ? 'CHAMPION' : 'DEFEATED'}</h1>
@@ -4129,13 +4129,13 @@ function Round7PlayerView({ state, userId, onAction }: {
               <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <button 
-                  onClick={() => onAction('SACRIFICE', others[0].user_id)}
+                  onClick={() => onAction('COMPROMISE', others[0].user_id)}
                   style={{ padding: '1.5rem', border: '4px solid #00ff00', background: 'transparent', color: '#00ff00', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > SACRIFICE </button>
+                > COMPROMISE </button>
                 <button 
-                  onClick={() => onAction('PROTECT', others[0].user_id)}
-                  style={{ padding: '1.5rem', border: '4px solid white', background: 'transparent', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > REFUSE </button>
+                  onClick={() => onAction('SHARE', others[0].user_id)}
+                  style={{ padding: '1.5rem', border: '4px solid white', background: 'transparent', color: white, fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                > SHARE </button>
                 <button 
                   onClick={() => onAction('BETRAY', others[0].user_id)}
                   style={{ padding: '1.5rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}

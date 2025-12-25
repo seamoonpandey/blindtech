@@ -30,12 +30,14 @@ function resolveCycle(players, actions) {
 
     const p1 = aliveAtStart[0];
     const p2 = aliveAtStart[1];
-    const a1 = getAction(getPid(p1))?.action || 'REFUSE';
-    const a2 = getAction(getPid(p2))?.action || 'REFUSE';
+    const a1 = getAction(getPid(p1))?.action || 'SHARE';
+    const a2 = getAction(getPid(p2))?.action || 'SHARE';
 
-    // Normalize PROTECT to REFUSE for Final Duel
-    const act1 = a1 === 'PROTECT' ? 'REFUSE' : a1;
-    const act2 = a2 === 'PROTECT' ? 'REFUSE' : a2;
+    // Normalize actions for Final Duel
+    // COMPROMISE is the new SACRIFICE (Decisive)
+    // SHARE is the new REFUSE (Trust)
+    const act1 = (a1 === 'COMPROMISE' || a1 === 'SACRIFICE') ? 'COMPROMISE' : (a1 === 'PROTECT' ? 'SHARE' : a1);
+    const act2 = (a2 === 'COMPROMISE' || a2 === 'SACRIFICE') ? 'COMPROMISE' : (a2 === 'PROTECT' ? 'SHARE' : a2);
 
     logs.push(`RESOLUTION: ${p1.name} chose ${act1} | ${p2.name} chose ${act2}`);
 
@@ -60,30 +62,30 @@ function resolveCycle(players, actions) {
       return { updatedPlayers, logs, winnerId: getPid(p1) };
     }
 
-    // 2. SACRIFICE vs REFUSE
-    if (act1 === 'SACRIFICE' && act2 === 'REFUSE') {
-      logs.push(`${p1.name} chose SACRIFICE. They are the CHAMPION.`);
+    // 2. SHARE vs SHARE (Dual Champions)
+    if (act1 === 'SHARE' && act2 === 'SHARE') {
+      logs.push("RESONANCE ACHIEVED. BOTH UNITS HAVE PROVEN THEIR WORTH.");
+      logs.push("DUAL CHAMPIONS DECLARED.");
+      return { updatedPlayers, logs, winnerId: 'BOTH' };
+    }
+
+    // 3. COMPROMISE vs SHARE
+    if (act1 === 'COMPROMISE' && act2 === 'SHARE') {
+      logs.push(`${p1.name} COMPROMISED the trust. They are the SOLE CHAMPION.`);
+      p2.is_alive = false; p2.hearts = 0;
       return { updatedPlayers, logs, winnerId: getPid(p1) };
     }
-    if (act2 === 'SACRIFICE' && act1 === 'REFUSE') {
-      logs.push(`${p2.name} chose SACRIFICE. They are the CHAMPION.`);
+    if (act2 === 'COMPROMISE' && act1 === 'SHARE') {
+      logs.push(`${p2.name} COMPROMISED the trust. They are the SOLE CHAMPION.`);
+      p1.is_alive = false; p1.hearts = 0;
       return { updatedPlayers, logs, winnerId: getPid(p2) };
     }
 
-    // 3. SACRIFICE vs SACRIFICE
-    if (act1 === 'SACRIFICE' && act2 === 'SACRIFICE') {
-      logs.push("MUTUAL SACRIFICE. THE TIMELINE COLLAPSES. NO WINNER.");
+    // 4. COMPROMISE vs COMPROMISE (Mutual Destruction)
+    if (act1 === 'COMPROMISE' && act2 === 'COMPROMISE') {
+      logs.push("MUTUAL COMPROMISE. THE TIMELINE COLLAPSES. NO WINNER.");
       p1.is_alive = false; p1.hearts = 0;
       p2.is_alive = false; p2.hearts = 0;
-      return { updatedPlayers, logs, winnerId: null };
-    }
-
-    // 4. REFUSE vs REFUSE (Final Bleed)
-    if (act1 === 'REFUSE' && act2 === 'REFUSE') {
-      logs.push("MUTUAL REFUSAL. APPLYING FINAL BLEED...");
-      p1.is_alive = false; p1.hearts = 0;
-      p2.is_alive = false; p2.hearts = 0;
-      logs.push("BOTH BLED OUT. THE SYSTEM REMAINS EMPTY.");
       return { updatedPlayers, logs, winnerId: null };
     }
   }
@@ -154,7 +156,7 @@ function resolveCycle(players, actions) {
   const betrays = actions.filter(a => a.action === 'BETRAY' && (a.targetId || a.target_id));
   const protects = actions.filter(a => a.action === 'PROTECT' && (a.targetId || a.target_id));
 
-  const protectedPlayers = new Set();
+  const protectedPlayers = new Map(); // targetId -> protectorId
   for (const p of protects) {
     const attackerId = getPid(p);
     const protector = getPlayer(attackerId);
@@ -169,7 +171,7 @@ function resolveCycle(players, actions) {
     const targetIdRaw = p.targetId || p.target_id;
     const targetId = targetIdRaw ? String(targetIdRaw).toLowerCase() : null;
     if (targetId) {
-      protectedPlayers.add(targetId);
+      protectedPlayers.set(targetId, attackerId);
       logs.push(`${protector.name} is PROTECTING ${getPlayer(targetId)?.name}.`);
     }
   }
@@ -201,7 +203,16 @@ function resolveCycle(players, actions) {
     }
 
     if (protectedPlayers.has(targetId)) {
-      logs.push(`${attacker.name} tried to BETRAY ${target.name}, but they were PROTECTED.`);
+      const protectorId = protectedPlayers.get(targetId);
+      const protector = getPlayer(protectorId);
+      logs.push(`BACKFIRE: ${attacker.name} tried to BETRAY ${target.name}, but they were PROTECTED by ${protector?.name || 'someone'}. ${protector?.name || 'The protector'} steals 1 Heart from ${attacker.name}.`);
+      
+      attacker.hearts -= 1;
+      if (protector) {
+        protector.hearts += 1;
+        fedPlayers.add(protectorId); // Protector avoids bleed because they "fed" on the betrayer
+      }
+      
       processedBetrays.add(attackerId);
       continue;
     }

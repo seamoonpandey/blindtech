@@ -683,7 +683,12 @@ async function performR7Resolution() {
 
     // Check for winner
     if (result.winnerId) {
-      await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
+      if (result.winnerId === 'BOTH') {
+        // Dual winners - we don't set a single winner_id, but we finish the game
+        await db.query('UPDATE hearts_game_state SET status = \'finished\' WHERE id = 1');
+      } else {
+        await db.query('UPDATE hearts_game_state SET winner_id = $1, status = \'finished\' WHERE id = 1', [result.winnerId]);
+      }
     } else {
       // Check if we've transitioned to the final two
       const aliveCount = result.updatedPlayers.filter(p => p.is_alive).length;
