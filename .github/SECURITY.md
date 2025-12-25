@@ -11,7 +11,7 @@ We currently support the following versions of Blindtech:
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within Blindtech, please send an e-mail to security@example.com (replace with actual contact). All security vulnerabilities will be promptly addressed.
+If you discover a security vulnerability within Blindtech, please send an e-mail to <hackedasocial@gmail.com> (replace with actual contact). All security vulnerabilities will be promptly addressed.
 
 Please include:
 
