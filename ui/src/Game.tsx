@@ -2798,7 +2798,7 @@ export default function Game() {
                   ) : (
                     <>
                       <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '1rem', color: '#00ff00' }}>
-                        CONGRATULATIONS ON COMPLETING THAT BITCHY ROUND.
+                        CONGRATULATIONS ON COMPLETING THE ROUND CUTIE!
                       </p>
                       <p style={{ opacity: 0.7, marginTop: '0.5rem' }}>
                         Commencing to Round {gameState.current_round + 1}... Hold your seats.
