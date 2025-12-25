@@ -2185,14 +2185,7 @@ export default function Game() {
     setSubmitted(true);
   };
 
-  // Prevent admin UI from stalling if websocket state hasn't arrived yet
-  useEffect(() => {
-    if (user && user.role === 'admin' && !gameState) {
-      // Fallback minimal state; real state will override once WS init arrives
-      setGameState({ current_round: 1, status: 'active' });
-    }
-  }, [user, gameState]);
-
+  // Require real game state before rendering
   if (!user || !gameState) return <div className="container">Loading...</div>;
 
   // Admin View
