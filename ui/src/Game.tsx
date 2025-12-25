@@ -177,6 +177,7 @@ interface AdminViewProps {
   round3Matches: Round3Match[];
   round4Sessions: Round4Session[];
   round5Games: Round5Game[];
+  r7Logs: string[];
   onEliminateUser: (id: string) => void;
   onReviveUser: (id: string) => void;
   onEliminateTeam: (id: string) => void;
@@ -1165,6 +1166,7 @@ function AdminView({
   round3Matches, 
   round4Sessions, 
   round5Games,
+  r7Logs,
   onEliminateUser,
   onReviveUser,
   onEliminateTeam,
@@ -1544,6 +1546,7 @@ function AdminView({
               <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
               <button className={dataSubTab === 'r4' ? 'active' : ''} onClick={() => setDataSubTab('r4')}>R4 SESSIONS</button>
               <button className={dataSubTab === 'r5' ? 'active' : ''} onClick={() => setDataSubTab('r5')}>R5 GAMES</button>
+              <button className={dataSubTab === 'r7' ? 'active' : ''} onClick={() => setDataSubTab('r7')}>R7 HEARTS</button>
             </div>
             
             <div className="admin-data-content">
@@ -1605,6 +1608,28 @@ function AdminView({
                         </div>
                       </div>
                     )) : <p className="empty">No Round 5 game data available.</p>}
+                  </div>
+                </>
+              )}
+
+              {dataSubTab === 'r7' && (
+                <>
+                  <h4>ROUND 7: THE GAME OF HEARTS (LOGS)</h4>
+                  <div style={{ 
+                    background: '#000', 
+                    color: '#00ff00', 
+                    padding: '1.5rem', 
+                    fontFamily: 'monospace', 
+                    fontSize: '0.85rem',
+                    border: '4px solid #333',
+                    maxHeight: '500px',
+                    overflowY: 'auto'
+                  }}>
+                    {r7Logs.length > 0 ? r7Logs.map((log, i) => (
+                      <div key={i} style={{ marginBottom: '6px', borderLeft: '2px solid #004400', paddingLeft: '10px' }}>
+                        {`> ${log}`}
+                      </div>
+                    )) : <p style={{ color: '#666' }}>No cycle logs recorded yet.</p>}
                   </div>
                 </>
               )}
@@ -2348,6 +2373,7 @@ export default function Game() {
           round3Matches={round3Matches}
           round4Sessions={round4Sessions}
           round5Games={round5Games}
+          r7Logs={r7Logs}
           onEliminateUser={eliminateUser}
           onReviveUser={reviveUser}
           onEliminateTeam={eliminateTeam}
@@ -2707,7 +2733,6 @@ export default function Game() {
                 state={round7State} 
                 userId={user.id} 
                 onAction={submitR7Action}
-                logs={r7Logs}
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
@@ -4024,11 +4049,10 @@ function Round6VolunteerView({
   );
 }
 
-function Round7PlayerView({ state, userId, onAction, logs }: { 
+function Round7PlayerView({ state, userId, onAction }: { 
   state: Round7State; 
   userId: string; 
   onAction: (action: string, targetId?: string) => void;
-  logs: string[];
 }) {
   const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
   const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
@@ -4164,15 +4188,6 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {logs.length > 0 && (
-        <div style={{ marginTop: '2.5rem', borderTop: '4px solid black', paddingTop: '1.5rem' }}>
-          <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>LAST CYCLE RESULTS</h3>
-          <div style={{ maxHeight: '200px', overflowY: 'auto', background: '#f8f9fa', padding: '1rem', border: '2px solid black', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-            {logs.map((log, i) => <div key={i} style={{ marginBottom: '4px' }}>{`> ${log}`}</div>)}
-          </div>
         </div>
       )}
     </div>
