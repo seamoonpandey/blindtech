@@ -29,7 +29,17 @@ const volunteers = [
 
 async function reset() {
   const client = new Client({ connectionString: DATABASE_URL });
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (err) {
+    if (err.code === '3D000') {
+      console.error('ERROR: The target database does not exist. Please create the database or check your DATABASE_URL.');
+      process.exit(0);
+    } else {
+      console.error('ERROR: Could not connect to database:', err);
+      process.exit(1);
+    }
+  }
 
   try {
     console.log('--- STARTING COMPLETE DATABASE RESET ---');
@@ -37,21 +47,25 @@ async function reset() {
 
     // 1. Truncate all tables dynamically
     console.log('Fetching tables to truncate...');
-    const tablesRes = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_name != 'pgmigrations'
-    `);
-    
-    const tables = tablesRes.rows.map(r => r.table_name);
-    
-    if (tables.length > 0) {
-      console.log(`Truncating tables: ${tables.join(', ')}...`);
-      await client.query(`TRUNCATE ${tables.join(', ')} CASCADE`);
-    } else {
-      console.log('No tables to truncate.');
-    }
+        // Explicitly truncate all tables except pgmigrations
+        const tables = [
+          'game_state',
+          'hearts_game_state',
+          'hearts_players',
+          'lottery_pool',
+          'round3_matches',
+          'round4_sessions',
+          'round5_games',
+          'round5_turns',
+          'round6_history',
+          'round6_state',
+          'round6_votes',
+          'submissions',
+          'teams',
+          'users'
+        ];
+        console.log(`Truncating tables: ${tables.join(', ')}...`);
+        await client.query(`TRUNCATE ${tables.join(', ')} RESTART IDENTITY CASCADE`);
 
     // 2. Reset Game State to Round 0
     console.log('Resetting game states...');
