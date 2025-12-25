@@ -1663,6 +1663,25 @@ function AdminView({
                 {gameState.current_round > 5 && (
                   <button className="admin-btn danger" onClick={() => onResetRound(5)}>RESET TO ROUND 5 (PARADOX)</button>
                 )}
+                  <button
+                    className="admin-btn danger"
+                    style={{ background: '#b91c1c', color: 'white', marginTop: '2rem' }}
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to perform a FULL DATABASE RESET? This will delete ALL data and cannot be undone.')) {
+                        try {
+                          const res = await fetch(`${API_URL}/admin/reset-db`, { method: 'POST', credentials: 'include' });
+                          if (res.ok) {
+                            alert('Database reset successful.');
+                            window.location.reload();
+                          } else {
+                            alert('Database reset failed.');
+                          }
+                        } catch (err) {
+                          alert('Error performing reset: ' + err);
+                        }
+                      }
+                    }}
+                  >FULL DATABASE RESET</button>
                 {gameState.current_round <= 1 && (
                   <p style={{ opacity: 0.5, textAlign: 'center' }}>No past rounds available for recovery.</p>
                 )}
