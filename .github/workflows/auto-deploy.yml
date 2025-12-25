@@ -1,0 +1,126 @@
+name: Auto Deployment
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  # Detect what changed
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'ui/**'
+            backend:
+              - 'server/**'
+
+  # Deploy Frontend to Cloudflare Pages
+  deploy-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    name: Deploy Frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./ui
+        run: npm ci
+
+      - name: Build
+        working-directory: ./ui
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.blindtech.ices.edu.np
+          VITE_WS_URL: wss://api.blindtech.ices.edu.np/ws
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy ui/dist --project-name=blindtech
+
+      - name: Deployment Success
+        run: |
+          echo "✅ Frontend deployed successfully!"
+          echo "🌐 Live at: https://blinddate.ices.edu.np"
+
+  # Deploy Backend to Azure VM
+  deploy-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    name: Deploy Backend
+    
+    steps:
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "🚀 Starting backend deployment..."
+
+            # Navigate to project directory
+            cd ~/blindtech
+
+            # Pull latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git pull origin master
+
+            # Navigate to server directory
+            cd server
+
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+
+            # Run migrations
+            echo "🗄️  Running database migrations..."
+            npm run migrate up || echo "⚠️  Migration failed or no new migrations"
+
+            # Restart PM2 process
+            echo "🔄 Restarting API server..."
+            pm2 restart blindtech-api
+
+            # Save PM2 configuration
+            pm2 save
+
+            # Show logs
+            echo "📋 Recent logs:"
+            pm2 logs blindtech-api --lines 10 --nostream
+
+            # Show status
+            echo "📊 PM2 Status:"
+            pm2 status
+
+            echo "✅ Backend deployment completed!"
+
+      - name: Deployment Success
+        run: |
+          echo "✅ Backend deployed successfully!"
+          echo "🌐 Live at: https://api.blindtech.ices.edu.np"
