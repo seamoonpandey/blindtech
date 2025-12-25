@@ -1778,6 +1778,19 @@ export default function Game() {
     ];
     return quotes[Math.floor(Math.random() * quotes.length)];
   });
+  const [standbyQuote] = useState(() => {
+    const lines = [
+      "The Game Master watches. You should too.",
+      "Silence can be tactical. Use it.",
+      "Idle minds get eliminated first.",
+      "If you are bored, you are not paying attention.",
+      "The next cut might have your name on it.",
+      "Orders arrive when they arrive. Be ready.",
+      "Counting sheep? The system is counting you.",
+      "The quiet moments decide who survives the loud ones."
+    ];
+    return lines[Math.floor(Math.random() * lines.length)];
+  });
   const currentUserDisplayName = useMemo(
     () => {
       if (!user) return '';
@@ -2442,7 +2455,9 @@ export default function Game() {
                 <span></span><span></span><span></span>
               </div>
               <h2 className="section-title">SYSTEM STANDBY</h2>
-              <p>Awaiting authorization...</p>
+              <p style={{ fontSize: '1rem', marginTop: '0.5rem' }}>Waiting for the Game Master to start the next round.</p>
+              <p style={{ marginTop: '0.75rem', opacity: 0.8 }}>{standbyQuote}</p>
+              <p style={{ marginTop: '0.75rem', fontWeight: 700 }}>Listen closely. Missing instructions might make you the next elimination.</p>
             </div>
           )}
 
