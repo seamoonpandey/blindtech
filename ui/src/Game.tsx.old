@@ -29,171 +29,11 @@ interface LeaderboardEntry {
   id: string;
   name: string;
   score: number;
-  is_eliminated: boolean;
 }
 
 interface GameState {
   current_round: number;
   status: 'waiting' | 'active' | 'finished';
-}
-
-interface Round3Match {
-  id: string;
-  team1_id: string;
-  team2_id: string | null;
-  team1_name: string;
-  team2_name: string | null;
-  team1_user1: string;
-  team1_user2: string;
-  team2_user1: string;
-  team2_user2: string;
-  status: 'waiting' | 'active' | 'finished';
-  current_subround: number;
-  team1_scores: boolean[];
-  team2_scores: boolean[];
-  volunteer_id?: string;
-  volunteer_name?: string;
-  winner_name?: string;
-  winner_team_id?: string;
-}
-
-interface Round4Session {
-  id: string;
-  team_id: string;
-  team_name: string;
-  user1_id: string;
-  user2_id: string;
-  user1_name: string;
-  user2_name: string;
-  volunteer_id: string;
-  volunteer_name: string;
-  status: 'waiting' | 'active' | 'finished';
-  result: 'pass' | 'fail' | null;
-  user1_eliminated?: boolean;
-  user2_eliminated?: boolean;
-}
-
-interface Round5Turn {
-  player_id: string;
-  round_number: number;
-  card_selected: string;
-  pact_used: string | null;
-  is_revealed: boolean;
-  team: 'A' | 'B';
-}
-
-interface Round5Game {
-  id: string;
-  status: 'waiting' | 'active' | 'finished';
-  current_round: number;
-  subround_started_at: string;
-  team_a_user1: string;
-  team_a_user2: string;
-  team_b_user1: string;
-  team_b_user2: string;
-  team_a_momentum: number;
-  team_b_momentum: number;
-  team_a_turn_order: string[];
-  team_b_turn_order: string[];
-  team_a_pact_used: string | null;
-  team_b_pact_used: string | null;
-  turns: Round5Turn[];
-  result?: 'team_a_win' | 'team_b_win' | 'both_win' | 'both_lose';
-  team_b_id?: string;
-  is_sudden_death?: boolean;
-  team_a_name?: string;
-  team_b_name?: string;
-}
-
-interface AdminUser {
-  id: string;
-  name: string;
-  role: 'player' | 'volunteer' | 'admin';
-  is_eliminated: boolean;
-  email?: string;
-}
-
-interface AdminTeam {
-  id: string;
-  name: string;
-  user1_id: string;
-  user2_id: string;
-  user1_name: string;
-  user2_name: string;
-  user1_eliminated: boolean;
-  user2_eliminated: boolean;
-}
-
-interface Round6Player {
-  id: string;
-  name: string;
-  is_eliminated: boolean;
-  has_used_safety: boolean;
-}
-
-interface Round6Vote {
-  voter_id: string;
-  target_id: string;
-  used_safety: boolean;
-}
-
-interface Round6HistoryEntry {
-  target_name: string;
-  partner_name: string | null;
-  reason: string;
-  subround: number;
-}
-
-interface Round6State {
-  status: 'waiting' | 'voting' | 'finished';
-  current_cycle: number;
-  players: Round6Player[];
-  votes: Round6Vote[];
-  history: Round6HistoryEntry[];
-}
-
-interface Round7Player {
-  user_id: string;
-  name: string;
-  hearts: number;
-  is_alive: boolean;
-  teammate_id: string | null;
-  current_action: string | null;
-  target_id: string | null;
-}
-
-interface Round7State {
-  status: 'waiting' | 'active' | 'finished';
-  current_cycle: number;
-  players: Round7Player[];
-  winner_id?: string;
-}
-
-interface AdminViewProps {
-  gameState: GameState;
-  leaderboard: LeaderboardEntry[];
-  adminUsers: AdminUser[];
-  adminTeams: AdminTeam[];
-  round3Matches: Round3Match[];
-  round4Sessions: Round4Session[];
-  round5Games: Round5Game[];
-  onEliminateUser: (id: string) => void;
-  onReviveUser: (id: string) => void;
-  onEliminateTeam: (id: string) => void;
-  onReviveTeam: (id: string) => void;
-  onStartRound: (r: number) => void;
-  onFinishRound: (r: number) => void;
-  onStartRound2: (count?: number) => void;
-  onStartRound3: () => void;
-  onFinishRound3: () => void;
-  onStartRound4: () => void;
-  onFinishRound4: () => void;
-  onStartRound5: () => void;
-  onFinishRound5: () => void;
-  onStartRound6: () => void;
-  onStartRound7: () => void;
-  onFinishRound6: () => void;
-  onResetRound: (r: number) => void;
 }
 
 const getRandomMessage = (messages: string[]) => {
@@ -320,7 +160,7 @@ function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: P
   );
 }
 
-function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: Round3Match[]; isEliminated: boolean; randomQuote: string }) {
+function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: any[]; isEliminated: boolean; randomQuote: string }) {
   const myMatch = matches.find(m => 
     m.team1_user1 === userId || m.team1_user2 === userId || 
     m.team2_user1 === userId || m.team2_user2 === userId
@@ -425,7 +265,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
 
 function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { 
   volunteerId: string; 
-  matches: Round3Match[]; 
+  matches: any[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
@@ -534,7 +374,7 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
                 {m.status === 'finished' && (
                   <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: '#333', fontWeight: 'bold', padding: '5px', background: 'rgba(0,0,0,0.05)' }}>
                     {(() => {
-                        const p1 = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s: boolean) => s === true).length : 0;
+                        const p1 = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s:any)=>s===true).length : 0;
                         if (!m.team2_id) return 'LUCKY PASS - ADVANCED';
                         return p1 >= 2 ? `RESULT: ${m.team1_name} WON` : `RESULT: ${m.team2_name} WON`;
                     })()}
@@ -561,7 +401,7 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
   );
 }
 
-function Round4PlayerView({ session, isEliminated }: { session: Round4Session; isEliminated: boolean }) {
+function Round4PlayerView({ session, isEliminated }: { session: any; isEliminated: boolean }) {
   if (isEliminated) {
     return (
       <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
@@ -654,7 +494,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
 }
 
 function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
-  sessions: Round4Session[];
+  sessions: any[];
   volunteerId: string;
   onJoinSession: (sessionId: string) => void;
   onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
@@ -759,13 +599,11 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
 
 
 function Round5PlayerView({ game, userId, onSelectCard }: { 
-  game: Round5Game; 
+  game: any; 
   userId: string;
   onSelectCard: (card: 'ATTACK' | 'FORTIFY' | 'CONVERGE', pact?: string) => void;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(60);
-  const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
-  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     if (!game || game.status !== 'active') return;
@@ -776,8 +614,8 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       const now = Date.now();
       const elapsed = Math.floor((now - start) / 1000);
       
-      const currentRoundTurns = game.turns?.filter((t: Round5Turn) => t.round_number === game.current_round) || [];
-      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: Round5Turn) => t.is_revealed);
+      const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
+      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: any) => t.is_revealed);
       
       const limit = game.current_round === 1 ? 120 : 60;
       if (revealed) {
@@ -810,10 +648,13 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   
   const isMyTurn = game.current_round === 1 || (turnOrder && turnOrder[(game.current_round - 1) % 2] === userId);
   
-  const currentRoundTurns = game.turns?.filter((t: Round5Turn) => t.round_number === game.current_round) || [];
-  const myTurn = currentRoundTurns.find((t: Round5Turn) => t.player_id === userId);
+  const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
+  const myTurn = currentRoundTurns.find((t: any) => t.player_id === userId);
   const bothSubmitted = currentRoundTurns.length === 2;
-  const revealed = bothSubmitted && currentRoundTurns.every((t: Round5Turn) => t.is_revealed);
+  const revealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
+
+  const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
+  const [showGuide, setShowGuide] = useState(false);
 
   const pactOptions = [
     { id: 'reduce_penalty', label: '🛡️ REDUCE PENALTY', desc: 'Convert penalty loss to -1' },
@@ -821,7 +662,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
     { id: 'ignore_negative', label: '🚫 IGNORE NEGATIVE', desc: 'Cancel any negative change' }
   ];
 
-  const MATRIX: Record<string, Record<string, number[]>> = {
+  const MATRIX: any = {
     ATTACK: { ATTACK: [-1, -1], FORTIFY: [2, -1], CONVERGE: [-2, 2] },
     FORTIFY: { ATTACK: [-1, 2], FORTIFY: [0, 0], CONVERGE: [1, -1] },
     CONVERGE: { ATTACK: [2, -2], FORTIFY: [-1, 1], CONVERGE: [3, 3] }
@@ -963,17 +804,17 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1rem' }}>
             <div>
               <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM A</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: Round5Turn) => t.team === 'A')?.card_selected}</div>
-              {currentRoundTurns.find((t: Round5Turn) => t.team === 'A')?.pact_used && (
-                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: Round5Turn) => t.team === 'A')?.pact_used}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'A')?.card_selected}</div>
+              {currentRoundTurns.find((t: any) => t.team === 'A')?.pact_used && (
+                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'A').pact_used}</div>
               )}
             </div>
             <div style={{ fontSize: '2rem', color: '#444' }}>VS</div>
             <div>
               <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM B</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: Round5Turn) => t.team === 'B')?.card_selected}</div>
-              {currentRoundTurns.find((t: Round5Turn) => t.team === 'B')?.pact_used && (
-                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: Round5Turn) => t.team === 'B')?.pact_used}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'B')?.card_selected}</div>
+              {currentRoundTurns.find((t: any) => t.team === 'B')?.pact_used && (
+                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'B').pact_used}</div>
               )}
             </div>
           </div>
@@ -987,7 +828,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               <button 
                 key={card}
                 className="primary-btn"
-                onClick={() => onSelectCard(card as "ATTACK" | "FORTIFY" | "CONVERGE", selectedPact)}
+                onClick={() => onSelectCard(card as any, selectedPact)}
                 style={{ padding: '2rem 1rem' }}
               >
                 {card}
@@ -1044,14 +885,14 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>BATTLE HISTORY</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {Array.isArray(game.turns) && game.turns
-            .filter((t: Round5Turn) => t && t.is_revealed)
-            .sort((a: Round5Turn, b: Round5Turn) => (b.round_number || 0) - (a.round_number || 0))
-            .map((t: Round5Turn, _: number, arr: Round5Turn[]) => {
+            .filter((t:any) => t && t.is_revealed)
+            .sort((a:any, b:any) => (b.round_number || 0) - (a.round_number || 0))
+            .map((t: any, _: number, arr: any[]) => {
             // Group turns by round
             if (t.team === 'B') return null; // We'll process A and find B
             const roundNum = t.round_number;
             const turnA = t;
-            const turnB = arr.find((alt: Round5Turn) => alt.round_number === roundNum && alt.team === 'B');
+            const turnB = arr.find((alt: any) => alt.round_number === roundNum && alt.team === 'B');
             if (!turnB) return null;
 
             if (!MATRIX[turnA.card_selected] || !MATRIX[turnA.card_selected][turnB.card_selected]) return null;
@@ -1089,7 +930,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               </div>
             );
           })}
-          {(!Array.isArray(game.turns) || game.turns.filter((t: Round5Turn) => t.is_revealed).length === 0) && (
+          {(!Array.isArray(game.turns) || game.turns.filter((t: any) => t.is_revealed).length === 0) && (
             <p style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>No history yet. The battle has just begun.</p>
           )}
         </div>
@@ -1123,11 +964,11 @@ function AdminView({
   onStartRound7,
   onFinishRound6,
   onResetRound
-}: AdminViewProps) {
+}: any) {
   const [activeTab, setActiveTab] = useState('control');
   const [leaderboardPage, setLeaderboardPage] = useState(1);
   const [dataSubTab, setDataSubTab] = useState('r3');
-  const surviversCount = adminUsers.filter((u: AdminUser) => !u.is_eliminated && u.role === 'player').length;
+  const surviversCount = adminUsers.filter((u: any) => !u.is_eliminated && u.role === 'player').length;
 
   return (
     <div className="admin-view-root">
@@ -1168,7 +1009,7 @@ function AdminView({
                   {surviversCount} 
                   {gameState.current_round >= 2 && (
                     <span style={{ fontSize: '0.6em', marginLeft: '6px', opacity: 0.8 }}>
-                      ({adminTeams.filter((t: AdminTeam) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
+                      ({adminTeams.filter((t: any) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
                     </span>
                   )}
                 </span>
@@ -1180,13 +1021,13 @@ function AdminView({
                 <h3>GLOBAL CONTROLS</h3>
                 <div className="btn-group-vertical">
                    {gameState.current_round === 0 && (
-                     <button onClick={() => onStartRound(1)} className="admin-btn primary">START ROUND 1</button>
+                     <button onClick={onStartRound} className="admin-btn primary">START ROUND 1</button>
                    )}
                    
                    {gameState.status === 'active' && gameState.current_round >= 1 && gameState.current_round <= 6 && (
                      <button 
                        onClick={() => {
-                         if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound(gameState.current_round);
+                         if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound();
                          else if (gameState.current_round === 3) onFinishRound3();
                          else if (gameState.current_round === 4) onFinishRound4();
                          else if (gameState.current_round === 5) onFinishRound5();
@@ -1256,7 +1097,7 @@ function AdminView({
                   <tbody>
                     {leaderboard
                       .slice((leaderboardPage - 1) * 10, leaderboardPage * 10)
-                      .map((entry: LeaderboardEntry, i: number) => (
+                      .map((entry: any, i: number) => (
                       <tr key={entry.id} className={entry.is_eliminated ? 'eliminated' : ''}>
                         <td className="leaderboard-rank">#{((leaderboardPage - 1) * 10) + i + 1}</td>
                         <td className="leaderboard-name">{entry.name}</td>
@@ -1306,7 +1147,7 @@ function AdminView({
               <div className="card">
                 <h3>PLAYERS LIST</h3>
                 <div className="admin-user-scroll">
-                  {adminUsers.filter((u: AdminUser) => u.role === 'player').map((u: AdminUser) => (
+                  {adminUsers.filter((u: any) => u.role === 'player').map((u: any) => (
                     <div key={u.id} className="admin-user-item">
                       <span style={{ 
                         color: u.is_eliminated ? '#ef4444' : 'inherit',
@@ -1327,7 +1168,7 @@ function AdminView({
               <div className="card">
                 <h3>TEAMS MANAGEMENT (R2+)</h3>
                 <div className="admin-user-scroll">
-                  {adminTeams.map((t: AdminTeam) => {
+                  {adminTeams.map((t: any) => {
                     // Mark team as 'dead' if EITHER player is eliminated
                     const isTeamCompromised = t.user1_eliminated || t.user2_eliminated;
                     return (
@@ -1379,7 +1220,7 @@ function AdminView({
                 <>
                   <h4>ROUND 3: PHYSICAL DUELS</h4>
                   <div className="admin-user-list">
-                    {round3Matches.length > 0 ? round3Matches.map((m: Round3Match) => (
+                    {round3Matches.length > 0 ? round3Matches.map((m: any) => (
                       <div key={m.id} className="admin-user-item">
                         <div className="admin-user-info">
                           <strong>{m.team1_name} vs {m.team2_name}</strong>
@@ -1395,7 +1236,7 @@ function AdminView({
                 <>
                   <h4>ROUND 4: COGNITIVE TECHNICAL ROUND</h4>
                   <div className="admin-user-list">
-                    {round4Sessions.length > 0 ? round4Sessions.map((s: Round4Session) => {
+                    {round4Sessions.length > 0 ? round4Sessions.map((s: any) => {
                       const isTeamCompromised = s.user1_eliminated || s.user2_eliminated;
                       return (
                         <div key={s.id} className="admin-user-item">
@@ -1419,7 +1260,7 @@ function AdminView({
                 <>
                   <h4>ROUND 5: THE PARADOX GAMES</h4>
                   <div className="admin-user-list">
-                    {round5Games.length > 0 ? round5Games.map((g: Round5Game) => (
+                    {round5Games.length > 0 ? round5Games.map((g: any) => (
                       <div key={g.id} className="admin-user-item">
                         <div className="admin-user-info">
                           <strong>{g.team_a_name} vs {g.team_b_name}</strong>
@@ -1473,7 +1314,7 @@ function AdminView({
 }
 
 function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
-  games: Round5Game[];
+  games: any[];
   onDisqualify: (gameId: string, team: 'A' | 'B') => void;
   onEndNow: (gameId: string) => void;
 }) {
@@ -1487,12 +1328,12 @@ function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
         {(games || []).map(g => {
-          const currentRoundTurns = g.turns?.filter((t: Round5Turn) => t.round_number === g.current_round) || [];
+          const currentRoundTurns = g.turns?.filter((t: any) => t.round_number === g.current_round) || [];
           const bothSubmitted = currentRoundTurns.length === 2;
-          const isRevealed = bothSubmitted && currentRoundTurns.every((t: Round5Turn) => t.is_revealed);
+          const isRevealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
 
-          const turnA = currentRoundTurns.find((t: Round5Turn) => t.is_revealed && t.team === 'A');
-          const turnB = currentRoundTurns.find((t: Round5Turn) => t.is_revealed && t.team === 'B');
+          const turnA = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'A');
+          const turnB = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'B');
 
           return (
             <div key={g.id} className="card" style={{ padding: '1.5rem', border: g.status === 'finished' ? '2px solid #ddd' : '4px solid black' }}>
@@ -1592,14 +1433,14 @@ export default function Game() {
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
-  const [round3Matches, setRound3Matches] = useState<Round3Match[]>([]);
-  const [round4Sessions, setRound4Sessions] = useState<Round4Session[]>([]);
-  const [round5Games, setRound5Games] = useState<Round5Game[]>([]);
-  const [round6State, setRound6State] = useState<Round6State | null>(null); // ROUND 6 STATE (VOTING)
-  const [round7State, setRound7State] = useState<Round7State | null>(null); // ROUND 7 STATE (HEARTS)
+  const [round3Matches, setRound3Matches] = useState<any[]>([]);
+  const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
+  const [round5Games, setRound5Games] = useState<any[]>([]);
+  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE (VOTING)
+  const [round7State, setRound7State] = useState<any>(null); // ROUND 7 STATE (HEARTS)
   const [r7Logs, setR7Logs] = useState<string[]>([]);
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]); // New state for Admin
-  const [adminTeams, setAdminTeams] = useState<AdminTeam[]>([]); // Admin/Volunteer teams list
+  const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
+  const [adminTeams, setAdminTeams] = useState<any[]>([]); // Admin/Volunteer teams list
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1686,7 +1527,7 @@ export default function Game() {
           setIsEliminated(false);
         }
       } else if (data.type === 'round3_init' || data.type === 'round3_update') {
-        const matches = data.matches as Round3Match[];
+        const matches = data.matches as any[];
         console.log('Updating Round 3 Matches:', matches);
         setRound3Matches(matches);
         
@@ -1710,7 +1551,7 @@ export default function Game() {
           }
         }
       } else if (data.type === 'round4_init' || data.type === 'round4_update') {
-        const sessions = data.sessions as Round4Session[];
+        const sessions = data.sessions as any[];
         console.log('Updating Round 4 Sessions:', sessions);
         setRound4Sessions(sessions);
         
@@ -1730,7 +1571,7 @@ export default function Game() {
           }
         }
       } else if (data.type === 'round5_init' || data.type === 'round5_update') {
-        const games = data.games as Round5Game[];
+        const games = data.games as any[];
         console.log('Updating Round 5 Games:', games);
         setRound5Games(games);
         
@@ -1772,7 +1613,7 @@ export default function Game() {
       }
     };
 
-    setTimeout(() => setWs(socket), 0);
+    setWs(socket);
 
     // Fetch players
     fetch(`${API_URL}/players`, {
@@ -1796,9 +1637,9 @@ export default function Game() {
         .sort((a, b) => a.rank - b.rank)
         .map(s => players.find(p => p.id === s.target_id))
         .filter((p): p is Player => !!p);
-      setTimeout(() => setSelectedPlayers(mapped), 0);
+      setSelectedPlayers(mapped);
       // Only do this once
-      setTimeout(() => setInitialSubmission(null), 0);
+      setInitialSubmission(null);
     }
   }, [players, initialSubmission]);
 
@@ -2312,10 +2153,12 @@ export default function Game() {
 
           {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 5 && (
             (() => {
-              const myGame = round5Games.find((g: Round5Game) =>
-                g.team_a_user1 === user.id || g.team_a_user2 === user.id ||
+              const myGame = round5Games.find((g: any) => 
+                g.team_a_user1 === user.id || g.team_a_user2 === user.id || 
                 g.team_b_user1 === user.id || g.team_b_user2 === user.id
-              );              if (!myGame) {
+              );
+              
+              if (!myGame) {
                 return (
                   <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="loader-dots"><span></span><span></span><span></span></div>
@@ -2665,12 +2508,12 @@ export default function Game() {
                         <div className="data-items">
                           {round3Matches.map(m => {
                             const isFinished = m.status === 'finished';
-                            const getStatusColor = (scores: boolean[] | null, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
+                            const getStatusColor = (scores: any, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
                               if (!isFinished) return 'inherit';
                               if (isLuckyPassSlot) return '#888'; 
                               if (!hasOpponent) return '#00cc00'; 
                               const s = Array.isArray(scores) ? scores : [];
-                              const positives = s.filter((val: boolean) => val === true).length;
+                              const positives = s.filter((val: any) => val === true).length;
                               return positives >= 2 ? '#00cc00' : '#ff4444';
                             };
 
@@ -3499,7 +3342,7 @@ export default function Game() {
 
 // ROUND 6 COMPONENTS (THE GAME OF HEARTS)
 
-function Round6History({ history }: { history: Round6HistoryEntry[] }) {
+function Round6History({ history }: { history: any[] }) {
   if (history.length === 0) return null;
   return (
     <div className="admin-card" style={{ marginTop: '1rem', background: '#f8f8f8' }}>
@@ -3531,24 +3374,22 @@ function Round6PlayerView({
   userId, 
   onVote 
 }: { 
-  state: Round6State, 
+  state: any, 
   userId: string,
   onVote: (targetId: string, safety: boolean) => void
 }) {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [useSafety, setUseSafety] = useState<boolean>(false);
   
-  const me = state.players.find((p: Round6Player) => p.id === userId);
-  const myVote = state.votes?.find((v: Round6Vote) => v.voter_id === userId);
+  const me = state.players.find((p: any) => p.id === userId);
+  const myVote = state.votes?.find((v: any) => v.voter_id === userId);
   const isDead = me?.is_eliminated;
 
   // Update useSafety if they already cast a vote with safety in this subround
   useEffect(() => {
     if (myVote) {
-      setTimeout(() => {
-        setUseSafety(!!myVote.used_safety);
-        setSelectedTarget(myVote.target_id);
-      }, 0);
+      setUseSafety(!!myVote.used_safety);
+      setSelectedTarget(myVote.target_id);
     }
   }, [myVote]);
 
@@ -3581,12 +3422,12 @@ function Round6PlayerView({
           <h4 className="section-title">ACTIVE TARGETS</h4>
           {myVote && (
             <div style={{ background: '#000', color: '#fff', padding: '10px', marginBottom: '1rem', fontWeight: 'bold' }}>
-              VOTE RECORDED: {state.players.find((p: Round6Player) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
+              VOTE RECORDED: {state.players.find((p: any) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
               {myVote.used_safety && <span style={{ color: '#00ff00', marginLeft: '10px' }}>[SAFETY ACTIVE]</span>}
             </div>
           )}
           <div className="player-list">
-            {state.players.filter((p: Round6Player) => !p.is_eliminated && p.id !== userId).map((p: Round6Player) => (
+            {state.players.filter((p: any) => !p.is_eliminated && p.id !== userId).map((p: any) => (
               <div 
                 key={p.id} 
                 className={`player-item ${selectedTarget === p.id || myVote?.target_id === p.id ? 'selected' : ''}`}
@@ -3644,7 +3485,7 @@ function Round6VolunteerView({
   onNext,
   onFinish 
 }: { 
-  state: Round6State, 
+  state: any, 
   onStartTimer: () => void, 
   onResolve: () => void,
   onNext: () => void,
@@ -3676,13 +3517,13 @@ function Round6VolunteerView({
       <div className="admin-card" style={{ marginTop: '1rem' }}>
         <h4 className="section-title">LIVE VOTES ({state.votes.length})</h4>
         <div className="admin-user-list">
-          {state.players.filter((p: Round6Player) => !p.is_eliminated).map((p: Round6Player) => {
-             const vote = state.votes.find((v: Round6Vote) => v.voter_id === p.id);
+          {state.players.filter((p: any) => !p.is_eliminated).map((p: any) => {
+             const vote = state.votes.find((v: any) => v.voter_id === p.id);
              return (
                <div key={p.id} className="admin-user-item">
                  <div className="admin-user-info">
                    <strong>{p.name}</strong>
-                   <small>{vote ? `Voted for ${state.players.find((t: Round6Player) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
+                   <small>{vote ? `Voted for ${state.players.find((t: any) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
                  </div>
                </div>
              )
@@ -3696,14 +3537,14 @@ function Round6VolunteerView({
 }
 
 function Round7PlayerView({ state, userId, onAction, logs }: { 
-  state: Round7State; 
+  state: any; 
   userId: string; 
   onAction: (action: string, targetId?: string) => void;
   logs: string[];
 }) {
-  const me = state.players.find((p: Round7Player) => p.user_id === userId);
-  const alivePlayers = state.players.filter((p: Round7Player) => p.is_alive);
-  const others = alivePlayers.filter((p: Round7Player) => p.user_id !== userId);
+  const me = state.players.find((p: any) => p.user_id === userId);
+  const alivePlayers = state.players.filter((p: any) => p.is_alive);
+  const others = alivePlayers.filter((p: any) => p.user_id !== userId);
 
   if (!me) return <div className="card">CALIBRATING HEARTS...</div>;
 
@@ -3740,14 +3581,14 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '2.5rem', background: '#f8f9fa', padding: '1.5rem', border: '3px solid black' }}>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>YOUR STATUS</div>
-          <div style={{ fontSize: '3rem', fontWeight: '900' }}>{'❤️'.repeat(me.hearts || 0)}</div>
+          <div style={{ fontSize: '3rem', fontWeight: '900' }}>{'❤️'.repeat(me.hearts)}</div>
           <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{me.hearts} HEARTS</div>
         </div>
         {me.teammate_id && (
           <div style={{ textAlign: 'center', flex: 1, borderLeft: '2px solid black' }}>
             <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>PARTNER</div>
-            <div style={{ fontWeight: 'bold' }}>{state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.name || 'UNKNOWN'}</div>
-            <div>{state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.is_alive ? '❤️'.repeat(state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.hearts || 0) : '💀 DEAD'}</div>
+            <div style={{ fontWeight: 'bold' }}>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.name || 'UNKNOWN'}</div>
+            <div>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive ? '❤️'.repeat(state.players.find((p:any)=>p.user_id === me.teammate_id)?.hearts) : '💀 DEAD'}</div>
           </div>
         )}
       </div>
@@ -3760,14 +3601,14 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
       ) : me.current_action ? (
         <div style={{ textAlign: 'center', padding: '2rem', border: '3px dashed black' }}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: '900' }}>ACTION RECORDED</h3>
-          <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>{me.current_action}: {state.players.find((p:Round7Player)=>p.user_id === me.target_id)?.name || 'NONE'}</p>
+          <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>{me.current_action}: {state.players.find((p:any)=>p.user_id === me.target_id)?.name || 'NONE'}</p>
           <p style={{ opacity: 0.6 }}>Waiting for others to act...</p>
         </div>
       ) : (
         <div>
           <h3 style={{ fontWeight: '900', marginBottom: '1.5rem', borderBottom: '2px solid black', display: 'inline-block' }}>CHOOSE YOUR ACTION</h3>
           
-          {others.length === 1 && state.players.filter((p:Round7Player)=>p.is_alive).length === 2 ? (
+          {others.length === 1 && state.players.filter((p:any)=>p.is_alive).length === 2 ? (
             <div style={{ textAlign: 'center', background: 'black', color: 'white', padding: '2rem' }}>
               <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>FINAL DUEL</h1>
               <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
@@ -3787,7 +3628,7 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
               <div style={{ border: '2px solid black', padding: '1rem' }}>
                 <h4 style={{ margin: '0 0 1rem 0', fontWeight: '900' }}>BETRAY</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {others.map((p:Round7Player) => (
+                  {others.map((p:any) => (
                     <button key={p.user_id} onClick={() => onAction('BETRAY', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
                       BETRAY {p.name}
                     </button>
@@ -3801,7 +3642,7 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
                   <button onClick={() => onAction('PROTECT', userId)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
                     PROTECT SELF
                   </button>
-                  {others.map((p:Round7Player) => (
+                  {others.map((p:any) => (
                     <button key={p.user_id} onClick={() => onAction('PROTECT', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
                       PROTECT {p.name}
                     </button>
@@ -3809,10 +3650,10 @@ function Round7PlayerView({ state, userId, onAction, logs }: {
                 </div>
               </div>
 
-              {me.teammate_id && state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.is_alive && (
+              {me.teammate_id && state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive && (
                 <>
                   <button 
-                    onClick={() => onAction('SACRIFICE', me.teammate_id || undefined)}
+                    onClick={() => onAction('SACRIFICE', me.teammate_id)}
                     disabled={me.hearts < 2}
                     style={{ 
                       padding: '1rem', 
