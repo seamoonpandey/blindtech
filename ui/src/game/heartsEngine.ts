@@ -1,4 +1,4 @@
-export type Action = 'PROTECT' | 'BETRAY' | 'SACRIFICE' | 'QUIT';
+export type Action = 'PROTECT' | 'BETRAY' | 'SACRIFICE' | 'QUIT' | 'COMPROMISE';
 
 export interface PlayerState {
   id: string;

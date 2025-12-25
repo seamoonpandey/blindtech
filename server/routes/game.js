@@ -1808,7 +1808,8 @@ const performR5NextRound = async (gameId) => {
           const alivePlayers = await db.query("SELECT id, name FROM users WHERE role = 'player' AND is_eliminated = false");
           const teams = await db.query("SELECT * FROM teams WHERE round_formed = 2");
 
-          const initialHearts = alivePlayers.rows.length === 2 ? 1 : 3;
+          // Always start with 3 hearts - transition to 1 happens dynamically when reduced to 2 players
+          const initialHearts = 3;
 
           for (const p of alivePlayers.rows) {
             const myTeam = teams.rows.find(t => t.user1_id === p.id || t.user2_id === p.id);
@@ -1851,12 +1852,13 @@ const performR5NextRound = async (gameId) => {
 
           console.log(`[R7 Check] Alive: ${alivePlayers.length}, Acted: ${activeActions.length}`);
           
-          if (alivePlayers.length === 2 && activeActions.length >= 1) {
-            console.log("FINAL DUEL ACTION RECEIVED. TRIGGERING IMMEDIATE RESOLUTION (FIRST TO ACT RULE).");
-            await performR7Resolution();
-          } 
-          else if (alivePlayers.length > 0 && activeActions.length === alivePlayers.length) {
-            console.log("ALL PLAYERS ACTED. AUTO-RESOLVING ROUND 7 CYCLE...");
+          // Wait for ALL players to act before resolving (including Final Duel - must be simultaneous)
+          if (alivePlayers.length > 0 && activeActions.length === alivePlayers.length) {
+            if (alivePlayers.length === 2) {
+              console.log("FINAL DUEL: BOTH PLAYERS ACTED. RESOLVING SIMULTANEOUSLY...");
+            } else {
+              console.log("ALL PLAYERS ACTED. AUTO-RESOLVING ROUND 7 CYCLE...");
+            }
             await performR7Resolution();
           } else {
             await broadcastRound7Update();

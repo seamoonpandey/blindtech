@@ -30,14 +30,27 @@ function resolveCycle(players, actions) {
 
     const p1 = aliveAtStart[0];
     const p2 = aliveAtStart[1];
-    const a1 = getAction(getPid(p1))?.action || 'SHARE';
-    const a2 = getAction(getPid(p2))?.action || 'SHARE';
+    const a1 = getAction(getPid(p1))?.action || 'COMPROMISE';
+    const a2 = getAction(getPid(p2))?.action || 'COMPROMISE';
 
-    // Normalize actions for Final Duel
-    // COMPROMISE is the new SACRIFICE (Decisive)
-    // SHARE is the new REFUSE (Trust)
-    const act1 = (a1 === 'COMPROMISE' || a1 === 'SACRIFICE') ? 'COMPROMISE' : (a1 === 'PROTECT' ? 'SHARE' : a1);
-    const act2 = (a2 === 'COMPROMISE' || a2 === 'SACRIFICE') ? 'COMPROMISE' : (a2 === 'PROTECT' ? 'SHARE' : a2);
+    // Final Duel Actions: COMPROMISE, BETRAY, QUIT
+    // Normalize legacy actions for backwards compatibility:
+    // - SACRIFICE → COMPROMISE (Decisive Move)
+    // - PROTECT → COMPROMISE (removed SHARE)
+    // - SHARE → COMPROMISE (removed SHARE)
+    let act1 = (a1 === 'SACRIFICE' || a1 === 'PROTECT' || a1 === 'SHARE') ? 'COMPROMISE' : a1;
+    let act2 = (a2 === 'SACRIFICE' || a2 === 'PROTECT' || a2 === 'SHARE') ? 'COMPROMISE' : a2;
+
+    // Validate Final Duel actions
+    const validFinalActions = ['COMPROMISE', 'BETRAY', 'QUIT'];
+    if (!validFinalActions.includes(act1)) {
+      logs.push(`WARNING: ${p1.name} used invalid action '${act1}', treating as COMPROMISE`);
+      act1 = 'COMPROMISE';
+    }
+    if (!validFinalActions.includes(act2)) {
+      logs.push(`WARNING: ${p2.name} used invalid action '${act2}', treating as COMPROMISE`);
+      act2 = 'COMPROMISE';
+    }
 
     logs.push(`RESOLUTION: ${p1.name} chose ${act1} | ${p2.name} chose ${act2}`);
 
@@ -62,32 +75,16 @@ function resolveCycle(players, actions) {
       return { updatedPlayers, logs, winnerId: getPid(p1) };
     }
 
-    // 2. SHARE vs SHARE (Dual Champions)
-    if (act1 === 'SHARE' && act2 === 'SHARE') {
-      logs.push("RESONANCE ACHIEVED. BOTH UNITS HAVE PROVEN THEIR WORTH.");
+    // 2. COMPROMISE vs COMPROMISE (Both Win - Resonance Achieved)
+    if (act1 === 'COMPROMISE' && act2 === 'COMPROMISE') {
+      logs.push("MUTUAL COMPROMISE. RESONANCE ACHIEVED. BOTH UNITS HAVE PROVEN THEIR WORTH.");
       logs.push("DUAL CHAMPIONS DECLARED.");
       return { updatedPlayers, logs, winnerId: 'BOTH' };
     }
 
-    // 3. COMPROMISE vs SHARE
-    if (act1 === 'COMPROMISE' && act2 === 'SHARE') {
-      logs.push(`${p1.name} COMPROMISED the trust. They are the SOLE CHAMPION.`);
-      p2.is_alive = false; p2.hearts = 0;
-      return { updatedPlayers, logs, winnerId: getPid(p1) };
-    }
-    if (act2 === 'COMPROMISE' && act1 === 'SHARE') {
-      logs.push(`${p2.name} COMPROMISED the trust. They are the SOLE CHAMPION.`);
-      p1.is_alive = false; p1.hearts = 0;
-      return { updatedPlayers, logs, winnerId: getPid(p2) };
-    }
-
-    // 4. COMPROMISE vs COMPROMISE (Mutual Destruction)
-    if (act1 === 'COMPROMISE' && act2 === 'COMPROMISE') {
-      logs.push("MUTUAL COMPROMISE. THE TIMELINE COLLAPSES. NO WINNER.");
-      p1.is_alive = false; p1.hearts = 0;
-      p2.is_alive = false; p2.hearts = 0;
-      return { updatedPlayers, logs, winnerId: null };
-    }
+    // If we reach here, something went wrong - default to no winner
+    logs.push("UNEXPECTED FINAL DUEL STATE. NO WINNER DECLARED.");
+    return { updatedPlayers, logs, winnerId: null };
   }
 
   const fedPlayers = new Set();
@@ -162,17 +159,24 @@ function resolveCycle(players, actions) {
     const protector = getPlayer(attackerId);
     if (!protector || !protector.is_alive) continue;
 
-    if (protector.hearts < 1 && !isFinalTwo) {
+    // In Final Duel, PROTECT shouldn't exist (converted to SHARE above), but handle gracefully
+    if (isFinalTwo) {
+      logs.push(`${protector.name} attempted PROTECT in Final Duel (invalid - PROTECT is FREE only before Final Duel).`);
+      continue; // Skip PROTECT entirely in Final Duel
+    }
+
+    // Check if player has enough hearts for PROTECT (costs 1 heart before Final Duel)
+    if (protector.hearts < 1) {
       logs.push(`${protector.name} lacked the Heart to PROTECT.`);
       continue;
     }
 
-    if (!isFinalTwo) protector.hearts -= 1;
+    protector.hearts -= 1; // PROTECT costs 1 heart (only applies before Final Duel)
     const targetIdRaw = p.targetId || p.target_id;
     const targetId = targetIdRaw ? String(targetIdRaw).toLowerCase() : null;
     if (targetId) {
       protectedPlayers.set(targetId, attackerId);
-      logs.push(`${protector.name} is PROTECTING ${getPlayer(targetId)?.name}.`);
+      logs.push(`${protector.name} is PROTECTING ${getPlayer(targetId)?.name} (cost: 1 Heart).`);
     }
   }
 
@@ -249,17 +253,25 @@ function resolveCycle(players, actions) {
   }
 
   // --- SAFEGUARD: THE RULE OF TWO ---
-  // Ensure we do not skip the "Final Two" phase or end with 0 survivors.
+  // From documentation: "If a cycle would result in all players being eliminated, 
+  // the system revives the two players who had the highest Hearts before elimination.
+  // This rule does NOT apply once the Final Duel begins."
+  // 
+  // This prevents skipping the Final Duel phase and ensures at least 2 survivors
+  // can enter the decisive Final Duel unless we're already IN the Final Duel.
   let currentSurvivors = updatedPlayers.filter(p => p.is_alive);
   const numStart = aliveAtStart.length;
   const numEnd = currentSurvivors.length;
 
   let limit = 0;
   if (numStart > 2 && numEnd < 2) {
-    limit = 2; // Must have 2 survivors to enter Duel Phase
-  } else if (numEnd === 0) {
-    limit = 2; // Prevent total extinction, force rematch/survival
+    // We went from 3+ players down to 0-1 survivors - need to ensure 2 for Final Duel
+    limit = 2;
+  } else if (numEnd === 0 && !isFinalTwo) {
+    // Total extinction before Final Duel - resurrect 2 players
+    limit = 2;
   }
+  // Note: If we started with 2 (isFinalTwo), no resurrection - Final Duel result stands
 
   if (limit > 0) {
     logs.push(`⚠️ INTERVENTION: The unseen audience demands ${limit} survivors!`);
