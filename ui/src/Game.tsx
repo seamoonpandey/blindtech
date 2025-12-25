@@ -1343,15 +1343,19 @@ function AdminView({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px' }}>
                   <select value={u1} onChange={(e) => setU1(e.target.value)} className="admin-select">
                     <option value="">Select Player 1</option>
-                    {adminUsers.filter(u => u.role === 'player' && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id)).map(u => (
+                    {adminUsers
+                      .filter(u => u.role === 'player' && !u.is_eliminated && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id))
+                      .map(u => (
                       <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
+                      ))}
                   </select>
                   <select value={u2} onChange={(e) => setU2(e.target.value)} className="admin-select">
                     <option value="">Select Player 2</option>
-                    {adminUsers.filter(u => u.role === 'player' && u.id !== u1 && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id)).map(u => (
+                    {adminUsers
+                      .filter(u => u.role === 'player' && !u.is_eliminated && u.id !== u1 && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id))
+                      .map(u => (
                       <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
+                      ))}
                   </select>
                   <input 
                     type="text" 
