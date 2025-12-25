@@ -1783,7 +1783,8 @@ export default function Game() {
       } else if (data.type === 'leaderboard_update') {
         setLeaderboard(data.leaderboard);
       } else if (data.type === 'round_finished') {
-        alert('END OF ROUND 1');
+        const roundLabel = data.round ? `ROUND ${data.round}` : 'ROUND';
+        alert(`END OF ${roundLabel}`);
       } else if (data.type === 'lottery_pool') {
         setLotteryPool(data.pool);
       } else if (data.type === 'round2_role') {
