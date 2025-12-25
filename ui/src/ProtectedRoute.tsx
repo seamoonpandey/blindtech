@@ -2,18 +2,19 @@ import { useAuth } from './AuthContext';
 import { Navigate, Outlet } from 'react-router-dom';
 
 export default function ProtectedRoute() {
-  const { token } = useAuth();
+  const { token, loading } = useAuth();
   
-  // If we have a token but no user yet (loading), we might want to show a spinner
-  // For simplicity, if no token, redirect to login
+  if (loading) {
+    return (
+      <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div className="loader-dots"><span></span><span></span><span></span></div>
+      </div>
+    );
+  }
+
   if (!token) {
     return <Navigate to="/login" replace />;
   }
 
-  // If we have a token but user is null, it might be fetching. 
-  // Ideally AuthContext handles "loading" state.
-  // For now, we render Outlet, and individual pages can handle null user redirect if needed,
-  // or we can wait here.
-  
   return <Outlet />;
 }

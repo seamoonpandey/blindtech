@@ -26,9 +26,10 @@ export default function Login() {
       } else {
         setError(data.error);
       }
-    } catch (err) {
-      setError('Failed to login');
-    }
+      } catch (err) {
+        console.error('Login error:', err);
+        setError('Failed to login');
+      }
   };
 
   return (

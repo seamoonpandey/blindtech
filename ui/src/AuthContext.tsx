@@ -12,6 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  loading: boolean;
   login: (userData: User, authToken: string) => void;
   logout: () => void;
 }
@@ -28,6 +29,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const [token, setToken] = useState<string | null>(localStorage.getItem('token') || getTokenFromCookie());
+  const [loading, setLoading] = useState(!!token);
+
+    const login = (userData: User, authToken: string) => {
+    setUser(userData);
+    setToken(authToken);
+    localStorage.setItem('token', authToken);
+  };
+
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  };
 
   useEffect(() => {
     if (token) {
@@ -44,34 +59,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .then(data => {
         console.log('/me data:', data);
         setUser(data);
+        setLoading(false);
       })
       .catch(err => {
         console.error('/me fetch failed:', err);
         logout();
+        setLoading(false);
       });
     }
   }, [token]);
 
-  const login = (userData: User, authToken: string) => {
-    setUser(userData);
-    setToken(authToken);
-    localStorage.setItem('token', authToken);
-  };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

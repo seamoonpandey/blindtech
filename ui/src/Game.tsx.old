@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL, WS_URL } from './config';
@@ -29,175 +29,11 @@ interface LeaderboardEntry {
   id: string;
   name: string;
   score: number;
-  is_eliminated: boolean;
 }
 
 interface GameState {
   current_round: number;
   status: 'waiting' | 'active' | 'finished';
-}
-
-interface Round3Match {
-  id: string;
-  team1_id: string;
-  team2_id: string | null;
-  team1_name: string;
-  team2_name: string | null;
-  team1_user1: string;
-  team1_user2: string;
-  team2_user1: string;
-  team2_user2: string;
-  status: 'waiting' | 'active' | 'finished';
-  current_subround: number;
-  team1_scores: boolean[];
-  team2_scores: boolean[];
-  volunteer_id?: string;
-  volunteer_name?: string;
-  winner_name?: string;
-  winner_team_id?: string;
-}
-
-interface Round4Session {
-  id: string;
-  team_id: string;
-  team_name: string;
-  user1_id: string;
-  user2_id: string;
-  user1_name: string;
-  user2_name: string;
-  volunteer_id: string;
-  volunteer_name: string;
-  status: 'waiting' | 'active' | 'finished';
-  result: 'pass' | 'fail' | null;
-  user1_eliminated?: boolean;
-  user2_eliminated?: boolean;
-}
-
-interface Round5Turn {
-  player_id: string;
-  round_number: number;
-  card_selected: string;
-  pact_used: string | null;
-  is_revealed: boolean;
-  team: 'A' | 'B';
-}
-
-interface Round5Game {
-  id: string;
-  status: 'waiting' | 'active' | 'finished';
-  current_round: number;
-  subround_started_at: string;
-  team_a_user1: string;
-  team_a_user2: string;
-  team_b_user1: string;
-  team_b_user2: string;
-  team_a_momentum: number;
-  team_b_momentum: number;
-  team_a_turn_order: string[];
-  team_b_turn_order: string[];
-  team_a_pact_used: string | null;
-  team_b_pact_used: string | null;
-  turns: Round5Turn[];
-  result?: 'team_a_win' | 'team_b_win' | 'both_win' | 'both_lose';
-  team_b_id?: string;
-  is_sudden_death?: boolean;
-  team_a_name?: string;
-  team_b_name?: string;
-}
-
-interface AdminUser {
-  id: string;
-  name: string;
-  role: 'player' | 'volunteer' | 'admin';
-  is_eliminated: boolean;
-  email?: string;
-}
-
-interface AdminTeam {
-  id: string;
-  name: string;
-  user1_id: string;
-  user2_id: string;
-  user1_name: string;
-  user2_name: string;
-  user1_eliminated: boolean;
-  user2_eliminated: boolean;
-}
-
-interface Round6Player {
-  id: string;
-  name: string;
-  is_eliminated: boolean;
-  has_used_safety: boolean;
-}
-
-interface Round6Vote {
-  voter_id: string;
-  target_id: string;
-  used_safety: boolean;
-}
-
-interface Round6HistoryEntry {
-  target_name: string;
-  partner_name: string | null;
-  reason: string;
-  subround: number;
-}
-
-interface Round6State {
-  status: 'waiting' | 'voting' | 'finished';
-  current_cycle: number;
-  players: Round6Player[];
-  votes: Round6Vote[];
-  history: Round6HistoryEntry[];
-}
-
-interface Round7Player {
-  user_id: string;
-  name: string;
-  hearts: number;
-  is_alive: boolean;
-  teammate_id: string | null;
-  current_action: string | null;
-  target_id: string | null;
-}
-
-interface Round7State {
-  status: 'waiting' | 'active' | 'finished';
-  current_cycle: number;
-  players: Round7Player[];
-  winner_id?: string;
-}
-
-interface AdminViewProps {
-  gameState: GameState;
-  leaderboard: LeaderboardEntry[];
-  adminUsers: AdminUser[];
-  adminTeams: AdminTeam[];
-  round3Matches: Round3Match[];
-  round4Sessions: Round4Session[];
-  round5Games: Round5Game[];
-  r7Logs: string[];
-  onEliminateUser: (id: string) => void;
-  onReviveUser: (id: string) => void;
-  onEliminateTeam: (id: string) => void;
-  onReviveTeam: (id: string) => void;
-  onDeleteUser: (id: string) => void;
-  onDeleteTeam: (id: string) => void;
-  onCreateTeam: (u1: string, u2: string, name: string) => void;
-  onStartRound: (r: number) => void;
-  onFinishRound: (r: number) => void;
-  onStartRound2: (count?: number) => void;
-  onStartRound3: () => void;
-  onFinishRound3: () => void;
-  onStartRound4: () => void;
-  onFinishRound4: () => void;
-  onStartRound5: () => void;
-  onFinishRound5: () => void;
-  onStartRound6: () => void;
-  onStartRound7: () => void;
-  onFinishRound6: () => void;
-  onResetRound: (r: number) => void;
 }
 
 const getRandomMessage = (messages: string[]) => {
@@ -324,11 +160,7 @@ function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: P
   );
 }
 
-function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayName }: { userId: string; matches: Round3Match[]; isEliminated: boolean; randomQuote: string; displayName: (id?: string | null) => string }) {
-  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
-  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
-  const waitingMsg = useMemo(() => getRandomMessage(WAITING_MESSAGES), []);
-
+function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: any[]; isEliminated: boolean; randomQuote: string }) {
   const myMatch = matches.find(m => 
     m.team1_user1 === userId || m.team1_user2 === userId || 
     m.team2_user1 === userId || m.team2_user2 === userId
@@ -364,7 +196,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
                     return isSafe ? (
                       <div className="victory-announcement">
                         <div style={{ color: '#00ff00', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(0,255,0,0.4)', marginBottom: '0.5rem' }}>VICTORY</div>
-                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{winnerMsg}</h3>
+                        <h3 style={{ color: '#00ff00', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h3>
                         <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>You survived the physical trials. Don't let it go to your head.</p>
                         <div style={{ padding: '15px 30px', border: '2px solid #00ff00', color: '#00ff00', display: 'inline-block', fontWeight: 'bold', letterSpacing: '2px' }}>
                           STATUS: TEMPORARILY ALIVE
@@ -373,7 +205,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
                     ) : (
                       <div className="defeat-announcement">
                         <div style={{ color: '#ff4444', fontSize: '4rem', fontWeight: 'bold', textShadow: '0 0 20px rgba(255,0,0,0.4)', marginBottom: '0.5rem' }}>DEFEAT</div>
-                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{loserMsg}</h3>
+                        <h3 style={{ color: '#ff4444', fontSize: '1.5rem', marginBottom: '1.5rem' }}>{getRandomMessage(LOSER_MESSAGES)}</h3>
                         <p style={{ fontSize: '1.2rem', opacity: 0.9, maxWidth: '80%', margin: '0 auto 2rem' }}>
                           {positives === 0 ? "Purged for total incompetence." : "Not enough talent to stay in the system."}
                         </p>
@@ -385,45 +217,35 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
                   })()}
                 </div>
               ) : (
-                <div className="match-card active-duel" style={{ border: '2px solid #e5e7eb', background: '#ffffff', borderRadius: '12px', overflow: 'hidden' }}>
-                   <div className="match-header" style={{ padding: '1rem', background: '#f3f4f6', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                <div className="match-card active-duel" style={{ border: '4px solid #00ff00', background: '#f0fff0', borderRadius: '12px', overflow: 'hidden' }}>
+                   <div className="match-header" style={{ padding: '1rem', background: '#e0ffe0', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                       <span>DUEL IN PROGRESS</span>
-                      <span style={{ color: myMatch.status === 'active' ? '#111' : '#666' }}>{myMatch.status.toUpperCase()}</span>
+                      <span style={{ color: myMatch.status === 'active' ? '#00cc00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
                    </div>
-                   <div className="match-teams" style={{ padding: '1rem 0.75rem', gap: '0.75rem', display: 'grid', gridTemplateColumns: '1fr' }}>
-                     <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={{ background: '#f9fafb', border: '1px solid #d1d5db', borderRadius: '12px', padding: '0.9rem' }}>
-                       {isTeam1 && <div style={{ fontSize: '0.7rem', color: '#374151', fontWeight: 'bold', marginBottom: '0.25rem' }}>YOUR TEAM</div>}
-                       <div style={{ fontWeight: '800', fontSize: '1rem', letterSpacing: '0.02em' }}>{myMatch.team1_name}</div>
-                       <div style={{ fontSize: '0.8rem', marginTop: '0.35rem', lineHeight: 1.3, opacity: 0.85 }}>
-                         <div>{displayName(myMatch.team1_user1)}</div>
-                         <div>{displayName(myMatch.team1_user2)}</div>
-                       </div>
-                       <div className="score-dots" style={{ marginTop: '0.6rem' }}>
-                         {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
-                          <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '12px', height: '12px' }} />
-                         ))}
-                       </div>
-                     </div>
-
-                     <div style={{ textAlign: 'center', fontWeight: '900', fontSize: '0.9rem', letterSpacing: '0.08em', opacity: 0.6 }}>VS</div>
-
-                     <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={{ background: '#f9fafb', border: '1px solid #d1d5db', borderRadius: '12px', padding: '0.9rem' }}>
-                       {!isTeam1 && <div style={{ fontSize: '0.7rem', color: '#374151', fontWeight: 'bold', marginBottom: '0.25rem' }}>YOUR TEAM</div>}
-                       <div style={{ fontWeight: '800', fontSize: '1rem', letterSpacing: '0.02em' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
-                       <div style={{ fontSize: '0.8rem', marginTop: '0.35rem', lineHeight: 1.3, opacity: 0.85 }}>
-                         <div>{displayName(myMatch.team2_user1) || '—'}</div>
-                         <div>{displayName(myMatch.team2_user2) || '—'}</div>
-                       </div>
-                       <div className="score-dots" style={{ marginTop: '0.6rem' }}>
-                         {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
-                          <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '12px', height: '12px' }} />
-                         ))}
-                       </div>
-                     </div>
+                   <div className="match-teams" style={{ padding: '2rem 1rem' }}>
+                      <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={isTeam1 ? { background: '#fff', border: '3px solid #00ff00', borderRadius: '12px', padding: '1.5rem' } : { padding: '1.5rem', opacity: 0.6 }}>
+                         {isTeam1 && <div style={{ fontSize: '0.8rem', color: '#00cc00', fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TEAM</div>}
+                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>{myMatch.team1_name}</div>
+                         <div className="score-dots" style={{ marginTop: '1rem' }}>
+                            {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
+                              <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '15px', height: '15px' }} />
+                            ))}
+                         </div>
+                      </div>
+                      <div className="vs-badge" style={{ fontSize: '2rem', fontWeight: 'black', opacity: 0.3 }}>VS</div>
+                      <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={!isTeam1 ? { background: '#fff', border: '3px solid #00ff00', borderRadius: '12px', padding: '1.5rem' } : { padding: '1.5rem', opacity: 0.6 }}>
+                         {!isTeam1 && <div style={{ fontSize: '0.8rem', color: '#00cc00', fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TEAM</div>}
+                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
+                         <div className="score-dots" style={{ marginTop: '1rem' }}>
+                            {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
+                              <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '15px', height: '15px' }} />
+                            ))}
+                         </div>
+                      </div>
                    </div>
-                   <div className="match-footer" style={{ textAlign: 'center', padding: '1.2rem', background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
+                   <div className="match-footer" style={{ textAlign: 'center', padding: '1.5rem', background: '#f9fff9', borderTop: '1px solid #e0ffe0' }}>
                      {myMatch.status === 'waiting' && <span style={{ fontWeight: 'bold', opacity: 0.6 }}>AWAITING REFEREE TO START...</span>}
-                     {myMatch.status === 'active' && <span style={{ color: '#111827', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>SUBROUND {myMatch.current_subround}/3 LIVE</span>}
+                     {myMatch.status === 'active' && <span style={{ color: '#00cc00', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>SUBROUND {myMatch.current_subround}/3 LIVE</span>}
                    </div>
                 </div>
               )}
@@ -432,7 +254,7 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
             <div className="empty-state" style={{ textAlign: 'center', padding: '4rem 2rem', border: '2px dashed #ccc', borderRadius: '12px' }}>
               <div className="loader-dots" style={{ marginBottom: '1.5rem' }}><span></span><span></span><span></span></div>
               <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>CALIBRATING DUELS</h3>
-              <p style={{ opacity: 0.7 }}>{waitingMsg}</p>
+              <p style={{ opacity: 0.7 }}>{getRandomMessage(WAITING_MESSAGES)}</p>
             </div>
           )}
         </div>
@@ -441,13 +263,12 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayN
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, displayName }: { 
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { 
   volunteerId: string; 
-  matches: Round3Match[]; 
+  matches: any[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
-  displayName: (id?: string | null) => string;
 }) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
 
@@ -455,30 +276,14 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
     <div className="volunteer-round3" style={{ marginTop: '1rem' }}>
       <h2 className="section-title">ROUND 3: MATCH REFEREE</h2>
       {myMatch ? (
-        <div className="match-card active-match" style={{ border: '2px solid #e5e7eb', background: '#ffffff' }}>
-          <div className="match-header" style={{ background: '#f3f4f6' }}>
-            <span style={{ fontSize: '0.95rem' }}>ACTIVE DUEL - ROUND {myMatch.current_subround}/3</span>
+        <div className="match-card active-match" style={{ border: '4px solid #00ff00' }}>
+          <div className="match-header">
+            <span>ACTIVE DUEL - ROUND {myMatch.current_subround}/3</span>
           </div>
-          <div className="match-teams" style={{ gap: '0.5rem', display: 'grid', gridTemplateColumns: '1fr' }}>
-            <div className="team-box" style={{ fontSize: '0.95rem', fontWeight: 800, padding: '0.75rem', background: '#f9fafb', borderRadius: '10px', border: '1px solid #d1d5db' }}>
-              <div style={{ fontSize: '0.75rem', opacity: 0.65, letterSpacing: '0.05em', marginBottom: '0.2rem' }}>TEAM</div>
-              <div>{myMatch.team1_name}</div>
-              <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', lineHeight: 1.3, opacity: 0.85 }}>
-                <div>{displayName(myMatch.team1_user1)}</div>
-                <div>{displayName(myMatch.team1_user2)}</div>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '0.85rem', letterSpacing: '0.08em', opacity: 0.6 }}>VS</div>
-
-            <div className="team-box" style={{ fontSize: '0.95rem', fontWeight: 800, padding: '0.75rem', background: '#f9fafb', borderRadius: '10px', border: '1px solid #d1d5db' }}>
-              <div style={{ fontSize: '0.75rem', opacity: 0.65, letterSpacing: '0.05em', marginBottom: '0.2rem' }}>TEAM</div>
-              <div>{myMatch.team2_name || 'BYE'}</div>
-              <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', lineHeight: 1.3, opacity: 0.85 }}>
-                <div>{displayName(myMatch.team2_user1) || '—'}</div>
-                <div>{displayName(myMatch.team2_user2) || '—'}</div>
-              </div>
-            </div>
+          <div className="match-teams">
+            <div className="team-box">{myMatch.team1_name}</div>
+            <div className="vs-badge">VS</div>
+            <div className="team-box">{myMatch.team2_name || 'BYE'}</div>
           </div>
           
           <div className="scoring-controls">
@@ -550,9 +355,10 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
                   <span style={{ color: m.status === 'active' ? '#00cc00' : (m.status === 'finished' ? '#4444ff' : '#888') }}>{m.status.toUpperCase()}</span>
                   <span>{m.volunteer_name ? `Ref: ${m.volunteer_name}` : 'NO REFEREE'}</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', rowGap: '0.35rem', alignItems: 'center', fontSize: '0.95rem', fontWeight: 'bold' }}>
-                  <div style={{ lineHeight: 1.2 }}>{m.team1_name}</div>
-                  <div style={{ lineHeight: 1.2, color: '#555' }}>{m.team2_name || 'LUCKY PASS'}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{m.team1_name}</div>
+                  <div style={{ opacity: 0.3, fontWeight: 'bold' }}>VS</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{m.team2_name || 'LUCKY PASS'}</div>
                 </div>
                 
                 {m.status === 'waiting' && !m.volunteer_id && (
@@ -568,7 +374,7 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
                 {m.status === 'finished' && (
                   <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: '#333', fontWeight: 'bold', padding: '5px', background: 'rgba(0,0,0,0.05)' }}>
                     {(() => {
-                        const p1 = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s: boolean) => s === true).length : 0;
+                        const p1 = Array.isArray(m.team1_scores) ? m.team1_scores.filter((s:any)=>s===true).length : 0;
                         if (!m.team2_id) return 'LUCKY PASS - ADVANCED';
                         return p1 >= 2 ? `RESULT: ${m.team1_name} WON` : `RESULT: ${m.team2_name} WON`;
                     })()}
@@ -595,36 +401,14 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
   );
 }
 
-function Round4PlayerView({ session, isEliminated }: { session: Round4Session; isEliminated: boolean }) {
-  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
-  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
-  const waitingMsg = useMemo(() => getRandomMessage(WAITING_MESSAGES), []);
-
-  const failureLines = [
-    "Coding Club shut down your build.",
-    "Your merge failed review. Ship denied.",
-    "Your pipeline stalled and time ran out.",
-    "Your code crashed in the live demo." 
-  ];
-  const outroLines = [
-    "Step aside. The arena moves on.",
-    "Others advance while you debug in the lobby.",
-    "You'll get another shot in the next season—maybe.",
-    "Next time, ship it before the timer hits zero.",
-    "That's why they left you—no one waits for broken builds." 
-  ];
-
-  const mainLine = useMemo(() => getRandomMessage(failureLines), []);
-  const subLine = useMemo(() => getRandomMessage(outroLines), []);
-
+function Round4PlayerView({ session, isEliminated }: { session: any; isEliminated: boolean }) {
   if (isEliminated) {
-    const headline = "ELIMINATED";
     return (
       <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>{headline}</h1>
-        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{mainLine}</p>
-        <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>{subLine}</p>
+        <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>PATHETIC</h1>
+        <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>Your team couldn't even code their way out of a paper bag.</p>
+        <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>WORTHLESS. DISCARDED. FORGOTTEN.</p>
       </div>
     );
   }
@@ -633,7 +417,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="loader-dots"><span></span><span></span><span></span></div>
-        <p>{waitingMsg}</p>
+        <p>{getRandomMessage(WAITING_MESSAGES)}</p>
       </div>
     );
   }
@@ -647,9 +431,9 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
           border: '3px solid #fff'
         }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
-          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>{winnerMsg}</h1>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</h1>
           <p style={{ fontSize: '1.5rem', opacity: 0.9 }}>You've proven you're not completely useless. Yet.</p>
-          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. I'LL SHOW YOU IN THE NEXT ROUND.</p>
+          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '1rem' }}>DON'T GET COMFORTABLE. I'LL SEE YOU IN THE NEXT ROUND.</p>
         </div>
       );
     } else {
@@ -657,7 +441,7 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
         <div className="defeat-screen" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💀</div>
           <h1 style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ff4444' }}>INCOMPETENT</h1>
-          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{loserMsg}</p>
+          <p style={{ fontSize: '1.5rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
           <p style={{ fontSize: '1.2rem', opacity: 0.6, marginTop: '1rem' }}>YOUR MEDIOCRITY IS NO LONGER TOLERATED.</p>
         </div>
       );
@@ -704,13 +488,13 @@ function Round4PlayerView({ session, isEliminated }: { session: Round4Session; i
       <div className="loader-dots" style={{ marginBottom: '1rem' }}>
         <span></span><span></span><span></span>
       </div>
-      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>{waitingMsg}</p>
+      <p style={{ fontSize: '1.1rem', opacity: 0.7 }}>{getRandomMessage(WAITING_MESSAGES)}</p>
     </div>
   );
 }
 
 function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate }: {
-  sessions: Round4Session[];
+  sessions: any[];
   volunteerId: string;
   onJoinSession: (sessionId: string) => void;
   onEvaluate: (sessionId: string, result: 'pass' | 'fail') => void;
@@ -815,17 +599,11 @@ function Round4VolunteerView({ sessions, volunteerId, onJoinSession, onEvaluate 
 
 
 function Round5PlayerView({ game, userId, onSelectCard }: { 
-  game: Round5Game; 
+  game: any; 
   userId: string;
   onSelectCard: (card: 'ATTACK' | 'FORTIFY' | 'CONVERGE', pact?: string) => void;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(60);
-  const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
-  const [showGuide, setShowGuide] = useState(false);
-
-  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
-  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
-  const waitingMsg = useMemo(() => getRandomMessage(WAITING_MESSAGES), []);
 
   useEffect(() => {
     if (!game || game.status !== 'active') return;
@@ -836,8 +614,8 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
       const now = Date.now();
       const elapsed = Math.floor((now - start) / 1000);
       
-      const currentRoundTurns = game.turns?.filter((t: Round5Turn) => t.round_number === game.current_round) || [];
-      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: Round5Turn) => t.is_revealed);
+      const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
+      const revealed = currentRoundTurns.length > 0 && currentRoundTurns.every((t: any) => t.is_revealed);
       
       const limit = game.current_round === 1 ? 120 : 60;
       if (revealed) {
@@ -857,7 +635,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="loader-dots"><span></span><span></span><span></span></div>
-        <p>{waitingMsg}</p>
+        <p>{getRandomMessage(WAITING_MESSAGES)}</p>
       </div>
     );
   }
@@ -870,10 +648,13 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   
   const isMyTurn = game.current_round === 1 || (turnOrder && turnOrder[(game.current_round - 1) % 2] === userId);
   
-  const currentRoundTurns = game.turns?.filter((t: Round5Turn) => t.round_number === game.current_round) || [];
-  const myTurn = currentRoundTurns.find((t: Round5Turn) => t.player_id === userId);
+  const currentRoundTurns = game.turns?.filter((t: any) => t.round_number === game.current_round) || [];
+  const myTurn = currentRoundTurns.find((t: any) => t.player_id === userId);
   const bothSubmitted = currentRoundTurns.length === 2;
-  const revealed = bothSubmitted && currentRoundTurns.every((t: Round5Turn) => t.is_revealed);
+  const revealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
+
+  const [selectedPact, setSelectedPact] = useState<string | undefined>(undefined);
+  const [showGuide, setShowGuide] = useState(false);
 
   const pactOptions = [
     { id: 'reduce_penalty', label: '🛡️ REDUCE PENALTY', desc: 'Convert penalty loss to -1' },
@@ -881,7 +662,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
     { id: 'ignore_negative', label: '🚫 IGNORE NEGATIVE', desc: 'Cancel any negative change' }
   ];
 
-  const MATRIX: Record<string, Record<string, number[]>> = {
+  const MATRIX: any = {
     ATTACK: { ATTACK: [-1, -1], FORTIFY: [2, -1], CONVERGE: [-2, 2] },
     FORTIFY: { ATTACK: [-1, 2], FORTIFY: [0, 0], CONVERGE: [1, -1] },
     CONVERGE: { ATTACK: [2, -2], FORTIFY: [-1, 1], CONVERGE: [3, 3] }
@@ -897,13 +678,13 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         {won ? (
           <>
             <h1 style={{ fontSize: '4rem', color: '#00ff00' }}>VICTORY</h1>
-            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{winnerMsg}</p>
+            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(WINNER_MESSAGES)}</p>
             <p style={{ opacity: 0.7 }}>You survived the Paradox. Don't be so happy.</p>
           </>
         ) : (
           <>
             <h1 style={{ fontSize: '4rem', color: '#ff4444' }}>DEFEAT</h1>
-            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{loserMsg}</p>
+            <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{getRandomMessage(LOSER_MESSAGES)}</p>
             <p style={{ opacity: 0.7 }}>The Paradox has consumed your low-tier logic.</p>
           </>
         )}
@@ -1023,17 +804,17 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1rem' }}>
             <div>
               <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM A</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: Round5Turn) => t.team === 'A')?.card_selected}</div>
-              {currentRoundTurns.find((t: Round5Turn) => t.team === 'A')?.pact_used && (
-                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: Round5Turn) => t.team === 'A')?.pact_used}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'A')?.card_selected}</div>
+              {currentRoundTurns.find((t: any) => t.team === 'A')?.pact_used && (
+                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'A').pact_used}</div>
               )}
             </div>
             <div style={{ fontSize: '2rem', color: '#444' }}>VS</div>
             <div>
               <div style={{ fontSize: '0.7rem', color: '#aaa' }}>TEAM B</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: Round5Turn) => t.team === 'B')?.card_selected}</div>
-              {currentRoundTurns.find((t: Round5Turn) => t.team === 'B')?.pact_used && (
-                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: Round5Turn) => t.team === 'B')?.pact_used}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentRoundTurns.find((t: any) => t.team === 'B')?.card_selected}</div>
+              {currentRoundTurns.find((t: any) => t.team === 'B')?.pact_used && (
+                <div style={{ fontSize: '0.6rem', color: '#ff4444' }}>PACT: {currentRoundTurns.find((t: any) => t.team === 'B').pact_used}</div>
               )}
             </div>
           </div>
@@ -1047,7 +828,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               <button 
                 key={card}
                 className="primary-btn"
-                onClick={() => onSelectCard(card as "ATTACK" | "FORTIFY" | "CONVERGE", selectedPact)}
+                onClick={() => onSelectCard(card as any, selectedPact)}
                 style={{ padding: '2rem 1rem' }}
               >
                 {card}
@@ -1104,14 +885,14 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>BATTLE HISTORY</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {Array.isArray(game.turns) && game.turns
-            .filter((t: Round5Turn) => t && t.is_revealed)
-            .sort((a: Round5Turn, b: Round5Turn) => (b.round_number || 0) - (a.round_number || 0))
-            .map((t: Round5Turn, _: number, arr: Round5Turn[]) => {
+            .filter((t:any) => t && t.is_revealed)
+            .sort((a:any, b:any) => (b.round_number || 0) - (a.round_number || 0))
+            .map((t: any, _: number, arr: any[]) => {
             // Group turns by round
             if (t.team === 'B') return null; // We'll process A and find B
             const roundNum = t.round_number;
             const turnA = t;
-            const turnB = arr.find((alt: Round5Turn) => alt.round_number === roundNum && alt.team === 'B');
+            const turnB = arr.find((alt: any) => alt.round_number === roundNum && alt.team === 'B');
             if (!turnB) return null;
 
             if (!MATRIX[turnA.card_selected] || !MATRIX[turnA.card_selected][turnB.card_selected]) return null;
@@ -1149,7 +930,7 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
               </div>
             );
           })}
-          {(!Array.isArray(game.turns) || game.turns.filter((t: Round5Turn) => t.is_revealed).length === 0) && (
+          {(!Array.isArray(game.turns) || game.turns.filter((t: any) => t.is_revealed).length === 0) && (
             <p style={{ opacity: 0.5, fontStyle: 'italic', textAlign: 'center' }}>No history yet. The battle has just begun.</p>
           )}
         </div>
@@ -1166,14 +947,10 @@ function AdminView({
   round3Matches, 
   round4Sessions, 
   round5Games,
-  r7Logs,
   onEliminateUser,
   onReviveUser,
   onEliminateTeam,
   onReviveTeam,
-  onDeleteUser,
-  onDeleteTeam,
-  onCreateTeam,
   onStartRound,
   onFinishRound,
   onStartRound2,
@@ -1187,17 +964,11 @@ function AdminView({
   onStartRound7,
   onFinishRound6,
   onResetRound
-}: AdminViewProps) {
+}: any) {
   const [activeTab, setActiveTab] = useState('control');
   const [leaderboardPage, setLeaderboardPage] = useState(1);
   const [dataSubTab, setDataSubTab] = useState('r3');
-  
-  // Manual Team Formation State
-  const [u1, setU1] = useState('');
-  const [u2, setU2] = useState('');
-  const [manualTeamName, setManualTeamName] = useState('');
-
-  const surviversCount = adminUsers.filter((u: AdminUser) => !u.is_eliminated && u.role === 'player').length;
+  const surviversCount = adminUsers.filter((u: any) => !u.is_eliminated && u.role === 'player').length;
 
   return (
     <div className="admin-view-root">
@@ -1205,9 +976,7 @@ function AdminView({
         <button className={activeTab === 'control' ? 'active' : ''} onClick={() => setActiveTab('control')}>CONTROL</button>
         <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => setActiveTab('leaderboard')}>LEADERBOARD</button>
         <button className={activeTab === 'management' ? 'active' : ''} onClick={() => setActiveTab('management')}>MANAGEMENT</button>
-        <button className={activeTab === 'volunteers' ? 'active' : ''} onClick={() => setActiveTab('volunteers')}>VOLUNTEERS</button>
         <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>DATA HISTORY</button>
-        <button className={activeTab === 'deletion' ? 'active' : ''} onClick={() => setActiveTab('deletion')}>Users</button>
         <button className={activeTab === 'recovery' ? 'active' : ''} onClick={() => setActiveTab('recovery')}>RECOVERY</button>
       </div>
 
@@ -1240,7 +1009,7 @@ function AdminView({
                   {surviversCount} 
                   {gameState.current_round >= 2 && (
                     <span style={{ fontSize: '0.6em', marginLeft: '6px', opacity: 0.8 }}>
-                      ({adminTeams.filter((t: AdminTeam) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
+                      ({adminTeams.filter((t: any) => !t.user1_eliminated && !t.user2_eliminated).length} Teams)
                     </span>
                   )}
                 </span>
@@ -1252,13 +1021,13 @@ function AdminView({
                 <h3>GLOBAL CONTROLS</h3>
                 <div className="btn-group-vertical">
                    {gameState.current_round === 0 && (
-                     <button onClick={() => onStartRound(1)} className="admin-btn primary">START ROUND 1</button>
+                     <button onClick={onStartRound} className="admin-btn primary">START ROUND 1</button>
                    )}
                    
                    {gameState.status === 'active' && gameState.current_round >= 1 && gameState.current_round <= 6 && (
                      <button 
                        onClick={() => {
-                         if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound(gameState.current_round);
+                         if (gameState.current_round === 1 || gameState.current_round === 2) onFinishRound();
                          else if (gameState.current_round === 3) onFinishRound3();
                          else if (gameState.current_round === 4) onFinishRound4();
                          else if (gameState.current_round === 5) onFinishRound5();
@@ -1328,7 +1097,7 @@ function AdminView({
                   <tbody>
                     {leaderboard
                       .slice((leaderboardPage - 1) * 10, leaderboardPage * 10)
-                      .map((entry: LeaderboardEntry, i: number) => (
+                      .map((entry: any, i: number) => (
                       <tr key={entry.id} className={entry.is_eliminated ? 'eliminated' : ''}>
                         <td className="leaderboard-rank">#{((leaderboardPage - 1) * 10) + i + 1}</td>
                         <td className="leaderboard-name">{entry.name}</td>
@@ -1378,7 +1147,7 @@ function AdminView({
               <div className="card">
                 <h3>PLAYERS LIST</h3>
                 <div className="admin-user-scroll">
-                  {adminUsers.filter((u: AdminUser) => u.role === 'player').map((u: AdminUser) => (
+                  {adminUsers.filter((u: any) => u.role === 'player').map((u: any) => (
                     <div key={u.id} className="admin-user-item">
                       <span style={{ 
                         color: u.is_eliminated ? '#ef4444' : 'inherit',
@@ -1397,53 +1166,9 @@ function AdminView({
               </div>
 
               <div className="card">
-                <h3>MANUAL TEAM FORMATION</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px' }}>
-                  <select value={u1} onChange={(e) => setU1(e.target.value)} className="admin-select">
-                    <option value="">Select Player 1</option>
-                    {adminUsers
-                      .filter(u => u.role === 'player' && !u.is_eliminated && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id))
-                      .map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                  </select>
-                  <select value={u2} onChange={(e) => setU2(e.target.value)} className="admin-select">
-                    <option value="">Select Player 2</option>
-                    {adminUsers
-                      .filter(u => u.role === 'player' && !u.is_eliminated && u.id !== u1 && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id))
-                      .map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                  </select>
-                  <input 
-                    type="text" 
-                    placeholder="Team Name" 
-                    value={manualTeamName} 
-                    onChange={(e) => setManualTeamName(e.target.value)}
-                    className="admin-input"
-                  />
-                  <button 
-                    className="admin-btn primary" 
-                    onClick={() => {
-                      if (u1 && u2 && manualTeamName) {
-                        onCreateTeam(u1, u2, manualTeamName);
-                        setU1('');
-                        setU2('');
-                        setManualTeamName('');
-                      } else {
-                        alert('Please select two players and enter a team name.');
-                      }
-                    }}
-                  >
-                    FORM TEAM
-                  </button>
-                </div>
-              </div>
-
-              <div className="card">
                 <h3>TEAMS MANAGEMENT (R2+)</h3>
                 <div className="admin-user-scroll">
-                  {adminTeams.map((t: AdminTeam) => {
+                  {adminTeams.map((t: any) => {
                     // Mark team as 'dead' if EITHER player is eliminated
                     const isTeamCompromised = t.user1_eliminated || t.user2_eliminated;
                     return (
@@ -1481,64 +1206,6 @@ function AdminView({
           </div>
         )}
 
-        {activeTab === 'volunteers' && (
-          <div className="admin-tab-pane">
-            <h1 className="admin-pane-title">VOLUNTEERS LIST</h1>
-            <div className="card">
-              <div className="admin-user-scroll">
-                {adminUsers.filter((u: AdminUser) => u.role === 'volunteer').map((u: AdminUser) => (
-                  <div key={u.id} className="admin-user-item">
-                    <span>{u.name} ({u.email})</span>
-                    <span className="status-badge active">VOLUNTEER</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'deletion' && (
-          <div className="admin-tab-pane">
-            <h1 className="admin-pane-title">DELETION PANEL</h1>
-            <div style={{ background: '#fee2e2', padding: '1rem', marginBottom: '2rem', border: '2px solid #ef4444', borderRadius: '4px' }}>
-              <h3 style={{ color: '#b91c1c', marginTop: 0 }}>⚠️ WARNING</h3>
-              <p style={{ fontSize: '0.9rem', color: '#7f1d1d' }}>Deleting is permanent and removes the record from the database. This is different from elimination.</p>
-            </div>
-            <div className="admin-management-grid">
-              <div className="card">
-                <h3>DELETE USERS</h3>
-                <div className="admin-user-scroll">
-                  {adminUsers.map((u: AdminUser) => (
-                    <div key={u.id} className="admin-user-item">
-                      <span>{u.name} ({u.role})</span>
-                      <button className="admin-btn-sm danger" onClick={() => {
-                        if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${u.name}?`)) {
-                          onDeleteUser(u.id);
-                        }
-                      }}>DELETE</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="card">
-                <h3>DELETE TEAMS</h3>
-                <div className="admin-user-scroll">
-                  {adminTeams.map((t: AdminTeam) => (
-                    <div key={t.id} className="admin-user-item">
-                      <span>{t.name}</span>
-                      <button className="admin-btn-sm danger" onClick={() => {
-                        if (window.confirm(`Are you sure you want to PERMANENTLY DELETE team ${t.name}?`)) {
-                          onDeleteTeam(t.id);
-                        }
-                      }}>DELETE</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'data' && (
           <div className="admin-tab-pane">
             <h1 className="admin-pane-title">GAME DATA LOGS</h1>
@@ -1546,7 +1213,6 @@ function AdminView({
               <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
               <button className={dataSubTab === 'r4' ? 'active' : ''} onClick={() => setDataSubTab('r4')}>R4 SESSIONS</button>
               <button className={dataSubTab === 'r5' ? 'active' : ''} onClick={() => setDataSubTab('r5')}>R5 GAMES</button>
-              <button className={dataSubTab === 'r7' ? 'active' : ''} onClick={() => setDataSubTab('r7')}>R7 HEARTS</button>
             </div>
             
             <div className="admin-data-content">
@@ -1554,13 +1220,10 @@ function AdminView({
                 <>
                   <h4>ROUND 3: PHYSICAL DUELS</h4>
                   <div className="admin-user-list">
-                    {round3Matches.length > 0 ? round3Matches.map((m: Round3Match) => (
+                    {round3Matches.length > 0 ? round3Matches.map((m: any) => (
                       <div key={m.id} className="admin-user-item">
                         <div className="admin-user-info">
-                          <strong style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.95rem' }}>
-                            <span>{m.team1_name}</span>
-                            <span style={{ color: '#555' }}>{m.team2_name}</span>
-                          </strong>
+                          <strong>{m.team1_name} vs {m.team2_name}</strong>
                           <small>Status: {m.status} | Winner: {m.winner_name || m.winner_team_id || 'PENDING'}</small>
                         </div>
                       </div>
@@ -1573,7 +1236,7 @@ function AdminView({
                 <>
                   <h4>ROUND 4: COGNITIVE TECHNICAL ROUND</h4>
                   <div className="admin-user-list">
-                    {round4Sessions.length > 0 ? round4Sessions.map((s: Round4Session) => {
+                    {round4Sessions.length > 0 ? round4Sessions.map((s: any) => {
                       const isTeamCompromised = s.user1_eliminated || s.user2_eliminated;
                       return (
                         <div key={s.id} className="admin-user-item">
@@ -1597,39 +1260,14 @@ function AdminView({
                 <>
                   <h4>ROUND 5: THE PARADOX GAMES</h4>
                   <div className="admin-user-list">
-                    {round5Games.length > 0 ? round5Games.map((g: Round5Game) => (
+                    {round5Games.length > 0 ? round5Games.map((g: any) => (
                       <div key={g.id} className="admin-user-item">
                         <div className="admin-user-info">
-                          <strong style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.95rem' }}>
-                            <span>{g.team_a_name}</span>
-                            <span style={{ color: '#555' }}>{g.team_b_name}</span>
-                          </strong>
+                          <strong>{g.team_a_name} vs {g.team_b_name}</strong>
                           <small>Status: {g.status} | Result: {g.result || 'IN PROGRESS'}</small>
                         </div>
                       </div>
                     )) : <p className="empty">No Round 5 game data available.</p>}
-                  </div>
-                </>
-              )}
-
-              {dataSubTab === 'r7' && (
-                <>
-                  <h4>ROUND 7: THE GAME OF HEARTS (LOGS)</h4>
-                  <div style={{ 
-                    background: '#000', 
-                    color: '#00ff00', 
-                    padding: '1.5rem', 
-                    fontFamily: 'monospace', 
-                    fontSize: '0.85rem',
-                    border: '4px solid #333',
-                    maxHeight: '500px',
-                    overflowY: 'auto'
-                  }}>
-                    {r7Logs.length > 0 ? r7Logs.map((log, i) => (
-                      <div key={i} style={{ marginBottom: '6px', borderLeft: '2px solid #004400', paddingLeft: '10px' }}>
-                        {`> ${log}`}
-                      </div>
-                    )) : <p style={{ color: '#666' }}>No cycle logs recorded yet.</p>}
                   </div>
                 </>
               )}
@@ -1676,7 +1314,7 @@ function AdminView({
 }
 
 function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
-  games: Round5Game[];
+  games: any[];
   onDisqualify: (gameId: string, team: 'A' | 'B') => void;
   onEndNow: (gameId: string) => void;
 }) {
@@ -1690,12 +1328,12 @@ function Round5VolunteerView({ games, onDisqualify, onEndNow }: {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
         {(games || []).map(g => {
-          const currentRoundTurns = g.turns?.filter((t: Round5Turn) => t.round_number === g.current_round) || [];
+          const currentRoundTurns = g.turns?.filter((t: any) => t.round_number === g.current_round) || [];
           const bothSubmitted = currentRoundTurns.length === 2;
-          const isRevealed = bothSubmitted && currentRoundTurns.every((t: Round5Turn) => t.is_revealed);
+          const isRevealed = bothSubmitted && currentRoundTurns.every((t: any) => t.is_revealed);
 
-          const turnA = currentRoundTurns.find((t: Round5Turn) => t.is_revealed && t.team === 'A');
-          const turnB = currentRoundTurns.find((t: Round5Turn) => t.is_revealed && t.team === 'B');
+          const turnA = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'A');
+          const turnB = currentRoundTurns.find((t: any) => t.is_revealed && t.team === 'B');
 
           return (
             <div key={g.id} className="card" style={{ padding: '1.5rem', border: g.status === 'finished' ? '2px solid #ddd' : '4px solid black' }}>
@@ -1788,61 +1426,21 @@ export default function Game() {
   const [submitted, setSubmitted] = useState(false);
   const [initialSubmission, setInitialSubmission] = useState<{target_id: string, rank: number}[] | null>(null);
   const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-
-  // Auto-close user menu on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false);
-      }
-    }
-    if (showUserMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showUserMenu]);
   
   // Round 2 States
   const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string, team_name?: string}[]>([]);
   const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
-  const [teamInfo, setTeamInfo] = useState<{teamName: string, partnerName: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
-  const [round3Matches, setRound3Matches] = useState<Round3Match[]>([]);
-  const [round4Sessions, setRound4Sessions] = useState<Round4Session[]>([]);
-  const [round5Games, setRound5Games] = useState<Round5Game[]>([]);
-  const [round6State, setRound6State] = useState<Round6State | null>(null); // ROUND 6 STATE (VOTING)
-  const [round7State, setRound7State] = useState<Round7State | null>(null); // ROUND 7 STATE (HEARTS)
+  const [round3Matches, setRound3Matches] = useState<any[]>([]);
+  const [round4Sessions, setRound4Sessions] = useState<any[]>([]);
+  const [round5Games, setRound5Games] = useState<any[]>([]);
+  const [round6State, setRound6State] = useState<any>(null); // ROUND 6 STATE (VOTING)
+  const [round7State, setRound7State] = useState<any>(null); // ROUND 7 STATE (HEARTS)
   const [r7Logs, setR7Logs] = useState<string[]>([]);
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]); // New state for Admin
-  const [adminTeams, setAdminTeams] = useState<AdminTeam[]>([]); // Admin/Volunteer teams list
-  const nameById = useMemo(() => {
-    const map = new Map<string, string>();
-    if (user?.id && user.name) map.set(user.id, user.name);
-    players.forEach(p => map.set(p.id, p.name));
-    adminUsers.forEach(u => map.set(u.id, u.name));
-    return map;
-  }, [players, adminUsers, user]);
-  const displayName = (id?: string | null) => (id ? (nameById.get(id) || id) : '—');
-  const getRoundName = (round: number) => {
-    switch (round) {
-      case 1: return 'Popularity Hell';
-      case 2: return 'Lottery';
-      case 3: return 'Physical Trials';
-      case 4: return 'Coding Club';
-      case 5: return 'The Paradox';
-      case 6: return 'The Vote';
-      case 7: return 'Game of Hearts';
-      default: return 'Pending Orders';
-    }
-  };
+  const [adminUsers, setAdminUsers] = useState<any[]>([]); // New state for Admin
+  const [adminTeams, setAdminTeams] = useState<any[]>([]); // Admin/Volunteer teams list
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1864,35 +1462,6 @@ export default function Game() {
     ];
     return quotes[Math.floor(Math.random() * quotes.length)];
   });
-  const [standbyQuote] = useState(() => {
-    const lines = [
-      "The Game Master watches. You should too.",
-      "Silence can be tactical. Use it.",
-      "Idle minds get eliminated first.",
-      "If you are bored, you are not paying attention.",
-      "The next cut might have your name on it.",
-      "Orders arrive when they arrive. Be ready.",
-      "Counting sheep? The system is counting you.",
-      "The quiet moments decide who survives the loud ones."
-    ];
-    return lines[Math.floor(Math.random() * lines.length)];
-  });
-  const currentUserDisplayName = useMemo(
-    () => {
-      if (!user) return '';
-      if (user.name) return user.name;
-      return displayName(user.id);
-    },
-    [user, displayName]
-  );
-  const avatarLetter = (currentUserDisplayName || user?.name || 'U').trim().charAt(0).toUpperCase() || 'U';
-  const resolvedTeamInfo = useMemo(() => {
-    if (!teamInfo) return null;
-    return {
-      teamName: teamInfo.teamName,
-      partnerName: displayName(teamInfo.partnerName)
-    };
-  }, [teamInfo, displayName]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1933,7 +1502,6 @@ export default function Game() {
         if (data.round3_matches) setRound3Matches(data.round3_matches);
         if (data.round4_sessions) setRound4Sessions(data.round4_sessions);
         if (data.round5_games) setRound5Games(data.round5_games);
-        if (data.teamInfo) setTeamInfo(data.teamInfo);
       } else if (data.type === 'state_update') {
         console.log('RECEIVED STATE UPDATE:', data.state);
         setGameState(data.state);
@@ -1942,8 +1510,7 @@ export default function Game() {
       } else if (data.type === 'leaderboard_update') {
         setLeaderboard(data.leaderboard);
       } else if (data.type === 'round_finished') {
-        const roundLabel = data.round ? `ROUND ${data.round}` : 'ROUND';
-        alert(`END OF ${roundLabel}`);
+        alert('END OF ROUND 1');
       } else if (data.type === 'lottery_pool') {
         setLotteryPool(data.pool);
       } else if (data.type === 'round2_role') {
@@ -1952,12 +1519,6 @@ export default function Game() {
         setLotteryPool(prev => prev.map(c => c.id === data.cardId ? { ...c, is_taken: true, taken_by: data.taken_by } : c));
       } else if (data.type === 'selection_result') {
         setSelectionResult(data.result);
-        if (data.result.type === 'team') {
-          setTeamInfo({
-            teamName: data.result.teamName,
-            partnerName: data.result.partner
-          });
-        }
       } else if (data.type === 'duel_result') {
         // Update elimination status without showing alerts
         if (data.result === 'disqualified') {
@@ -1966,7 +1527,7 @@ export default function Game() {
           setIsEliminated(false);
         }
       } else if (data.type === 'round3_init' || data.type === 'round3_update') {
-        const matches = data.matches as Round3Match[];
+        const matches = data.matches as any[];
         console.log('Updating Round 3 Matches:', matches);
         setRound3Matches(matches);
         
@@ -1990,7 +1551,7 @@ export default function Game() {
           }
         }
       } else if (data.type === 'round4_init' || data.type === 'round4_update') {
-        const sessions = data.sessions as Round4Session[];
+        const sessions = data.sessions as any[];
         console.log('Updating Round 4 Sessions:', sessions);
         setRound4Sessions(sessions);
         
@@ -2010,7 +1571,7 @@ export default function Game() {
           }
         }
       } else if (data.type === 'round5_init' || data.type === 'round5_update') {
-        const games = data.games as Round5Game[];
+        const games = data.games as any[];
         console.log('Updating Round 5 Games:', games);
         setRound5Games(games);
         
@@ -2052,7 +1613,7 @@ export default function Game() {
       }
     };
 
-    setTimeout(() => setWs(socket), 0);
+    setWs(socket);
 
     // Fetch players
     fetch(`${API_URL}/players`, {
@@ -2076,9 +1637,9 @@ export default function Game() {
         .sort((a, b) => a.rank - b.rank)
         .map(s => players.find(p => p.id === s.target_id))
         .filter((p): p is Player => !!p);
-      setTimeout(() => setSelectedPlayers(mapped), 0);
+      setSelectedPlayers(mapped);
       // Only do this once
-      setTimeout(() => setInitialSubmission(null), 0);
+      setInitialSubmission(null);
     }
   }, [players, initialSubmission]);
 
@@ -2289,18 +1850,6 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: false }));
   };
 
-  const deleteUser = (userId: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_delete_user', userId }));
-  };
-
-  const deleteTeam = (teamId: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_delete_team', teamId }));
-  };
-
-  const createTeam = (user1Id: string, user2Id: string, teamName: string) => {
-    ws?.send(JSON.stringify({ type: 'admin_create_team', user1Id, user2Id, teamName }));
-  };
-
   const togglePlayer = (player: Player) => {
     if (selectedPlayers.find(p => p.id === player.id)) {
       setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
@@ -2345,11 +1894,7 @@ export default function Game() {
     setSubmitted(true);
   };
 
-  // Require real game state before rendering
   if (!user || !gameState) return <div className="container">Loading...</div>;
-
-  const nextRoundNumber = gameState.current_round + 1;
-  const nextRoundName = getRoundName(nextRoundNumber);
 
   // Admin View
   if (user.role === 'admin') {
@@ -2373,14 +1918,10 @@ export default function Game() {
           round3Matches={round3Matches}
           round4Sessions={round4Sessions}
           round5Games={round5Games}
-          r7Logs={r7Logs}
           onEliminateUser={eliminateUser}
           onReviveUser={reviveUser}
           onEliminateTeam={eliminateTeam}
           onReviveTeam={reviveTeam}
-          onDeleteUser={deleteUser}
-          onDeleteTeam={deleteTeam}
-          onCreateTeam={createTeam}
           onStartRound={startRound}
           onFinishRound={finishRound}
           onStartRound2={startRound2}
@@ -2403,34 +1944,23 @@ export default function Game() {
     <div className="container" style={{ maxWidth: '1200px', padding: '10px' }}>
       <div className="nav">
         <div className="logo">BLINDTECH.EXE</div>
-        <div className="user-menu" ref={userMenuRef}>
-          <button className="avatar-btn" onClick={() => setShowUserMenu(!showUserMenu)}>{avatarLetter}</button>
-          {showUserMenu && (
-            <div className="user-menu-pop">
-              <div className="user-meta">
-                <div className="user-name">{(currentUserDisplayName || user.name || '').toUpperCase()}</div>
-                <div className="user-role">{user.role.toUpperCase()}</div>
-                <div className="user-team" style={{ fontSize: '0.75rem', fontWeight: 'bold', marginTop: '6px', lineHeight: 1.4 }}>
-                  <div>TEAM: <span style={{ color: '#22c55e' }}>{(resolvedTeamInfo?.teamName || 'UNASSIGNED').toUpperCase()}</span></div>
-                  <div>PARTNER: <span style={{ color: '#6366f1' }}>{(resolvedTeamInfo?.partnerName || 'TBD').toUpperCase()}</span></div>
-                </div>
-              </div>
-              <button onClick={() => { setShowUserMenu(false); logout(); }} className="exit-btn" style={{ width: '100%', marginTop: '0.75rem' }}>EXIT</button>
-            </div>
-          )}
+        <div className="user-info">
+          <div className="user-meta">
+            <div className="user-name">{user.name.toUpperCase()}</div>
+            <div className="user-role">{user.role.toUpperCase()}</div>
+          </div>
+          <button onClick={logout} className="exit-btn">EXIT</button>
         </div>
       </div>
 
       {/* Mobile Tab Switcher */}
       <div className="mobile-tabs">
-        {(user.role === 'volunteer' || gameState.current_round <= 1) && (
-          <button 
-            className={`tab-btn ${activeTab === 'game' ? 'active' : ''}`}
-            onClick={() => setActiveTab('game')}
-          >
-            MISSION
-          </button>
-        )}
+        <button 
+          className={`tab-btn ${activeTab === 'game' ? 'active' : ''}`}
+          onClick={() => setActiveTab('game')}
+        >
+          MISSION
+        </button>
         {(user.role === 'volunteer' || gameState.current_round <= 1) && (
           <button 
             className={`tab-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
@@ -2552,16 +2082,7 @@ export default function Game() {
                 <span></span><span></span><span></span>
               </div>
               <h2 className="section-title">SYSTEM STANDBY</h2>
-              <p style={{ fontSize: '1rem', marginTop: '0.5rem' }}>
-                Waiting for the <span style={{ color: '#22d3ee', fontWeight: 800 }}>Game Master</span> to start the next round.
-              </p>
-              <p style={{ marginTop: '0.5rem', fontWeight: 700 }}>
-                Next Round: <span style={{ color: '#a855f7' }}>Round {nextRoundNumber}</span> — <span style={{ color: '#f97316' }}>{nextRoundName}</span>
-              </p>
-              <p style={{ marginTop: '0.75rem', opacity: 0.8 }}>{standbyQuote}</p>
-              <p style={{ marginTop: '0.75rem', fontWeight: 800, color: '#ef4444' }}>
-                Listen closely. Missing instructions might make you the next elimination.
-              </p>
+              <p>Awaiting authorization...</p>
             </div>
           )}
 
@@ -2601,7 +2122,6 @@ export default function Game() {
               matches={round3Matches} 
               isEliminated={isEliminated}
               randomQuote={randomQuote}
-              displayName={displayName}
             />
           )}
 
@@ -2612,7 +2132,6 @@ export default function Game() {
               onJoin={joinMatch}
               onScore={scoreTeam}
               onDisqualify={disqualifyTeam}
-              displayName={displayName}
             />
           )}
 
@@ -2634,10 +2153,12 @@ export default function Game() {
 
           {gameState.status === 'active' && user.role === 'player' && gameState.current_round === 5 && (
             (() => {
-              const myGame = round5Games.find((g: Round5Game) =>
-                g.team_a_user1 === user.id || g.team_a_user2 === user.id ||
+              const myGame = round5Games.find((g: any) => 
+                g.team_a_user1 === user.id || g.team_a_user2 === user.id || 
                 g.team_b_user1 === user.id || g.team_b_user2 === user.id
-              );              if (!myGame) {
+              );
+              
+              if (!myGame) {
                 return (
                   <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="loader-dots"><span></span><span></span><span></span></div>
@@ -2682,23 +2203,6 @@ export default function Game() {
             </div>
           )}
 
-          {user.role === 'volunteer' && gameState.status === 'waiting' && (gameState.current_round === 6 || gameState.current_round === 7) && (
-            <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-              <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#ff4444' }}>
-                GET OUT OF MY FACE
-              </h3>
-              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
-                YOUR USAGE IS GONE NOW.
-              </p>
-              <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                (Ghar jaa tero kaam sakkiyo.)
-              </p>
-              <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
-                The system is preparing the final phase. You are no longer needed.
-              </p>
-            </div>
-          )}
-
           {gameState.status === 'active' && gameState.current_round === 6 && round6State && (
             user.role === 'player' ? (
               <Round6PlayerView 
@@ -2733,17 +2237,15 @@ export default function Game() {
                 state={round7State} 
                 userId={user.id} 
                 onAction={submitR7Action}
+                logs={r7Logs}
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#ff4444' }}>
-                  GET OUT OF MY FACE
+                <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+                  GHAR JAA TERO KAAM SAKKIYO
                 </h3>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
-                  YOUR USAGE IS GONE NOW.
-                </p>
                 <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                  (Ghar jaa tero kaam sakkiyo.)
+                  (Go home, your work is done.)
                 </p>
                 <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
                   Round 7 is running autonomously. You are dismissed.
@@ -2791,17 +2293,14 @@ export default function Game() {
                 <>
                   {gameState.current_round === 6 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', background: '#000', color: '#fff', border: '4px solid #fff', outline: '4px solid #000', marginTop: '2rem' }}>
-                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#ff4444' }}>
-                        GET OUT OF MY FACE
+                      <h3 style={{ fontSize: '2.5rem', fontWeight: '900', margin: '0 0 1rem 0', textTransform: 'uppercase', color: '#00ff00' }}>
+                        GHAR JAA TERO KAAM SAKKIYO
                       </h3>
-                      <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff4444', marginBottom: '1rem' }}>
-                        YOUR USAGE IS GONE NOW.
-                      </p>
                       <p style={{ fontSize: '1.2rem', opacity: 0.8, fontStyle: 'italic' }}>
-                        (Ghar jaa tero kaam sakkiyo.)
+                        (Go home, your work is done.)
                       </p>
                       <p style={{ marginTop: '1.5rem', opacity: 0.7 }}>
-                        The system will handle the Final Round automatically. Good job.
+                        The system will handle the Final Round automatically (or mostly). Good job.
                       </p>
                     </div>
                   ) : (
@@ -2826,7 +2325,7 @@ export default function Game() {
                       <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
                       <p>Your permanent partner is:</p>
                       <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
-                        {displayName(selectionResult.partner)}
+                        {selectionResult.partner}
                       </p>
                       {selectionResult.teamName && (
                         <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
@@ -2855,7 +2354,7 @@ export default function Game() {
                           <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
                           <p>Your permanent partner is:</p>
                           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
-                            {displayName(selectionResult.partner)}
+                            {selectionResult.partner}
                           </p>
                           {selectionResult.teamName && (
                             <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
@@ -3009,12 +2508,12 @@ export default function Game() {
                         <div className="data-items">
                           {round3Matches.map(m => {
                             const isFinished = m.status === 'finished';
-                            const getStatusColor = (scores: boolean[] | null, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
+                            const getStatusColor = (scores: any, isLuckyPassSlot: boolean, hasOpponent: boolean) => {
                               if (!isFinished) return 'inherit';
                               if (isLuckyPassSlot) return '#888'; 
                               if (!hasOpponent) return '#00cc00'; 
                               const s = Array.isArray(scores) ? scores : [];
-                              const positives = s.filter((val: boolean) => val === true).length;
+                              const positives = s.filter((val: any) => val === true).length;
                               return positives >= 2 ? '#00cc00' : '#ff4444';
                             };
 
@@ -3228,7 +2727,7 @@ export default function Game() {
 
         .user-meta {
           text-align: left;
-          display:block;
+          display: none;
         }
 
         @media (min-width: 480px) {
@@ -3843,7 +3342,7 @@ export default function Game() {
 
 // ROUND 6 COMPONENTS (THE GAME OF HEARTS)
 
-function Round6History({ history }: { history: Round6HistoryEntry[] }) {
+function Round6History({ history }: { history: any[] }) {
   if (history.length === 0) return null;
   return (
     <div className="admin-card" style={{ marginTop: '1rem', background: '#f8f8f8' }}>
@@ -3851,24 +3350,16 @@ function Round6History({ history }: { history: Round6HistoryEntry[] }) {
       <div className="admin-user-list">
         {history.map((h, idx) => {
           const isStandoff = h.reason === 'standoff';
-          const isSafety = h.reason === 'safety';
           return (
-            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : (isSafety ? '4px solid #6366f1' : '4px solid #ff4444') }}>
+            <div key={idx} className="admin-user-item" style={{ borderLeft: isStandoff ? '4px solid #fbbf24' : '4px solid #ff4444' }}>
               <div className="admin-user-info">
                 {isStandoff ? (
                   <strong>STANDOFF REACHED</strong>
-                ) : isSafety ? (
-                  <strong style={{ color: '#6366f1' }}>{h.target_name} SURVIVED</strong>
                 ) : (
                   <strong>{h.target_name} eliminated</strong>
                 )}
                 {h.partner_name && <small>Collateral: {h.partner_name} (Pigeon Rule)</small>}
-                {isSafety && (
-                  <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(99, 102, 241, 0.1)', borderLeft: '3px solid #6366f1', fontSize: '0.85rem', fontStyle: 'italic', color: '#4338ca' }}>
-                    "You tried to kill this guy but puss in boots has 0 lives left now. Try again."
-                  </div>
-                )}
-                <small style={{ display: 'block', marginTop: '4px' }}>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : isSafety ? 'SAFETY CARD ACTIVATED' : `Reason: ${h.reason.toUpperCase()}`}</small>
+                <small>Cycle {h.subround} | {isStandoff ? 'VOTES EQUALIZED' : `Reason: ${h.reason.toUpperCase()}`}</small>
               </div>
             </div>
           );
@@ -3883,26 +3374,22 @@ function Round6PlayerView({
   userId, 
   onVote 
 }: { 
-  state: Round6State, 
+  state: any, 
   userId: string,
   onVote: (targetId: string, safety: boolean) => void
 }) {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [useSafety, setUseSafety] = useState<boolean>(false);
-
-  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
   
-  const me = state.players.find((p: Round6Player) => p.id === userId);
-  const myVote = state.votes?.find((v: Round6Vote) => v.voter_id === userId);
+  const me = state.players.find((p: any) => p.id === userId);
+  const myVote = state.votes?.find((v: any) => v.voter_id === userId);
   const isDead = me?.is_eliminated;
 
   // Update useSafety if they already cast a vote with safety in this subround
   useEffect(() => {
     if (myVote) {
-      setTimeout(() => {
-        setUseSafety(!!myVote.used_safety);
-        setSelectedTarget(myVote.target_id);
-      }, 0);
+      setUseSafety(!!myVote.used_safety);
+      setSelectedTarget(myVote.target_id);
     }
   }, [myVote]);
 
@@ -3911,7 +3398,7 @@ function Round6PlayerView({
       <div className="player-view">
         <div className="instruction-box" style={{ background: '#ff4444' }}>
           <h3>DE-CALIBRATED</h3>
-          <p>{loserMsg}</p>
+          <p>{getRandomMessage(LOSER_MESSAGES)}</p>
         </div>
         <Round6History history={state.history} />
       </div>
@@ -3935,12 +3422,12 @@ function Round6PlayerView({
           <h4 className="section-title">ACTIVE TARGETS</h4>
           {myVote && (
             <div style={{ background: '#000', color: '#fff', padding: '10px', marginBottom: '1rem', fontWeight: 'bold' }}>
-              VOTE RECORDED: {state.players.find((p: Round6Player) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
+              VOTE RECORDED: {state.players.find((p: any) => p.id === myVote.target_id)?.name || 'UNKNOWN'}
               {myVote.used_safety && <span style={{ color: '#00ff00', marginLeft: '10px' }}>[SAFETY ACTIVE]</span>}
             </div>
           )}
           <div className="player-list">
-            {state.players.filter((p: Round6Player) => !p.is_eliminated && p.id !== userId).map((p: Round6Player) => (
+            {state.players.filter((p: any) => !p.is_eliminated && p.id !== userId).map((p: any) => (
               <div 
                 key={p.id} 
                 className={`player-item ${selectedTarget === p.id || myVote?.target_id === p.id ? 'selected' : ''}`}
@@ -3998,7 +3485,7 @@ function Round6VolunteerView({
   onNext,
   onFinish 
 }: { 
-  state: Round6State, 
+  state: any, 
   onStartTimer: () => void, 
   onResolve: () => void,
   onNext: () => void,
@@ -4030,13 +3517,13 @@ function Round6VolunteerView({
       <div className="admin-card" style={{ marginTop: '1rem' }}>
         <h4 className="section-title">LIVE VOTES ({state.votes.length})</h4>
         <div className="admin-user-list">
-          {state.players.filter((p: Round6Player) => !p.is_eliminated).map((p: Round6Player) => {
-             const vote = state.votes.find((v: Round6Vote) => v.voter_id === p.id);
+          {state.players.filter((p: any) => !p.is_eliminated).map((p: any) => {
+             const vote = state.votes.find((v: any) => v.voter_id === p.id);
              return (
                <div key={p.id} className="admin-user-item">
                  <div className="admin-user-info">
                    <strong>{p.name}</strong>
-                   <small>{vote ? `Voted for ${state.players.find((t: Round6Player) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
+                   <small>{vote ? `Voted for ${state.players.find((t: any) => t.id === vote.target_id)?.name || '?'}` : 'WAITING...'}</small>
                  </div>
                </div>
              )
@@ -4049,17 +3536,15 @@ function Round6VolunteerView({
   );
 }
 
-function Round7PlayerView({ state, userId, onAction }: { 
-  state: Round7State; 
+function Round7PlayerView({ state, userId, onAction, logs }: { 
+  state: any; 
   userId: string; 
   onAction: (action: string, targetId?: string) => void;
+  logs: string[];
 }) {
-  const winnerMsg = useMemo(() => getRandomMessage(WINNER_MESSAGES), []);
-  const loserMsg = useMemo(() => getRandomMessage(LOSER_MESSAGES), []);
-
-  const me = state.players.find((p: Round7Player) => p.user_id === userId);
-  const alivePlayers = state.players.filter((p: Round7Player) => p.is_alive);
-  const others = alivePlayers.filter((p: Round7Player) => p.user_id !== userId);
+  const me = state.players.find((p: any) => p.user_id === userId);
+  const alivePlayers = state.players.filter((p: any) => p.is_alive);
+  const others = alivePlayers.filter((p: any) => p.user_id !== userId);
 
   if (!me) return <div className="card">CALIBRATING HEARTS...</div>;
 
@@ -4067,17 +3552,17 @@ function Round7PlayerView({ state, userId, onAction }: {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: '5px solid #ff4444' }}>
         <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1rem' }}>TERMINATED</h1>
-        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{loserMsg}</p>
+        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{getRandomMessage(LOSER_MESSAGES)}</p>
       </div>
     );
   }
 
   if (state.status === 'finished') {
-    const won = state.winner_id === userId || (state.winner_id === null && me.is_alive);
+    const won = state.winner_id === userId;
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: won ? '5px solid #00ff00' : '5px solid #000' }}>
         <h1 style={{ fontSize: '4rem', color: won ? '#00ff00' : '#000' }}>{won ? 'CHAMPION' : 'DEFEATED'}</h1>
-        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? winnerMsg : loserMsg}</p>
+        <p style={{ fontSize: '1.5rem', marginTop: '1rem' }}>{won ? getRandomMessage(WINNER_MESSAGES) : getRandomMessage(LOSER_MESSAGES)}</p>
       </div>
     );
   }
@@ -4096,14 +3581,14 @@ function Round7PlayerView({ state, userId, onAction }: {
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '2.5rem', background: '#f8f9fa', padding: '1.5rem', border: '3px solid black' }}>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>YOUR STATUS</div>
-          <div style={{ fontSize: '3rem', fontWeight: '900' }}>{'❤️'.repeat(me.hearts || 0)}</div>
+          <div style={{ fontSize: '3rem', fontWeight: '900' }}>{'❤️'.repeat(me.hearts)}</div>
           <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{me.hearts} HEARTS</div>
         </div>
         {me.teammate_id && (
           <div style={{ textAlign: 'center', flex: 1, borderLeft: '2px solid black' }}>
             <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>PARTNER</div>
-            <div style={{ fontWeight: 'bold' }}>{state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.name || 'UNKNOWN'}</div>
-            <div>{state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.is_alive ? '❤️'.repeat(state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.hearts || 0) : '💀 DEAD'}</div>
+            <div style={{ fontWeight: 'bold' }}>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.name || 'UNKNOWN'}</div>
+            <div>{state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive ? '❤️'.repeat(state.players.find((p:any)=>p.user_id === me.teammate_id)?.hearts) : '💀 DEAD'}</div>
           </div>
         )}
       </div>
@@ -4116,34 +3601,26 @@ function Round7PlayerView({ state, userId, onAction }: {
       ) : me.current_action ? (
         <div style={{ textAlign: 'center', padding: '2rem', border: '3px dashed black' }}>
           <h3 style={{ fontSize: '1.2rem', fontWeight: '900' }}>ACTION RECORDED</h3>
-          <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>{me.current_action}: {state.players.find((p:Round7Player)=>p.user_id === me.target_id)?.name || 'NONE'}</p>
+          <p style={{ fontSize: '1.5rem', margin: '1rem 0' }}>{me.current_action}: {state.players.find((p:any)=>p.user_id === me.target_id)?.name || 'NONE'}</p>
           <p style={{ opacity: 0.6 }}>Waiting for others to act...</p>
         </div>
       ) : (
         <div>
           <h3 style={{ fontWeight: '900', marginBottom: '1.5rem', borderBottom: '2px solid black', display: 'inline-block' }}>CHOOSE YOUR ACTION</h3>
           
-          {others.length === 1 && state.players.filter((p:Round7Player)=>p.is_alive).length === 2 ? (
+          {others.length === 1 && state.players.filter((p:any)=>p.is_alive).length === 2 ? (
             <div style={{ textAlign: 'center', background: 'black', color: 'white', padding: '2rem' }}>
               <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>FINAL DUEL</h1>
               <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                 <button 
-                  onClick={() => onAction('COMPROMISE', others[0].user_id)}
-                  style={{ padding: '1.5rem', border: '4px solid #00ff00', background: 'transparent', color: '#00ff00', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > COMPROMISE </button>
-                <button 
-                  onClick={() => onAction('SHARE', others[0].user_id)}
-                  style={{ padding: '1.5rem', border: '4px solid white', background: 'transparent', color: white, fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > SHARE </button>
+                  onClick={() => onAction('PROTECT', others[0].user_id)}
+                  style={{ padding: '2rem', border: '4px solid white', background: 'transparent', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                > PROTECT OTHER FRIEND </button>
                 <button 
                   onClick={() => onAction('BETRAY', others[0].user_id)}
-                  style={{ padding: '1.5rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
+                  style={{ padding: '2rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
                 > BETRAY </button>
-                <button 
-                  onClick={() => onAction('QUIT')}
-                  style={{ padding: '1.5rem', border: 'none', background: '#4a5568', color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}
-                > QUIT </button>
               </div>
             </div>
           ) : (
@@ -4151,7 +3628,7 @@ function Round7PlayerView({ state, userId, onAction }: {
               <div style={{ border: '2px solid black', padding: '1rem' }}>
                 <h4 style={{ margin: '0 0 1rem 0', fontWeight: '900' }}>BETRAY</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {others.map((p:Round7Player) => (
+                  {others.map((p:any) => (
                     <button key={p.user_id} onClick={() => onAction('BETRAY', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
                       BETRAY {p.name}
                     </button>
@@ -4165,7 +3642,7 @@ function Round7PlayerView({ state, userId, onAction }: {
                   <button onClick={() => onAction('PROTECT', userId)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
                     PROTECT SELF
                   </button>
-                  {others.map((p:Round7Player) => (
+                  {others.map((p:any) => (
                     <button key={p.user_id} onClick={() => onAction('PROTECT', p.user_id)} style={{ padding: '8px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', border: '2px solid black' }}>
                       PROTECT {p.name}
                     </button>
@@ -4173,10 +3650,10 @@ function Round7PlayerView({ state, userId, onAction }: {
                 </div>
               </div>
 
-              {me.teammate_id && state.players.find((p:Round7Player)=>p.user_id === me.teammate_id)?.is_alive && (
+              {me.teammate_id && state.players.find((p:any)=>p.user_id === me.teammate_id)?.is_alive && (
                 <>
                   <button 
-                    onClick={() => onAction('SACRIFICE', me.teammate_id || undefined)}
+                    onClick={() => onAction('SACRIFICE', me.teammate_id)}
                     disabled={me.hearts < 2}
                     style={{ 
                       padding: '1rem', 
@@ -4196,6 +3673,15 @@ function Round7PlayerView({ state, userId, onAction }: {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {logs.length > 0 && (
+        <div style={{ marginTop: '2.5rem', borderTop: '4px solid black', paddingTop: '1.5rem' }}>
+          <h3 style={{ fontWeight: '900', fontSize: '1.2rem', marginBottom: '1rem' }}>LAST CYCLE RESULTS</h3>
+          <div style={{ maxHeight: '200px', overflowY: 'auto', background: '#f8f9fa', padding: '1rem', border: '2px solid black', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+            {logs.map((log, i) => <div key={i} style={{ marginBottom: '4px' }}>{`> ${log}`}</div>)}
+          </div>
         </div>
       )}
     </div>

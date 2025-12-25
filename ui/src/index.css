@@ -79,6 +79,72 @@ select:focus {
   }
 }
 
+/* Round 3 player view responsiveness */
+.match-view {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.match-card.active-duel,
+.match-card {
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.match-teams {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: center;
+}
+
+.team-box {
+  width: 100%;
+  word-break: break-word;
+}
+
+.vs-badge {
+  justify-self: center;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .match-view {
+    max-width: 100%;
+    padding: 0 0.75rem 1rem;
+  }
+  .match-card.active-duel .match-header,
+  .match-card.active-duel .match-footer {
+    padding: 0.75rem;
+  }
+  .match-card.active-duel .match-teams {
+    padding: 1rem 0.5rem;
+    grid-template-columns: 1fr;
+  }
+  .match-card.active-duel .team-box {
+    padding: 0.9rem;
+  }
+  .match-card.active-duel .vs-badge {
+    font-size: 1.1rem;
+    order: -1;
+    padding: 0.25rem 0;
+  }
+  .match-card .section-title,
+  .match-card h2,
+  .match-card h3 {
+    font-size: 1.1rem;
+  }
+  .match-card.active-duel .team-box .score-dots {
+    justify-content: center;
+  }
+}
+
 .title {
   font-size: 2rem;
   text-transform: uppercase;
@@ -101,6 +167,7 @@ select:focus {
   border-bottom: var(--border-width) solid black;
   padding: 1rem 0;
   margin-bottom: 1.5rem;
+  position: relative;
 }
 
 @media (min-width: 768px) {
@@ -119,6 +186,74 @@ select:focus {
 
 .nav a:hover {
   text-decoration: underline;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.user-name {
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.user-role {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.avatar-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid black;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  color: black;
+  box-shadow: 4px 4px 0px black;
+}
+
+.user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-menu-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background: white;
+  border: 3px solid black;
+  box-shadow: 6px 6px 0px black;
+  padding: 0.75rem 1rem;
+  min-width: 240px;
+  max-width: 90vw;
+  z-index: 50;
+  color: black;
+}
+
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: flex;
 }
 
 .error {
@@ -199,6 +334,13 @@ select:focus {
   background: black;
   color: white;
   transform: none;
+}
+
+.admin-select, .admin-input {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  border: 2px solid black;
+  padding: 8px;
 }
 
 .admin-nav-tabs button:hover:not(.active) {
@@ -604,6 +746,15 @@ select:focus {
 @media (max-width: 768px) {
   .admin-nav-tabs {
     flex-wrap: wrap;
+  }
+
+  .desktop-only {
+    display: flex;
+  }
+
+  .mobile-only {
+    display: flex;
+    align-items: center;
   }
 
   .admin-nav-tabs button {
