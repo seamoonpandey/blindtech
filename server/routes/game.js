@@ -955,7 +955,12 @@ const performR5NextRound = async (gameId) => {
           clients.set(currentUser.id, { socket, user: currentUser });
           
           // Send current state
-          const stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          let stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          if (stateRes.rows.length === 0) {
+            // Bootstrap game_state if missing to avoid admin/client stalling on load
+            await db.query("INSERT INTO game_state (id, current_round, status) VALUES (1, 1, 'active')");
+            stateRes = await db.query('SELECT * FROM game_state WHERE id = 1');
+          }
           const leaderboard = await calculateLeaderboard();
           
           // Admin doesn't need submission or elimination status from DB
@@ -1006,6 +1011,28 @@ const performR5NextRound = async (gameId) => {
             }
           }
 
+          // Get team info for the current user (skip for static admin, which is not a UUID)
+          let teamInfo = null;
+          if (currentUser.id !== 'admin-id') {
+            const teamInfoRes = await db.query(`
+              SELECT t.name as team_name, 
+                     u1.name as user1_name, u2.name as user2_name,
+                     u1.id as user1_id, u2.id as user2_id
+              FROM teams t
+              JOIN users u1 ON t.user1_id = u1.id
+              JOIN users u2 ON t.user2_id = u2.id
+              WHERE t.user1_id = $1 OR t.user2_id = $1
+            `, [currentUser.id]);
+            
+            if (teamInfoRes.rows.length > 0) {
+              const t = teamInfoRes.rows[0];
+              teamInfo = {
+                teamName: t.team_name,
+                partnerName: t.user1_id === currentUser.id ? t.user2_name : t.user1_name
+              };
+            }
+          }
+
           socket.send(JSON.stringify({ 
             type: 'init', 
             state: stateRes.rows[0],
@@ -1019,7 +1046,8 @@ const performR5NextRound = async (gameId) => {
             round5_games,
             admin_teams,
             admin_users,
-            lottery_pool
+            lottery_pool,
+            teamInfo
           }));
           // If round 2 is active, send the pool
           if (stateRes.rows[0].current_round === 2) {
@@ -2177,6 +2205,75 @@ const performR5NextRound = async (gameId) => {
             // Broadcast update to all admins/volunteers
             await broadcastAllAdminData();
           }
+        }
+
+        if (data.type === 'admin_delete_user' && currentUser.role === 'admin') {
+          const { userId } = data;
+          try {
+            // Delete dependent records first to avoid FK violations
+            await db.query('DELETE FROM teams WHERE user1_id = $1 OR user2_id = $1', [userId]);
+            await db.query('DELETE FROM submissions WHERE user_id = $1', [userId]);
+            await db.query('DELETE FROM lottery_pool WHERE taken_by = $1', [userId]);
+            await db.query('DELETE FROM round3_matches WHERE volunteer_id = $1', [userId]);
+            await db.query('DELETE FROM round4_sessions WHERE volunteer_id = $1', [userId]);
+            await db.query('DELETE FROM round5_games WHERE volunteer_id = $1', [userId]);
+            await db.query('DELETE FROM round6_votes WHERE voter_id = $1 OR target_id = $1', [userId]);
+            
+            await db.query('DELETE FROM users WHERE id = $1', [userId]);
+            console.log(`ADMIN: DELETED user ${userId}`);
+            await broadcastAllAdminData();
+          } catch (err) {
+            console.error('DELETE USER ERROR:', err);
+            socket.send(JSON.stringify({ type: 'error', message: 'Failed to delete user: ' + err.message }));
+          }
+        }
+
+        if (data.type === 'admin_delete_team' && currentUser.role === 'admin') {
+          const { teamId } = data;
+          try {
+            // Delete dependent records first
+            await db.query('DELETE FROM round3_matches WHERE team1_id = $1 OR team2_id = $1', [teamId]);
+            await db.query('DELETE FROM round4_sessions WHERE team_id = $1', [teamId]);
+            await db.query('DELETE FROM round5_games WHERE team_a_id = $1 OR team_b_id = $1', [teamId]);
+            
+            await db.query('DELETE FROM teams WHERE id = $1', [teamId]);
+            console.log(`ADMIN: DELETED team ${teamId}`);
+            await broadcastAllAdminData();
+          } catch (err) {
+            console.error('DELETE TEAM ERROR:', err);
+            socket.send(JSON.stringify({ type: 'error', message: 'Failed to delete team: ' + err.message }));
+          }
+        }
+
+        if (data.type === 'admin_create_team' && currentUser.role === 'admin') {
+          const { user1Id, user2Id, teamName } = data;
+          await db.query(
+            'INSERT INTO teams (user1_id, user2_id, round_formed, name) VALUES ($1, $2, 2, $3)',
+            [user1Id, user2Id, teamName]
+          );
+          console.log(`ADMIN: CREATED team ${teamName} for ${user1Id} and ${user2Id}`);
+          
+          // Notify players
+          const u1Res = await db.query('SELECT name FROM users WHERE id = $1', [user1Id]);
+          const u2Res = await db.query('SELECT name FROM users WHERE id = $1', [user2Id]);
+          
+          const c1 = clients.get(user1Id);
+          if (c1 && c1.socket.readyState === 1) {
+            c1.socket.send(JSON.stringify({ 
+              type: 'selection_result', 
+              result: { type: 'team', partner: u2Res.rows[0]?.name, teamName } 
+            }));
+          }
+          
+          const c2 = clients.get(user2Id);
+          if (c2 && c2.socket.readyState === 1) {
+            c2.socket.send(JSON.stringify({ 
+              type: 'selection_result', 
+              result: { type: 'team', partner: u1Res.rows[0]?.name, teamName } 
+            }));
+          }
+
+          await broadcastAllAdminData();
         }
 
         if (data.type === 'admin_reset_round' && currentUser.role === 'admin') {

@@ -201,6 +201,13 @@ select:focus {
   transform: none;
 }
 
+.admin-select, .admin-input {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  border: 2px solid black;
+  padding: 8px;
+}
+
 .admin-nav-tabs button:hover:not(.active) {
   background: #f0f0f0;
   color: black;

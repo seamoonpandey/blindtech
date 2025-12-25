@@ -181,6 +181,9 @@ interface AdminViewProps {
   onReviveUser: (id: string) => void;
   onEliminateTeam: (id: string) => void;
   onReviveTeam: (id: string) => void;
+  onDeleteUser: (id: string) => void;
+  onDeleteTeam: (id: string) => void;
+  onCreateTeam: (u1: string, u2: string, name: string) => void;
   onStartRound: (r: number) => void;
   onFinishRound: (r: number) => void;
   onStartRound2: (count?: number) => void;
@@ -1110,6 +1113,9 @@ function AdminView({
   onReviveUser,
   onEliminateTeam,
   onReviveTeam,
+  onDeleteUser,
+  onDeleteTeam,
+  onCreateTeam,
   onStartRound,
   onFinishRound,
   onStartRound2,
@@ -1127,6 +1133,12 @@ function AdminView({
   const [activeTab, setActiveTab] = useState('control');
   const [leaderboardPage, setLeaderboardPage] = useState(1);
   const [dataSubTab, setDataSubTab] = useState('r3');
+  
+  // Manual Team Formation State
+  const [u1, setU1] = useState('');
+  const [u2, setU2] = useState('');
+  const [manualTeamName, setManualTeamName] = useState('');
+
   const surviversCount = adminUsers.filter((u: AdminUser) => !u.is_eliminated && u.role === 'player').length;
 
   return (
@@ -1135,7 +1147,9 @@ function AdminView({
         <button className={activeTab === 'control' ? 'active' : ''} onClick={() => setActiveTab('control')}>CONTROL</button>
         <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => setActiveTab('leaderboard')}>LEADERBOARD</button>
         <button className={activeTab === 'management' ? 'active' : ''} onClick={() => setActiveTab('management')}>MANAGEMENT</button>
+        <button className={activeTab === 'volunteers' ? 'active' : ''} onClick={() => setActiveTab('volunteers')}>VOLUNTEERS</button>
         <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>DATA HISTORY</button>
+        <button className={activeTab === 'deletion' ? 'active' : ''} onClick={() => setActiveTab('deletion')}>DELETION</button>
         <button className={activeTab === 'recovery' ? 'active' : ''} onClick={() => setActiveTab('recovery')}>RECOVERY</button>
       </div>
 
@@ -1325,6 +1339,46 @@ function AdminView({
               </div>
 
               <div className="card">
+                <h3>MANUAL TEAM FORMATION</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px' }}>
+                  <select value={u1} onChange={(e) => setU1(e.target.value)} className="admin-select">
+                    <option value="">Select Player 1</option>
+                    {adminUsers.filter(u => u.role === 'player' && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id)).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <select value={u2} onChange={(e) => setU2(e.target.value)} className="admin-select">
+                    <option value="">Select Player 2</option>
+                    {adminUsers.filter(u => u.role === 'player' && u.id !== u1 && !adminTeams.some(t => t.user1_id === u.id || t.user2_id === u.id)).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    placeholder="Team Name" 
+                    value={manualTeamName} 
+                    onChange={(e) => setManualTeamName(e.target.value)}
+                    className="admin-input"
+                  />
+                  <button 
+                    className="admin-btn primary" 
+                    onClick={() => {
+                      if (u1 && u2 && manualTeamName) {
+                        onCreateTeam(u1, u2, manualTeamName);
+                        setU1('');
+                        setU2('');
+                        setManualTeamName('');
+                      } else {
+                        alert('Please select two players and enter a team name.');
+                      }
+                    }}
+                  >
+                    FORM TEAM
+                  </button>
+                </div>
+              </div>
+
+              <div className="card">
                 <h3>TEAMS MANAGEMENT (R2+)</h3>
                 <div className="admin-user-scroll">
                   {adminTeams.map((t: AdminTeam) => {
@@ -1359,6 +1413,64 @@ function AdminView({
                       {gameState.current_round < 2 ? "Teams will be formed in Round 2." : "No teams have been formed yet."}
                     </p>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'volunteers' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">VOLUNTEERS LIST</h1>
+            <div className="card">
+              <div className="admin-user-scroll">
+                {adminUsers.filter((u: AdminUser) => u.role === 'volunteer').map((u: AdminUser) => (
+                  <div key={u.id} className="admin-user-item">
+                    <span>{u.name} ({u.email})</span>
+                    <span className="status-badge active">VOLUNTEER</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'deletion' && (
+          <div className="admin-tab-pane">
+            <h1 className="admin-pane-title">DELETION PANEL</h1>
+            <div style={{ background: '#fee2e2', padding: '1rem', marginBottom: '2rem', border: '2px solid #ef4444', borderRadius: '4px' }}>
+              <h3 style={{ color: '#b91c1c', marginTop: 0 }}>⚠️ WARNING</h3>
+              <p style={{ fontSize: '0.9rem', color: '#7f1d1d' }}>Deleting is permanent and removes the record from the database. This is different from elimination.</p>
+            </div>
+            <div className="admin-management-grid">
+              <div className="card">
+                <h3>DELETE USERS</h3>
+                <div className="admin-user-scroll">
+                  {adminUsers.map((u: AdminUser) => (
+                    <div key={u.id} className="admin-user-item">
+                      <span>{u.name} ({u.role})</span>
+                      <button className="admin-btn-sm danger" onClick={() => {
+                        if (window.confirm(`Are you sure you want to PERMANENTLY DELETE ${u.name}?`)) {
+                          onDeleteUser(u.id);
+                        }
+                      }}>DELETE</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card">
+                <h3>DELETE TEAMS</h3>
+                <div className="admin-user-scroll">
+                  {adminTeams.map((t: AdminTeam) => (
+                    <div key={t.id} className="admin-user-item">
+                      <span>{t.name}</span>
+                      <button className="admin-btn-sm danger" onClick={() => {
+                        if (window.confirm(`Are you sure you want to PERMANENTLY DELETE team ${t.name}?`)) {
+                          onDeleteTeam(t.id);
+                        }
+                      }}>DELETE</button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1590,6 +1702,7 @@ export default function Game() {
   const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string, team_name?: string}[]>([]);
   const [round2Role, setRound2Role] = useState<'leader' | 'selector' | null>(null);
   const [selectionResult, setSelectionResult] = useState<{type: 'team' | 'eliminated', partner?: string, quote?: string, teamName?: string} | null>(null);
+  const [teamInfo, setTeamInfo] = useState<{teamName: string, partnerName: string} | null>(null);
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isEliminated, setIsEliminated] = useState(false);
   const [round3Matches, setRound3Matches] = useState<Round3Match[]>([]);
@@ -1661,6 +1774,7 @@ export default function Game() {
         if (data.round3_matches) setRound3Matches(data.round3_matches);
         if (data.round4_sessions) setRound4Sessions(data.round4_sessions);
         if (data.round5_games) setRound5Games(data.round5_games);
+        if (data.teamInfo) setTeamInfo(data.teamInfo);
       } else if (data.type === 'state_update') {
         console.log('RECEIVED STATE UPDATE:', data.state);
         setGameState(data.state);
@@ -1678,6 +1792,12 @@ export default function Game() {
         setLotteryPool(prev => prev.map(c => c.id === data.cardId ? { ...c, is_taken: true, taken_by: data.taken_by } : c));
       } else if (data.type === 'selection_result') {
         setSelectionResult(data.result);
+        if (data.result.type === 'team') {
+          setTeamInfo({
+            teamName: data.result.teamName,
+            partnerName: data.result.partner
+          });
+        }
       } else if (data.type === 'duel_result') {
         // Update elimination status without showing alerts
         if (data.result === 'disqualified') {
@@ -2009,6 +2129,18 @@ export default function Game() {
     ws?.send(JSON.stringify({ type: 'admin_manage_team', teamId, isEliminated: false }));
   };
 
+  const deleteUser = (userId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_delete_user', userId }));
+  };
+
+  const deleteTeam = (teamId: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_delete_team', teamId }));
+  };
+
+  const createTeam = (user1Id: string, user2Id: string, teamName: string) => {
+    ws?.send(JSON.stringify({ type: 'admin_create_team', user1Id, user2Id, teamName }));
+  };
+
   const togglePlayer = (player: Player) => {
     if (selectedPlayers.find(p => p.id === player.id)) {
       setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
@@ -2053,6 +2185,14 @@ export default function Game() {
     setSubmitted(true);
   };
 
+  // Prevent admin UI from stalling if websocket state hasn't arrived yet
+  useEffect(() => {
+    if (user && user.role === 'admin' && !gameState) {
+      // Fallback minimal state; real state will override once WS init arrives
+      setGameState({ current_round: 1, status: 'active' });
+    }
+  }, [user, gameState]);
+
   if (!user || !gameState) return <div className="container">Loading...</div>;
 
   // Admin View
@@ -2081,6 +2221,9 @@ export default function Game() {
           onReviveUser={reviveUser}
           onEliminateTeam={eliminateTeam}
           onReviveTeam={reviveTeam}
+          onDeleteUser={deleteUser}
+          onDeleteTeam={deleteTeam}
+          onCreateTeam={createTeam}
           onStartRound={startRound}
           onFinishRound={finishRound}
           onStartRound2={startRound2}
@@ -2107,6 +2250,11 @@ export default function Game() {
           <div className="user-meta">
             <div className="user-name">{user.name.toUpperCase()}</div>
             <div className="user-role">{user.role.toUpperCase()}</div>
+            {teamInfo && (
+              <div className="user-team" style={{ fontSize: '0.7rem', color: '#4ade80', fontWeight: 'bold', marginTop: '2px' }}>
+                TEAM: {teamInfo.teamName.toUpperCase()} | PARTNER: {teamInfo.partnerName.toUpperCase()}
+              </div>
+            )}
           </div>
           <button onClick={logout} className="exit-btn">EXIT</button>
         </div>
