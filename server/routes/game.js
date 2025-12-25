@@ -1540,8 +1540,8 @@ const performR5NextRound = async (gameId) => {
               teamBTurnOrder ? JSON.stringify(teamBTurnOrder) : null,
               isBye ? 'finished' : 'active',
               isBye ? 'team_a_win' : null,
-              15, // Initial Momentum increased to 15
-              15
+              9, // Initial Momentum
+              9
             ]);
             
             if (isBye) {
