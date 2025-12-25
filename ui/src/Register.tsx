@@ -27,7 +27,7 @@ export default function Register() {
       } else {
         setError(data.error);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to register');
     }
   };

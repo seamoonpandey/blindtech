@@ -6,7 +6,7 @@ export interface PlayerState {
   hearts: number;
   isAlive: boolean;
   teammateId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface CycleAction {
@@ -27,8 +27,8 @@ export function resolveCycle(players: PlayerState[], actions: CycleAction[]): Cy
   const updatedPlayers = players.map(p => ({ ...p, hearts: Number(p.hearts), isAlive: !!p.isAlive }));
   const logs: string[] = [];
 
-  const getPid = (p: any): string => {
-    const raw = p.id || p.user_id || p.playerId;
+  const getPid = (p: PlayerState | CycleAction): string => {
+    const raw = (p as PlayerState).id || (p as CycleAction).user_id || (p as CycleAction).playerId;
     return raw ? String(raw).toLowerCase() : '';
   };
   const getPlayer = (id: string) => {
