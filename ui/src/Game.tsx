@@ -1733,6 +1733,7 @@ export default function Game() {
   const [submitted, setSubmitted] = useState(false);
   const [initialSubmission, setInitialSubmission] = useState<{target_id: string, rank: number}[] | null>(null);
   const [activeTab, setActiveTab] = useState<'game' | 'leaderboard'>('game');
+  const [showUserMenu, setShowUserMenu] = useState(false);
   
   // Round 2 States
   const [lotteryPool, setLotteryPool] = useState<{id: string, is_taken: boolean, taken_by?: string, taken_by_name?: string, content_name?: string, team_name?: string}[]>([]);
@@ -1757,6 +1758,18 @@ export default function Game() {
     return map;
   }, [players, adminUsers, user]);
   const displayName = (id?: string | null) => (id ? (nameById.get(id) || id) : '—');
+  const getRoundName = (round: number) => {
+    switch (round) {
+      case 1: return 'Popularity Hell';
+      case 2: return 'Lottery';
+      case 3: return 'Physical Trials';
+      case 4: return 'Coding Club';
+      case 5: return 'The Paradox';
+      case 6: return 'The Vote';
+      case 7: return 'Game of Hearts';
+      default: return 'Pending Orders';
+    }
+  };
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1797,15 +1810,16 @@ export default function Game() {
       if (user.name) return user.name;
       return displayName(user.id);
     },
-    [user, nameById]
+    [user, displayName]
   );
+  const avatarLetter = (currentUserDisplayName || user?.name || 'U').trim().charAt(0).toUpperCase() || 'U';
   const resolvedTeamInfo = useMemo(() => {
     if (!teamInfo) return null;
     return {
       teamName: teamInfo.teamName,
       partnerName: displayName(teamInfo.partnerName)
     };
-  }, [teamInfo, nameById]);
+  }, [teamInfo, displayName]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -2261,6 +2275,9 @@ export default function Game() {
   // Require real game state before rendering
   if (!user || !gameState) return <div className="container">Loading...</div>;
 
+  const nextRoundNumber = gameState.current_round + 1;
+  const nextRoundName = getRoundName(nextRoundNumber);
+
   // Admin View
   if (user.role === 'admin') {
     return (
@@ -2312,28 +2329,34 @@ export default function Game() {
     <div className="container" style={{ maxWidth: '1200px', padding: '10px' }}>
       <div className="nav">
         <div className="logo">BLINDTECH.EXE</div>
-        <div className="user-info">
-          <div className="user-meta">
-              <div className="user-name">{(currentUserDisplayName || user.name || '').toUpperCase()}</div>
-            <div className="user-role">{user.role.toUpperCase()}</div>
-              {resolvedTeamInfo && (
-              <div className="user-team" style={{ fontSize: '0.7rem', color: '#4ade80', fontWeight: 'bold', marginTop: '2px' }}>
-                  TEAM: {resolvedTeamInfo.teamName.toUpperCase()} | PARTNER: {resolvedTeamInfo.partnerName.toUpperCase()}
+        <div className="user-menu">
+          <button className="avatar-btn" onClick={() => setShowUserMenu(!showUserMenu)}>{avatarLetter}</button>
+          {showUserMenu && (
+            <div className="user-menu-pop">
+              <div className="user-meta">
+                <div className="user-name">{(currentUserDisplayName || user.name || '').toUpperCase()}</div>
+                <div className="user-role">{user.role.toUpperCase()}</div>
+                <div className="user-team" style={{ fontSize: '0.75rem', fontWeight: 'bold', marginTop: '6px', lineHeight: 1.4 }}>
+                  <div>TEAM: <span style={{ color: '#22c55e' }}>{(resolvedTeamInfo?.teamName || 'UNASSIGNED').toUpperCase()}</span></div>
+                  <div>PARTNER: <span style={{ color: '#6366f1' }}>{(resolvedTeamInfo?.partnerName || 'TBD').toUpperCase()}</span></div>
+                </div>
               </div>
-            )}
-          </div>
-          <button onClick={logout} className="exit-btn">EXIT</button>
+              <button onClick={() => { setShowUserMenu(false); logout(); }} className="exit-btn" style={{ width: '100%', marginTop: '0.75rem' }}>EXIT</button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Mobile Tab Switcher */}
       <div className="mobile-tabs">
-        <button 
-          className={`tab-btn ${activeTab === 'game' ? 'active' : ''}`}
-          onClick={() => setActiveTab('game')}
-        >
-          MISSION
-        </button>
+        {(user.role === 'volunteer' || gameState.current_round <= 1) && (
+          <button 
+            className={`tab-btn ${activeTab === 'game' ? 'active' : ''}`}
+            onClick={() => setActiveTab('game')}
+          >
+            MISSION
+          </button>
+        )}
         {(user.role === 'volunteer' || gameState.current_round <= 1) && (
           <button 
             className={`tab-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
@@ -2455,9 +2478,16 @@ export default function Game() {
                 <span></span><span></span><span></span>
               </div>
               <h2 className="section-title">SYSTEM STANDBY</h2>
-              <p style={{ fontSize: '1rem', marginTop: '0.5rem' }}>Waiting for the Game Master to start the next round.</p>
+              <p style={{ fontSize: '1rem', marginTop: '0.5rem' }}>
+                Waiting for the <span style={{ color: '#22d3ee', fontWeight: 800 }}>Game Master</span> to start the next round.
+              </p>
+              <p style={{ marginTop: '0.5rem', fontWeight: 700 }}>
+                Next Round: <span style={{ color: '#a855f7' }}>Round {nextRoundNumber}</span> — <span style={{ color: '#f97316' }}>{nextRoundName}</span>
+              </p>
               <p style={{ marginTop: '0.75rem', opacity: 0.8 }}>{standbyQuote}</p>
-              <p style={{ marginTop: '0.75rem', fontWeight: 700 }}>Listen closely. Missing instructions might make you the next elimination.</p>
+              <p style={{ marginTop: '0.75rem', fontWeight: 800, color: '#ef4444' }}>
+                Listen closely. Missing instructions might make you the next elimination.
+              </p>
             </div>
           )}
 
@@ -3102,7 +3132,7 @@ export default function Game() {
 
         .user-meta {
           text-align: left;
-          display: none;
+          display:block;
         }
 
         @media (min-width: 480px) {

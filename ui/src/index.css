@@ -167,6 +167,7 @@ select:focus {
   border-bottom: var(--border-width) solid black;
   padding: 1rem 0;
   margin-bottom: 1.5rem;
+  position: relative;
 }
 
 @media (min-width: 768px) {
@@ -185,6 +186,74 @@ select:focus {
 
 .nav a:hover {
   text-decoration: underline;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.user-name {
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.user-role {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.avatar-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid black;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  color: black;
+  box-shadow: 4px 4px 0px black;
+}
+
+.user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-menu-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background: white;
+  border: 3px solid black;
+  box-shadow: 6px 6px 0px black;
+  padding: 0.75rem 1rem;
+  min-width: 240px;
+  max-width: 90vw;
+  z-index: 50;
+  color: black;
+}
+
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: flex;
 }
 
 .error {
@@ -677,6 +746,15 @@ select:focus {
 @media (max-width: 768px) {
   .admin-nav-tabs {
     flex-wrap: wrap;
+  }
+
+  .desktop-only {
+    display: flex;
+  }
+
+  .mobile-only {
+    display: flex;
+    align-items: center;
   }
 
   .admin-nav-tabs button {
