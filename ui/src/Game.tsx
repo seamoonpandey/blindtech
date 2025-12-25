@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL, WS_URL } from './config';
@@ -323,7 +323,7 @@ function SortablePlayer({ player, index, isLast, onMove, onRemove }: { player: P
   );
 }
 
-function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { userId: string; matches: Round3Match[]; isEliminated: boolean; randomQuote: string }) {
+function Round3PlayerView({ userId, matches, isEliminated, randomQuote, displayName }: { userId: string; matches: Round3Match[]; isEliminated: boolean; randomQuote: string; displayName: (id?: string | null) => string }) {
   const myMatch = matches.find(m => 
     m.team1_user1 === userId || m.team1_user2 === userId || 
     m.team2_user1 === userId || m.team2_user2 === userId
@@ -380,35 +380,45 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
                   })()}
                 </div>
               ) : (
-                <div className="match-card active-duel" style={{ border: '4px solid #00ff00', background: '#f0fff0', borderRadius: '12px', overflow: 'hidden' }}>
-                   <div className="match-header" style={{ padding: '1rem', background: '#e0ffe0', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                <div className="match-card active-duel" style={{ border: '2px solid #e5e7eb', background: '#ffffff', borderRadius: '12px', overflow: 'hidden' }}>
+                   <div className="match-header" style={{ padding: '1rem', background: '#f3f4f6', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                       <span>DUEL IN PROGRESS</span>
-                      <span style={{ color: myMatch.status === 'active' ? '#00cc00' : '#888' }}>{myMatch.status.toUpperCase()}</span>
+                      <span style={{ color: myMatch.status === 'active' ? '#111' : '#666' }}>{myMatch.status.toUpperCase()}</span>
                    </div>
-                   <div className="match-teams" style={{ padding: '2rem 1rem' }}>
-                      <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={isTeam1 ? { background: '#fff', border: '3px solid #00ff00', borderRadius: '12px', padding: '1.5rem' } : { padding: '1.5rem', opacity: 0.6 }}>
-                         {isTeam1 && <div style={{ fontSize: '0.8rem', color: '#00cc00', fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TEAM</div>}
-                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>{myMatch.team1_name}</div>
-                         <div className="score-dots" style={{ marginTop: '1rem' }}>
-                            {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
-                              <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '15px', height: '15px' }} />
-                            ))}
-                         </div>
-                      </div>
-                      <div className="vs-badge" style={{ fontSize: '2rem', fontWeight: 'black', opacity: 0.3 }}>VS</div>
-                      <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={!isTeam1 ? { background: '#fff', border: '3px solid #00ff00', borderRadius: '12px', padding: '1.5rem' } : { padding: '1.5rem', opacity: 0.6 }}>
-                         {!isTeam1 && <div style={{ fontSize: '0.8rem', color: '#00cc00', fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TEAM</div>}
-                         <div style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
-                         <div className="score-dots" style={{ marginTop: '1rem' }}>
-                            {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
-                              <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '15px', height: '15px' }} />
-                            ))}
-                         </div>
-                      </div>
+                   <div className="match-teams" style={{ padding: '1rem 0.75rem', gap: '0.75rem', display: 'grid', gridTemplateColumns: '1fr' }}>
+                     <div className={`team-box ${isTeam1 ? 'my-team' : ''}`} style={{ background: '#f9fafb', border: '1px solid #d1d5db', borderRadius: '12px', padding: '0.9rem' }}>
+                       {isTeam1 && <div style={{ fontSize: '0.7rem', color: '#374151', fontWeight: 'bold', marginBottom: '0.25rem' }}>YOUR TEAM</div>}
+                       <div style={{ fontWeight: '800', fontSize: '1rem', letterSpacing: '0.02em' }}>{myMatch.team1_name}</div>
+                       <div style={{ fontSize: '0.8rem', marginTop: '0.35rem', lineHeight: 1.3, opacity: 0.85 }}>
+                         <div>{displayName(myMatch.team1_user1)}</div>
+                         <div>{displayName(myMatch.team1_user2)}</div>
+                       </div>
+                       <div className="score-dots" style={{ marginTop: '0.6rem' }}>
+                         {Array.isArray(myMatch.team1_scores) && myMatch.team1_scores.map((s: boolean, i: number) => (
+                          <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '12px', height: '12px' }} />
+                         ))}
+                       </div>
+                     </div>
+
+                     <div style={{ textAlign: 'center', fontWeight: '900', fontSize: '0.9rem', letterSpacing: '0.08em', opacity: 0.6 }}>VS</div>
+
+                     <div className={`team-box ${!isTeam1 ? 'my-team' : ''}`} style={{ background: '#f9fafb', border: '1px solid #d1d5db', borderRadius: '12px', padding: '0.9rem' }}>
+                       {!isTeam1 && <div style={{ fontSize: '0.7rem', color: '#374151', fontWeight: 'bold', marginBottom: '0.25rem' }}>YOUR TEAM</div>}
+                       <div style={{ fontWeight: '800', fontSize: '1rem', letterSpacing: '0.02em' }}>{myMatch.team2_name || 'LUCKY PASS'}</div>
+                       <div style={{ fontSize: '0.8rem', marginTop: '0.35rem', lineHeight: 1.3, opacity: 0.85 }}>
+                         <div>{displayName(myMatch.team2_user1) || '—'}</div>
+                         <div>{displayName(myMatch.team2_user2) || '—'}</div>
+                       </div>
+                       <div className="score-dots" style={{ marginTop: '0.6rem' }}>
+                         {Array.isArray(myMatch.team2_scores) && myMatch.team2_scores.map((s: boolean, i: number) => (
+                          <div key={i} className={`score-dot ${s ? 'plus' : 'minus'}`} style={{ width: '12px', height: '12px' }} />
+                         ))}
+                       </div>
+                     </div>
                    </div>
-                   <div className="match-footer" style={{ textAlign: 'center', padding: '1.5rem', background: '#f9fff9', borderTop: '1px solid #e0ffe0' }}>
+                   <div className="match-footer" style={{ textAlign: 'center', padding: '1.2rem', background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
                      {myMatch.status === 'waiting' && <span style={{ fontWeight: 'bold', opacity: 0.6 }}>AWAITING REFEREE TO START...</span>}
-                     {myMatch.status === 'active' && <span style={{ color: '#00cc00', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>SUBROUND {myMatch.current_subround}/3 LIVE</span>}
+                     {myMatch.status === 'active' && <span style={{ color: '#111827', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>SUBROUND {myMatch.current_subround}/3 LIVE</span>}
                    </div>
                 </div>
               )}
@@ -426,12 +436,13 @@ function Round3PlayerView({ userId, matches, isEliminated, randomQuote }: { user
   );
 }
 
-function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify }: { 
+function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisqualify, displayName }: { 
   volunteerId: string; 
   matches: Round3Match[]; 
   onJoin: (id: string) => void; 
   onScore: (id: string, idx: 1 | 2, score: boolean) => void; 
   onDisqualify: (id: string, idx: 1 | 2) => void;
+  displayName: (id?: string | null) => string;
 }) {
   const myMatch = matches.find(m => m.volunteer_id === volunteerId && m.status === 'active');
 
@@ -439,14 +450,30 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
     <div className="volunteer-round3" style={{ marginTop: '1rem' }}>
       <h2 className="section-title">ROUND 3: MATCH REFEREE</h2>
       {myMatch ? (
-        <div className="match-card active-match" style={{ border: '4px solid #00ff00' }}>
-          <div className="match-header">
-            <span>ACTIVE DUEL - ROUND {myMatch.current_subround}/3</span>
+        <div className="match-card active-match" style={{ border: '2px solid #e5e7eb', background: '#ffffff' }}>
+          <div className="match-header" style={{ background: '#f3f4f6' }}>
+            <span style={{ fontSize: '0.95rem' }}>ACTIVE DUEL - ROUND {myMatch.current_subround}/3</span>
           </div>
-          <div className="match-teams">
-            <div className="team-box">{myMatch.team1_name}</div>
-            <div className="vs-badge">VS</div>
-            <div className="team-box">{myMatch.team2_name || 'BYE'}</div>
+          <div className="match-teams" style={{ gap: '0.5rem', display: 'grid', gridTemplateColumns: '1fr' }}>
+            <div className="team-box" style={{ fontSize: '0.95rem', fontWeight: 800, padding: '0.75rem', background: '#f9fafb', borderRadius: '10px', border: '1px solid #d1d5db' }}>
+              <div style={{ fontSize: '0.75rem', opacity: 0.65, letterSpacing: '0.05em', marginBottom: '0.2rem' }}>TEAM</div>
+              <div>{myMatch.team1_name}</div>
+              <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', lineHeight: 1.3, opacity: 0.85 }}>
+                <div>{displayName(myMatch.team1_user1)}</div>
+                <div>{displayName(myMatch.team1_user2)}</div>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '0.85rem', letterSpacing: '0.08em', opacity: 0.6 }}>VS</div>
+
+            <div className="team-box" style={{ fontSize: '0.95rem', fontWeight: 800, padding: '0.75rem', background: '#f9fafb', borderRadius: '10px', border: '1px solid #d1d5db' }}>
+              <div style={{ fontSize: '0.75rem', opacity: 0.65, letterSpacing: '0.05em', marginBottom: '0.2rem' }}>TEAM</div>
+              <div>{myMatch.team2_name || 'BYE'}</div>
+              <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', lineHeight: 1.3, opacity: 0.85 }}>
+                <div>{displayName(myMatch.team2_user1) || '—'}</div>
+                <div>{displayName(myMatch.team2_user2) || '—'}</div>
+              </div>
+            </div>
           </div>
           
           <div className="scoring-controls">
@@ -518,10 +545,9 @@ function Round3VolunteerView({ volunteerId, matches, onJoin, onScore, onDisquali
                   <span style={{ color: m.status === 'active' ? '#00cc00' : (m.status === 'finished' ? '#4444ff' : '#888') }}>{m.status.toUpperCase()}</span>
                   <span>{m.volunteer_name ? `Ref: ${m.volunteer_name}` : 'NO REFEREE'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{m.team1_name}</div>
-                  <div style={{ opacity: 0.3, fontWeight: 'bold' }}>VS</div>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{m.team2_name || 'LUCKY PASS'}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', rowGap: '0.35rem', alignItems: 'center', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                  <div style={{ lineHeight: 1.2 }}>{m.team1_name}</div>
+                  <div style={{ lineHeight: 1.2, color: '#555' }}>{m.team2_name || 'LUCKY PASS'}</div>
                 </div>
                 
                 {m.status === 'waiting' && !m.volunteer_id && (
@@ -1498,7 +1524,10 @@ function AdminView({
                     {round3Matches.length > 0 ? round3Matches.map((m: Round3Match) => (
                       <div key={m.id} className="admin-user-item">
                         <div className="admin-user-info">
-                          <strong>{m.team1_name} vs {m.team2_name}</strong>
+                          <strong style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.95rem' }}>
+                            <span>{m.team1_name}</span>
+                            <span style={{ color: '#555' }}>{m.team2_name}</span>
+                          </strong>
                           <small>Status: {m.status} | Winner: {m.winner_name || m.winner_team_id || 'PENDING'}</small>
                         </div>
                       </div>
@@ -1538,7 +1567,10 @@ function AdminView({
                     {round5Games.length > 0 ? round5Games.map((g: Round5Game) => (
                       <div key={g.id} className="admin-user-item">
                         <div className="admin-user-info">
-                          <strong>{g.team_a_name} vs {g.team_b_name}</strong>
+                          <strong style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.95rem' }}>
+                            <span>{g.team_a_name}</span>
+                            <span style={{ color: '#555' }}>{g.team_b_name}</span>
+                          </strong>
                           <small>Status: {g.status} | Result: {g.result || 'IN PROGRESS'}</small>
                         </div>
                       </div>
@@ -1717,6 +1749,14 @@ export default function Game() {
   const [r7Logs, setR7Logs] = useState<string[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]); // New state for Admin
   const [adminTeams, setAdminTeams] = useState<AdminTeam[]>([]); // Admin/Volunteer teams list
+  const nameById = useMemo(() => {
+    const map = new Map<string, string>();
+    if (user?.id && user.name) map.set(user.id, user.name);
+    players.forEach(p => map.set(p.id, p.name));
+    adminUsers.forEach(u => map.set(u.id, u.name));
+    return map;
+  }, [players, adminUsers, user]);
+  const displayName = (id?: string | null) => (id ? (nameById.get(id) || id) : '—');
   const [randomQuote] = useState(() => {
     const quotes = [
       "The only way to win is to not play.",
@@ -1738,6 +1778,21 @@ export default function Game() {
     ];
     return quotes[Math.floor(Math.random() * quotes.length)];
   });
+  const currentUserDisplayName = useMemo(
+    () => {
+      if (!user) return '';
+      if (user.name) return user.name;
+      return displayName(user.id);
+    },
+    [user, nameById]
+  );
+  const resolvedTeamInfo = useMemo(() => {
+    if (!teamInfo) return null;
+    return {
+      teamName: teamInfo.teamName,
+      partnerName: displayName(teamInfo.partnerName)
+    };
+  }, [teamInfo, nameById]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -2246,11 +2301,11 @@ export default function Game() {
         <div className="logo">BLINDTECH.EXE</div>
         <div className="user-info">
           <div className="user-meta">
-            <div className="user-name">{user.name.toUpperCase()}</div>
+              <div className="user-name">{(currentUserDisplayName || user.name || '').toUpperCase()}</div>
             <div className="user-role">{user.role.toUpperCase()}</div>
-            {teamInfo && (
+              {resolvedTeamInfo && (
               <div className="user-team" style={{ fontSize: '0.7rem', color: '#4ade80', fontWeight: 'bold', marginTop: '2px' }}>
-                TEAM: {teamInfo.teamName.toUpperCase()} | PARTNER: {teamInfo.partnerName.toUpperCase()}
+                  TEAM: {resolvedTeamInfo.teamName.toUpperCase()} | PARTNER: {resolvedTeamInfo.partnerName.toUpperCase()}
               </div>
             )}
           </div>
@@ -2427,6 +2482,7 @@ export default function Game() {
               matches={round3Matches} 
               isEliminated={isEliminated}
               randomQuote={randomQuote}
+              displayName={displayName}
             />
           )}
 
@@ -2437,6 +2493,7 @@ export default function Game() {
               onJoin={joinMatch}
               onScore={scoreTeam}
               onDisqualify={disqualifyTeam}
+              displayName={displayName}
             />
           )}
 
@@ -2628,7 +2685,7 @@ export default function Game() {
                       <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
                       <p>Your permanent partner is:</p>
                       <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
-                        {selectionResult.partner}
+                        {displayName(selectionResult.partner)}
                       </p>
                       {selectionResult.teamName && (
                         <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
@@ -2657,7 +2714,7 @@ export default function Game() {
                           <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>TEAM FORMED!</h3>
                           <p>Your permanent partner is:</p>
                           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00ff00', textShadow: '0 0 10px rgba(0,255,0,0.5)', marginBottom: '1.5rem' }}>
-                            {selectionResult.partner}
+                            {displayName(selectionResult.partner)}
                           </p>
                           {selectionResult.teamName && (
                             <div className="team-badge" style={{ display: 'inline-block', padding: '0.5rem 1rem', border: '2px solid #00ff00', color: '#00ff00', fontWeight: 'bold', fontSize: '1.2rem' }}>
