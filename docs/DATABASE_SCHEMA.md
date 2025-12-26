@@ -97,6 +97,8 @@ erDiagram
         integer team_b_momentum
         boolean team_a_pact_used
         boolean team_b_pact_used
+        jsonb team_a_exhausted_cards "Card Exhaustion System"
+        jsonb team_b_exhausted_cards "Card Exhaustion System"
         integer current_round
         varchar active_team "A|B"
         jsonb team_a_turn_order

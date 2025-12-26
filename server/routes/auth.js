@@ -4,7 +4,8 @@ const fp = require('fastify-plugin');
 
 async function authRoutes(fastify, options) {
   fastify.post('/register', async (request, reply) => {
-    const { name, email, password, role } = request.body;
+    const { name, email, password } = request.body;
+    const role = 'player'; // Default role for registration
     
     if (!['player', 'volunteer'].includes(role)) {
       return reply.code(400).send({ error: 'Invalid role' });
