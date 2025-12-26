@@ -4180,14 +4180,35 @@ function Round7PlayerView({ state, userId, onAction }: {
   const me = state.players.find((p: Round7Player) => p.user_id === userId);
   const alivePlayers = state.players.filter((p: Round7Player) => p.is_alive);
   const others = alivePlayers.filter((p: Round7Player) => p.user_id !== userId);
+  
+  // Detect if this was a Final Duel elimination (only 1 player left alive, or game finished with winner)
+  const isFinalDuelElimination = !me?.is_alive && (alivePlayers.length <= 1 || state.status === 'finished');
 
   if (!me) return <div className="card">CALIBRATING HEARTS...</div>;
 
   if (!me.is_alive) {
+    // Special message for Final Duel betrayal
+    const finalDuelMessage = (
+      <div style={{ textAlign: 'left', maxWidth: '500px', margin: '0 auto' }}>
+        <p style={{ fontSize: '1.1rem', marginBottom: '1rem', fontStyle: 'italic' }}>
+          "Karma is the greatest actor."
+        </p>
+        <p style={{ fontSize: '1rem', marginBottom: '1rem', opacity: 0.9 }}>
+          You betrayed someone who trusted you. Everything isn't fair in love and war, you know.
+        </p>
+        <p style={{ fontSize: '0.95rem', marginBottom: '1rem', opacity: 0.8 }}>
+          कर्म गर, पार्थ फलको चिन्ता नगर।
+        </p>
+        <p style={{ fontSize: '1rem', opacity: 0.9 }}>
+          Between Arjuna and Karna — <strong>Karna deserves to win this time.</strong>
+        </p>
+      </div>
+    );
+
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: '5px solid #ff4444' }}>
-        <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1rem' }}>TERMINATED</h1>
-        <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{loserMsg}</p>
+        <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1.5rem' }}>TERMINATED</h1>
+        {isFinalDuelElimination ? finalDuelMessage : <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{loserMsg}</p>}
       </div>
     );
   }
