@@ -2476,12 +2476,43 @@ const performR5NextRound = async (gameId) => {
   });
 
   // ADMIN EXPORT ENDPOINT - Export all user data as CSV or JSON
+  // Supports field selection via 'fields' query param (comma-separated)
+  // Available fields: id,name,email,role,is_eliminated,has_used_safety,created_at,team_id,team_name,team_round_formed,partner_id,partner_name,round1_selections,round6_votes_cast,round6_safety_used
   fastify.get('/admin/export/users', { onRequest: [fastify.authenticate] }, async (request, reply) => {
     if (request.user.role !== 'admin') {
       return reply.code(403).send({ error: 'Admin access required' });
     }
 
     const format = request.query.format || 'csv'; // 'csv' or 'json'
+    const requestedFields = request.query.fields ? request.query.fields.split(',').map(f => f.trim()) : null;
+    
+    // All available fields with their display headers
+    const allFieldsConfig = {
+      id: 'ID',
+      name: 'Name',
+      email: 'Email',
+      role: 'Role',
+      is_eliminated: 'Is Eliminated',
+      has_used_safety: 'Has Used Safety',
+      created_at: 'Created At',
+      team_id: 'Team ID',
+      team_name: 'Team Name',
+      team_round_formed: 'Team Round Formed',
+      partner_id: 'Partner ID',
+      partner_name: 'Partner Name',
+      round1_selections: 'Round 1 Selections',
+      round6_votes_cast: 'Round 6 Votes Cast',
+      round6_safety_used: 'Round 6 Safety Used'
+    };
+    
+    // Filter to only requested fields, or use all if none specified
+    const fieldsToExport = requestedFields 
+      ? requestedFields.filter(f => allFieldsConfig[f])
+      : Object.keys(allFieldsConfig);
+    
+    if (fieldsToExport.length === 0) {
+      return reply.code(400).send({ error: 'No valid fields specified' });
+    }
     
     try {
       // Fetch all user data with team information
@@ -2535,7 +2566,7 @@ const performR5NextRound = async (gameId) => {
       });
 
       // Combine all data
-      const exportData = usersResult.rows.map(u => ({
+      const fullData = usersResult.rows.map(u => ({
         id: u.id,
         name: u.name,
         email: u.email,
@@ -2553,18 +2584,23 @@ const performR5NextRound = async (gameId) => {
         round6_safety_used: voteMap[u.id]?.safety_uses || 0
       }));
 
+      // Filter to only selected fields
+      const exportData = fullData.map(row => {
+        const filtered = {};
+        fieldsToExport.forEach(field => {
+          filtered[field] = row[field];
+        });
+        return filtered;
+      });
+
       if (format === 'json') {
         reply.header('Content-Type', 'application/json');
         reply.header('Content-Disposition', 'attachment; filename="users_export.json"');
         return reply.send(exportData);
       }
 
-      // Generate CSV
-      const headers = [
-        'ID', 'Name', 'Email', 'Role', 'Is Eliminated', 'Has Used Safety', 'Created At',
-        'Team ID', 'Team Name', 'Team Round Formed', 'Partner ID', 'Partner Name',
-        'Round 1 Selections', 'Round 6 Votes Cast', 'Round 6 Safety Used'
-      ];
+      // Generate CSV with only selected fields
+      const headers = fieldsToExport.map(f => allFieldsConfig[f]);
 
       const escapeCSV = (val) => {
         if (val === null || val === undefined) return '';
@@ -2577,23 +2613,7 @@ const performR5NextRound = async (gameId) => {
 
       const csvRows = [
         headers.join(','),
-        ...exportData.map(row => [
-          escapeCSV(row.id),
-          escapeCSV(row.name),
-          escapeCSV(row.email),
-          escapeCSV(row.role),
-          escapeCSV(row.is_eliminated),
-          escapeCSV(row.has_used_safety),
-          escapeCSV(row.created_at),
-          escapeCSV(row.team_id),
-          escapeCSV(row.team_name),
-          escapeCSV(row.team_round_formed),
-          escapeCSV(row.partner_id),
-          escapeCSV(row.partner_name),
-          escapeCSV(row.round1_selections),
-          escapeCSV(row.round6_votes_cast),
-          escapeCSV(row.round6_safety_used)
-        ].join(','))
+        ...exportData.map(row => fieldsToExport.map(field => escapeCSV(row[field])).join(','))
       ];
 
       const csvContent = csvRows.join('\n');

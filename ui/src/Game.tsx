@@ -1259,6 +1259,211 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   );
 }
 
+// Export Panel Component with field selection
+function ExportPanel() {
+  const [selectedFields, setSelectedFields] = useState<string[]>(['name', 'email']);
+  const [exportPreset, setExportPreset] = useState<string>('name_email');
+
+  const availableFields = [
+    { key: 'id', label: 'ID' },
+    { key: 'name', label: 'Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'role', label: 'Role' },
+    { key: 'is_eliminated', label: 'Eliminated Status' },
+    { key: 'has_used_safety', label: 'Safety Card Used' },
+    { key: 'created_at', label: 'Created At' },
+    { key: 'team_id', label: 'Team ID' },
+    { key: 'team_name', label: 'Team Name' },
+    { key: 'team_round_formed', label: 'Team Round' },
+    { key: 'partner_id', label: 'Partner ID' },
+    { key: 'partner_name', label: 'Partner Name' },
+    { key: 'round1_selections', label: 'R1 Selections' },
+    { key: 'round6_votes_cast', label: 'R6 Votes' },
+    { key: 'round6_safety_used', label: 'R6 Safety' },
+  ];
+
+  const presets = [
+    { key: 'name_only', label: 'Name Only', fields: ['name'] },
+    { key: 'email_only', label: 'Email Only', fields: ['email'] },
+    { key: 'name_email', label: 'Name + Email', fields: ['name', 'email'] },
+    { key: 'basic', label: 'Basic Info', fields: ['name', 'email', 'role', 'is_eliminated'] },
+    { key: 'team_info', label: 'Team Info', fields: ['name', 'email', 'team_name', 'partner_name'] },
+    { key: 'game_stats', label: 'Game Stats', fields: ['name', 'is_eliminated', 'has_used_safety', 'round1_selections', 'round6_votes_cast'] },
+    { key: 'all', label: 'All Fields', fields: availableFields.map(f => f.key) },
+    { key: 'custom', label: 'Custom Selection', fields: [] },
+  ];
+
+  const handlePresetChange = (presetKey: string) => {
+    setExportPreset(presetKey);
+    const preset = presets.find(p => p.key === presetKey);
+    if (preset && presetKey !== 'custom') {
+      setSelectedFields(preset.fields);
+    }
+  };
+
+  const toggleField = (fieldKey: string) => {
+    setExportPreset('custom');
+    setSelectedFields(prev => 
+      prev.includes(fieldKey) 
+        ? prev.filter(f => f !== fieldKey)
+        : [...prev, fieldKey]
+    );
+  };
+
+  const getExportUrl = (format: 'csv' | 'json') => {
+    const fieldsParam = selectedFields.join(',');
+    return `${API_URL}/admin/export/users?format=${format}&fields=${fieldsParam}`;
+  };
+
+  const handleExport = (format: 'csv' | 'json') => {
+    if (selectedFields.length === 0) {
+      alert('Please select at least one field to export.');
+      return;
+    }
+    window.open(getExportUrl(format), '_blank');
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f0fdf4', border: '2px solid #22c55e' }}>
+      <h3 style={{ marginTop: 0, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        📊 DATA EXPORT
+      </h3>
+      <p style={{ fontSize: '0.9rem', color: '#166534', marginBottom: '1rem' }}>
+        Select which fields to include in your export.
+      </p>
+
+      {/* Preset Selection */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534', display: 'block', marginBottom: '0.5rem' }}>
+          QUICK PRESETS
+        </label>
+        <select
+          value={exportPreset}
+          onChange={(e) => handlePresetChange(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            border: '2px solid #22c55e',
+            borderRadius: '4px',
+            background: 'white',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            minWidth: '200px'
+          }}
+        >
+          {presets.map(p => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Custom Field Selection */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534', display: 'block', marginBottom: '0.5rem' }}>
+          SELECTED FIELDS ({selectedFields.length})
+        </label>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
+          gap: '0.5rem',
+          background: 'white',
+          padding: '1rem',
+          borderRadius: '4px',
+          border: '1px solid #bbf7d0',
+          maxHeight: '200px',
+          overflowY: 'auto'
+        }}>
+          {availableFields.map(field => (
+            <label 
+              key={field.key} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                padding: '4px',
+                borderRadius: '4px',
+                background: selectedFields.includes(field.key) ? '#dcfce7' : 'transparent'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedFields.includes(field.key)}
+                onChange={() => toggleField(field.key)}
+                style={{ cursor: 'pointer' }}
+              />
+              {field.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Export Buttons */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>USERS DATA</span>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              className="admin-btn"
+              style={{ 
+                background: selectedFields.length > 0 ? '#22c55e' : '#9ca3af', 
+                color: 'white', 
+                padding: '8px 16px', 
+                fontSize: '0.85rem',
+                cursor: selectedFields.length > 0 ? 'pointer' : 'not-allowed'
+              }}
+              onClick={() => handleExport('csv')}
+              disabled={selectedFields.length === 0}
+            >
+              📥 CSV
+            </button>
+            <button 
+              className="admin-btn"
+              style={{ 
+                background: selectedFields.length > 0 ? '#16a34a' : '#9ca3af', 
+                color: 'white', 
+                padding: '8px 16px', 
+                fontSize: '0.85rem',
+                cursor: selectedFields.length > 0 ? 'pointer' : 'not-allowed'
+              }}
+              onClick={() => handleExport('json')}
+              disabled={selectedFields.length === 0}
+            >
+              📥 JSON
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>GAME DATA (ALL)</span>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              className="admin-btn"
+              style={{ background: '#22c55e', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
+              onClick={() => window.open(`${API_URL}/admin/export/game?format=csv`, '_blank')}
+            >
+              📥 CSV
+            </button>
+            <button 
+              className="admin-btn"
+              style={{ background: '#16a34a', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
+              onClick={() => window.open(`${API_URL}/admin/export/game?format=json`, '_blank')}
+            >
+              📥 JSON
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Preview */}
+      {selectedFields.length > 0 && (
+        <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#166534', opacity: 0.8 }}>
+          <strong>Preview:</strong> Exporting {selectedFields.length} field(s): {selectedFields.join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminView({ 
   gameState, 
   leaderboard, 
@@ -1645,54 +1850,7 @@ function AdminView({
             <h1 className="admin-pane-title">GAME DATA LOGS</h1>
             
             {/* Export Section */}
-            <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f0fdf4', border: '2px solid #22c55e' }}>
-              <h3 style={{ marginTop: 0, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📊 DATA EXPORT
-              </h3>
-              <p style={{ fontSize: '0.9rem', color: '#166534', marginBottom: '1rem' }}>
-                Download all game data for analysis, backup, or reporting purposes.
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>USERS DATA</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
-                      className="admin-btn"
-                      style={{ background: '#22c55e', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
-                      onClick={() => window.open(`${API_URL}/admin/export/users?format=csv`, '_blank')}
-                    >
-                      📥 CSV
-                    </button>
-                    <button 
-                      className="admin-btn"
-                      style={{ background: '#16a34a', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
-                      onClick={() => window.open(`${API_URL}/admin/export/users?format=json`, '_blank')}
-                    >
-                      📥 JSON
-                    </button>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>GAME DATA</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
-                      className="admin-btn"
-                      style={{ background: '#22c55e', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
-                      onClick={() => window.open(`${API_URL}/admin/export/game?format=csv`, '_blank')}
-                    >
-                      📥 CSV
-                    </button>
-                    <button 
-                      className="admin-btn"
-                      style={{ background: '#16a34a', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
-                      onClick={() => window.open(`${API_URL}/admin/export/game?format=json`, '_blank')}
-                    >
-                      📥 JSON
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ExportPanel />
 
             <div className="admin-data-tabs">
               <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
