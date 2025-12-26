@@ -4246,21 +4246,18 @@ function Round7PlayerView({ state, userId, onAction }: {
           {others.length === 1 && state.players.filter((p:Round7Player)=>p.is_alive).length === 2 ? (
             <div style={{ textAlign: 'center', background: 'black', color: 'white', padding: '2rem' }}>
               <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>FINAL DUEL</h1>
-              <p style={{ marginBottom: '2rem', opacity: 0.8 }}>HEARTS BALANCED. CHOOSE THE FINAL OUTCOME.</p>
-              <p style={{ marginBottom: '2rem', fontSize: '0.9rem', opacity: 0.7 }}>BOTH COMPROMISE = BOTH WIN | BETRAY/QUIT = YOU LOSE</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              <p style={{ marginBottom: '2rem', opacity: 0.8, fontStyle: 'italic' }}>
+                🎭 Remember... we planted many imposters. Your opponent might be one of them.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <button 
                   onClick={() => onAction('COMPROMISE', others[0].user_id)}
                   style={{ padding: '2rem', border: '4px solid #00ff00', background: 'transparent', color: '#00ff00', fontWeight: '900', fontSize: '1.5rem', cursor: 'pointer' }}
-                > COMPROMISE </button>
+                > 🤝 COMPROMISE </button>
                 <button 
                   onClick={() => onAction('BETRAY', others[0].user_id)}
                   style={{ padding: '2rem', border: 'none', background: '#c53030', color: 'white', fontWeight: '900', fontSize: '1.5rem', cursor: 'pointer' }}
-                > BETRAY </button>
-                <button 
-                  onClick={() => onAction('QUIT')}
-                  style={{ padding: '2rem', border: 'none', background: '#4a5568', color: 'white', fontWeight: '900', fontSize: '1.5rem', cursor: 'pointer' }}
-                > QUIT </button>
+                > 🗡️ BETRAY </button>
               </div>
             </div>
           ) : (
