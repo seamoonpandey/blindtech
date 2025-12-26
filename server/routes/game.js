@@ -524,6 +524,7 @@ async function getRound5Games() {
       g.current_round, g.active_team, g.status, g.result,
       g.team_a_turn_order, g.team_b_turn_order, g.is_sudden_death,
       g.subround_started_at,
+      g.team_a_exhausted_cards, g.team_b_exhausted_cards,
       ta.name as team_a_name, tb.name as team_b_name,
       ta.user1_id as team_a_user1, ta.user2_id as team_a_user2,
       tb.user1_id as team_b_user1, tb.user2_id as team_b_user2
@@ -612,6 +613,30 @@ function checkGameEnd(momentumA, momentumB, currentRound) {
     // Tie at the end? Both teams proved their worth.
     return { ended: true, result: 'both_win' };
   }
+}
+
+// Card Exhaustion System helpers
+const ALL_CARDS = ['ATTACK', 'FORTIFY', 'CONVERGE'];
+
+function getAvailableCards(exhaustedCards) {
+  // Returns cards that are NOT exhausted
+  const exhausted = exhaustedCards || [];
+  return ALL_CARDS.filter(card => !exhausted.includes(card));
+}
+
+function updateExhaustedCards(exhaustedCards, cardUsed) {
+  // Add the used card to exhausted list
+  const exhausted = [...(exhaustedCards || [])];
+  if (!exhausted.includes(cardUsed)) {
+    exhausted.push(cardUsed);
+  }
+  
+  // If all 3 cards are exhausted, reset the hand
+  if (exhausted.length >= 3) {
+    return []; // Hand refreshes
+  }
+  
+  return exhausted;
 }
 
 // ROUND 6 HELPERS (THE GAME OF HEARTS)
@@ -1607,6 +1632,20 @@ const performR5NextRound = async (gameId) => {
             let finalCard = card;
             let pactToUse = null;
 
+            // Card Exhaustion validation
+            const exhaustedCards = isTeamA ? (game.team_a_exhausted_cards || []) : (game.team_b_exhausted_cards || []);
+            const availableCards = getAvailableCards(exhaustedCards);
+            
+            // Validate the selected card is available (not exhausted)
+            if (!availableCards.includes(card)) {
+              console.log(`Card ${card} is exhausted for Team ${myTeam}. Available: ${availableCards.join(', ')}`);
+              socket.send(JSON.stringify({ 
+                type: 'error', 
+                message: `Card ${card} is exhausted! Available cards: ${availableCards.join(', ')}` 
+              }));
+              return;
+            }
+
             if (pact && !teamPactUsed) {
               pactToUse = pact;
               // If copy_opponent, we need to find what the opponent played in the PREVIOUS round
@@ -1637,6 +1676,12 @@ const performR5NextRound = async (gameId) => {
               INSERT INTO round5_turns (game_id, round_number, player_id, team, card_selected, is_revealed, pact_used)
               VALUES ($1, $2, $3, $4, $5, false, $6)
             `, [gameId, game.current_round, currentUser.id, myTeam, finalCard, pactToUse]);
+            
+            // Update card exhaustion - add the played card to exhausted list
+            const newExhaustedCards = updateExhaustedCards(exhaustedCards, finalCard);
+            const exhaustedField = isTeamA ? 'team_a_exhausted_cards' : 'team_b_exhausted_cards';
+            await db.query(`UPDATE round5_games SET ${exhaustedField} = $1 WHERE id = $2`, [JSON.stringify(newExhaustedCards), gameId]);
+            console.log(`Team ${myTeam} exhausted cards updated: ${JSON.stringify(newExhaustedCards)}`);
             
             if (pactToUse) {
               const pactField = isTeamA ? 'team_a_pact_used' : 'team_b_pact_used';

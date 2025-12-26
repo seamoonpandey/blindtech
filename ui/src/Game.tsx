@@ -97,6 +97,8 @@ interface Round5Game {
   team_b_turn_order: string[];
   team_a_pact_used: string | null;
   team_b_pact_used: string | null;
+  team_a_exhausted_cards: string[];
+  team_b_exhausted_cards: string[];
   turns: Round5Turn[];
   result?: 'team_a_win' | 'team_b_win' | 'both_win' | 'both_lose';
   team_b_id?: string;
@@ -868,6 +870,13 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
   const opponentMomentum = isTeamA ? game.team_b_momentum : game.team_a_momentum;
   const turnOrder = isTeamA ? game.team_a_turn_order : game.team_b_turn_order;
   
+  // Card Exhaustion System
+  const myExhaustedCards = isTeamA ? (game.team_a_exhausted_cards || []) : (game.team_b_exhausted_cards || []);
+  const opponentExhaustedCards = isTeamA ? (game.team_b_exhausted_cards || []) : (game.team_a_exhausted_cards || []);
+  const allCards: ('ATTACK' | 'FORTIFY' | 'CONVERGE')[] = ['ATTACK', 'FORTIFY', 'CONVERGE'];
+  const availableCards = allCards.filter(card => !myExhaustedCards.includes(card));
+  const cyclePosition = 3 - availableCards.length + 1; // 1, 2, or 3 in cycle
+  
   const isMyTurn = game.current_round === 1 || (turnOrder && turnOrder[(game.current_round - 1) % 2] === userId);
   
   const currentRoundTurns = game.turns?.filter((t: Round5Turn) => t.round_number === game.current_round) || [];
@@ -1041,18 +1050,110 @@ function Round5PlayerView({ game, userId, onSelectCard }: {
         </div>
       ) : isMyTurn && !myTurn ? (
         <>
-          <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>YOUR TURN - SELECT A CARD:</p>
+          <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>YOUR TURN - SELECT A CARD:</p>
+          
+          {/* Card Exhaustion Tracker */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '1rem', 
+            padding: '0.75rem', 
+            background: '#f0f0f0', 
+            border: '2px solid #333',
+            fontSize: '0.8rem'
+          }}>
+            <div>
+              <strong>♻️ CYCLE:</strong> Turn {cyclePosition}/3
+              {cyclePosition === 3 && <span style={{ color: '#ff4444', marginLeft: '0.5rem' }}>⚠️ FORCED</span>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {allCards.map(card => (
+                <span 
+                  key={card}
+                  style={{ 
+                    padding: '2px 6px',
+                    background: myExhaustedCards.includes(card) ? '#ff4444' : '#00aa00',
+                    color: 'white',
+                    borderRadius: '4px',
+                    fontSize: '0.65rem',
+                    textDecoration: myExhaustedCards.includes(card) ? 'line-through' : 'none'
+                  }}
+                >
+                  {card.slice(0, 3)}
+                </span>
+              ))}
+            </div>
+          </div>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-            {['ATTACK', 'FORTIFY', 'CONVERGE'].map(card => (
-              <button 
-                key={card}
-                className="primary-btn"
-                onClick={() => onSelectCard(card as "ATTACK" | "FORTIFY" | "CONVERGE", selectedPact)}
-                style={{ padding: '2rem 1rem' }}
-              >
-                {card}
-              </button>
-            ))}
+            {allCards.map(card => {
+              const isExhausted = myExhaustedCards.includes(card);
+              const isOnlyOption = availableCards.length === 1 && availableCards[0] === card;
+              return (
+                <button 
+                  key={card}
+                  className="primary-btn"
+                  onClick={() => !isExhausted && onSelectCard(card, selectedPact)}
+                  disabled={isExhausted}
+                  style={{ 
+                    padding: '2rem 1rem',
+                    opacity: isExhausted ? 0.3 : 1,
+                    cursor: isExhausted ? 'not-allowed' : 'pointer',
+                    background: isExhausted ? '#ccc' : isOnlyOption ? '#ff4444' : undefined,
+                    color: isExhausted ? '#666' : isOnlyOption ? 'white' : undefined,
+                    border: isOnlyOption ? '3px solid #ff0000' : undefined,
+                    position: 'relative'
+                  }}
+                >
+                  {card}
+                  {isExhausted && (
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: '50%', 
+                      left: '50%', 
+                      transform: 'translate(-50%, -50%) rotate(-15deg)',
+                      fontSize: '0.6rem',
+                      color: '#ff0000',
+                      fontWeight: 'bold',
+                      background: 'rgba(255,255,255,0.9)',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      EXHAUSTED
+                    </div>
+                  )}
+                  {isOnlyOption && (
+                    <div style={{ 
+                      position: 'absolute', 
+                      bottom: '4px', 
+                      left: '50%', 
+                      transform: 'translateX(-50%)',
+                      fontSize: '0.6rem',
+                      fontWeight: 'bold'
+                    }}>
+                      ⚡ FORCED
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Opponent Exhaustion Intel */}
+          <div style={{ 
+            marginBottom: '1.5rem', 
+            padding: '0.5rem', 
+            background: 'rgba(0,0,0,0.05)', 
+            border: '1px dashed #999',
+            fontSize: '0.75rem'
+          }}>
+            <strong>🔍 INTEL:</strong> Opponent exhausted: {opponentExhaustedCards.length > 0 ? opponentExhaustedCards.join(', ') : 'None yet'}
+            {opponentExhaustedCards.length === 2 && (
+              <span style={{ color: '#ff4444', marginLeft: '0.5rem' }}>
+                → Next: {allCards.find(c => !opponentExhaustedCards.includes(c))} forced!
+              </span>
+            )}
           </div>
 
           {!myTeamPactUsed && !game.is_sudden_death && (
