@@ -1943,7 +1943,7 @@ const performR5NextRound = async (gameId) => {
            const { targetId, useSafety } = data;
            
            // Check if player is eliminated
-           const playerCheck = await db.query('SELECT is_eliminated FROM users WHERE id = $1', [currentUser.id]);
+           const playerCheck = await db.query('SELECT is_eliminated, has_used_safety FROM users WHERE id = $1', [currentUser.id]);
            if (playerCheck.rows[0]?.is_eliminated) {
              console.log(`Eliminated player ${currentUser.name} tried to vote. Blocked.`);
              return;
@@ -1952,19 +1952,47 @@ const performR5NextRound = async (gameId) => {
            const r6State = await getRound6State();
            if (!r6State || r6State.status !== 'voting') return;
            
+           // RACE CONDITION FIX: Check if player already used safety card
+           let actualUseSafety = useSafety || false;
+           if (actualUseSafety && playerCheck.rows[0]?.has_used_safety) {
+             console.log(`Player ${currentUser.name} tried to use SAFETY again but already used it. Blocking safety.`);
+             actualUseSafety = false;
+             // Notify client that safety was rejected
+             socket.send(JSON.stringify({ 
+               type: 'safety_rejected', 
+               message: 'You have already used your safety card in a previous cycle.' 
+             }));
+           }
+           
            try {
              const currentCycle = r6State.current_cycle;
+             
+             // ATOMIC OPERATION: Use UPDATE ... RETURNING to prevent race condition
+             if (actualUseSafety) {
+               // Try to atomically set has_used_safety from false to true
+               const safetyResult = await db.query(
+                 "UPDATE users SET has_used_safety = true WHERE id = $1 AND has_used_safety = false RETURNING id",
+                 [currentUser.id]
+               );
+               
+               if (safetyResult.rows.length === 0) {
+                 // Another request already used the safety card
+                 console.log(`RACE CONDITION PREVENTED: Player ${currentUser.name} safety card already consumed by concurrent request.`);
+                 actualUseSafety = false;
+                 socket.send(JSON.stringify({ 
+                   type: 'safety_rejected', 
+                   message: 'Your safety card was already used.' 
+                 }));
+               }
+             }
+             
              await db.query(`
                INSERT INTO round6_votes (cycle, voter_id, target_id, used_safety)
                VALUES ($1, $2, $3, $4)
                ON CONFLICT (voter_id, cycle) DO UPDATE SET target_id = $3, used_safety = $4
-             `, [currentCycle, currentUser.id, targetId, useSafety || false]);
+             `, [currentCycle, currentUser.id, targetId, actualUseSafety]);
              
-             if (useSafety) {
-               await db.query("UPDATE users SET has_used_safety = true WHERE id = $1", [currentUser.id]);
-             }
-             
-             console.log(`Player ${currentUser.name} voted for ${targetId} (Safety: ${useSafety})`);
+             console.log(`Player ${currentUser.name} voted for ${targetId} (Safety: ${actualUseSafety})`);
              await broadcastRound6Update();  
            } catch (e) {
              console.log('Vote error:', e.message);
@@ -2445,6 +2473,255 @@ const performR5NextRound = async (gameId) => {
     }
     const result = await db.query('SELECT id, name FROM users WHERE role = \'player\' AND id != $1', [request.user.id]);
     return result.rows;
+  });
+
+  // ADMIN EXPORT ENDPOINT - Export all user data as CSV or JSON
+  fastify.get('/admin/export/users', { onRequest: [fastify.authenticate] }, async (request, reply) => {
+    if (request.user.role !== 'admin') {
+      return reply.code(403).send({ error: 'Admin access required' });
+    }
+
+    const format = request.query.format || 'csv'; // 'csv' or 'json'
+    
+    try {
+      // Fetch all user data with team information
+      const usersResult = await db.query(`
+        SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.role,
+          u.is_eliminated,
+          u.has_used_safety,
+          u.created_at,
+          t.id as team_id,
+          t.name as team_name,
+          t.round_formed as team_round_formed,
+          CASE 
+            WHEN t.user1_id = u.id THEN 'user1'
+            WHEN t.user2_id = u.id THEN 'user2'
+            ELSE NULL
+          END as team_position,
+          partner.id as partner_id,
+          partner.name as partner_name
+        FROM users u
+        LEFT JOIN teams t ON (t.user1_id = u.id OR t.user2_id = u.id) AND t.round_formed = 2
+        LEFT JOIN users partner ON (
+          (t.user1_id = u.id AND t.user2_id = partner.id) OR
+          (t.user2_id = u.id AND t.user1_id = partner.id)
+        )
+        ORDER BY u.role, u.name
+      `);
+
+      // Fetch Round 1 submission scores
+      const submissionsResult = await db.query(`
+        SELECT user_id, payload FROM submissions WHERE round = 1
+      `);
+      const submissionMap = {};
+      submissionsResult.rows.forEach(s => {
+        submissionMap[s.user_id] = s.payload ? s.payload.length : 0;
+      });
+
+      // Fetch Round 6 voting history
+      const votesResult = await db.query(`
+        SELECT voter_id, COUNT(*) as vote_count, 
+               SUM(CASE WHEN used_safety THEN 1 ELSE 0 END) as safety_uses
+        FROM round6_votes 
+        GROUP BY voter_id
+      `);
+      const voteMap = {};
+      votesResult.rows.forEach(v => {
+        voteMap[v.voter_id] = { vote_count: v.vote_count, safety_uses: v.safety_uses };
+      });
+
+      // Combine all data
+      const exportData = usersResult.rows.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        is_eliminated: u.is_eliminated ? 'Yes' : 'No',
+        has_used_safety: u.has_used_safety ? 'Yes' : 'No',
+        created_at: u.created_at,
+        team_id: u.team_id || '',
+        team_name: u.team_name || '',
+        team_round_formed: u.team_round_formed || '',
+        partner_id: u.partner_id || '',
+        partner_name: u.partner_name || '',
+        round1_selections: submissionMap[u.id] || 0,
+        round6_votes_cast: voteMap[u.id]?.vote_count || 0,
+        round6_safety_used: voteMap[u.id]?.safety_uses || 0
+      }));
+
+      if (format === 'json') {
+        reply.header('Content-Type', 'application/json');
+        reply.header('Content-Disposition', 'attachment; filename="users_export.json"');
+        return reply.send(exportData);
+      }
+
+      // Generate CSV
+      const headers = [
+        'ID', 'Name', 'Email', 'Role', 'Is Eliminated', 'Has Used Safety', 'Created At',
+        'Team ID', 'Team Name', 'Team Round Formed', 'Partner ID', 'Partner Name',
+        'Round 1 Selections', 'Round 6 Votes Cast', 'Round 6 Safety Used'
+      ];
+
+      const escapeCSV = (val) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvRows = [
+        headers.join(','),
+        ...exportData.map(row => [
+          escapeCSV(row.id),
+          escapeCSV(row.name),
+          escapeCSV(row.email),
+          escapeCSV(row.role),
+          escapeCSV(row.is_eliminated),
+          escapeCSV(row.has_used_safety),
+          escapeCSV(row.created_at),
+          escapeCSV(row.team_id),
+          escapeCSV(row.team_name),
+          escapeCSV(row.team_round_formed),
+          escapeCSV(row.partner_id),
+          escapeCSV(row.partner_name),
+          escapeCSV(row.round1_selections),
+          escapeCSV(row.round6_votes_cast),
+          escapeCSV(row.round6_safety_used)
+        ].join(','))
+      ];
+
+      const csvContent = csvRows.join('\n');
+      
+      reply.header('Content-Type', 'text/csv');
+      reply.header('Content-Disposition', 'attachment; filename="users_export.csv"');
+      return reply.send(csvContent);
+    } catch (err) {
+      console.error('Export error:', err);
+      return reply.code(500).send({ error: 'Failed to export user data' });
+    }
+  });
+
+  // ADMIN EXPORT ENDPOINT - Export all game data (teams, matches, rounds)
+  fastify.get('/admin/export/game', { onRequest: [fastify.authenticate] }, async (request, reply) => {
+    if (request.user.role !== 'admin') {
+      return reply.code(403).send({ error: 'Admin access required' });
+    }
+
+    const format = request.query.format || 'json';
+
+    try {
+      // Teams
+      const teamsResult = await db.query(`
+        SELECT t.*, 
+               u1.name as user1_name, u2.name as user2_name,
+               u1.email as user1_email, u2.email as user2_email
+        FROM teams t
+        LEFT JOIN users u1 ON t.user1_id = u1.id
+        LEFT JOIN users u2 ON t.user2_id = u2.id
+        ORDER BY t.round_formed, t.id
+      `);
+
+      // Round 3 matches
+      const matchesResult = await db.query(`
+        SELECT m.*, 
+               t1.name as team1_name, t2.name as team2_name,
+               v.name as volunteer_name
+        FROM round3_matches m
+        LEFT JOIN teams t1 ON m.team1_id = t1.id
+        LEFT JOIN teams t2 ON m.team2_id = t2.id
+        LEFT JOIN users v ON m.volunteer_id = v.id
+      `);
+
+      // Round 5 games
+      const r5GamesResult = await db.query(`
+        SELECT g.*, 
+               ta.name as team_a_name, tb.name as team_b_name
+        FROM round5_games g
+        LEFT JOIN teams ta ON g.team_a_id = ta.id
+        LEFT JOIN teams tb ON g.team_b_id = tb.id
+      `);
+
+      // Round 6 history
+      const r6HistoryResult = await db.query(`
+        SELECT h.*, 
+               u1.name as target_name, u2.name as partner_name
+        FROM round6_history h
+        LEFT JOIN users u1 ON h.target_id = u1.id
+        LEFT JOIN users u2 ON h.partner_id = u2.id
+        ORDER BY h.subround
+      `);
+
+      // Round 6 votes
+      const r6VotesResult = await db.query(`
+        SELECT v.*, 
+               voter.name as voter_name, target.name as target_name
+        FROM round6_votes v
+        LEFT JOIN users voter ON v.voter_id = voter.id
+        LEFT JOIN users target ON v.target_id = target.id
+        ORDER BY v.cycle, voter.name
+      `);
+
+      const gameExport = {
+        exported_at: new Date().toISOString(),
+        teams: teamsResult.rows,
+        round3_matches: matchesResult.rows,
+        round5_games: r5GamesResult.rows,
+        round6_history: r6HistoryResult.rows,
+        round6_votes: r6VotesResult.rows
+      };
+
+      if (format === 'csv') {
+        // For CSV, we'll create a multi-sheet format (separate sections)
+        const escapeCSV = (val) => {
+          if (val === null || val === undefined) return '';
+          const str = String(val);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+
+        const objectToCSVRows = (arr, sectionName) => {
+          if (!arr || arr.length === 0) return `# ${sectionName}\n(no data)\n`;
+          const headers = Object.keys(arr[0]);
+          const rows = [
+            `# ${sectionName}`,
+            headers.join(','),
+            ...arr.map(row => headers.map(h => escapeCSV(row[h])).join(','))
+          ];
+          return rows.join('\n');
+        };
+
+        const csvContent = [
+          objectToCSVRows(teamsResult.rows, 'TEAMS'),
+          '',
+          objectToCSVRows(matchesResult.rows, 'ROUND 3 MATCHES'),
+          '',
+          objectToCSVRows(r5GamesResult.rows, 'ROUND 5 GAMES'),
+          '',
+          objectToCSVRows(r6HistoryResult.rows, 'ROUND 6 HISTORY'),
+          '',
+          objectToCSVRows(r6VotesResult.rows, 'ROUND 6 VOTES')
+        ].join('\n');
+
+        reply.header('Content-Type', 'text/csv');
+        reply.header('Content-Disposition', 'attachment; filename="game_export.csv"');
+        return reply.send(csvContent);
+      }
+
+      reply.header('Content-Type', 'application/json');
+      reply.header('Content-Disposition', 'attachment; filename="game_export.json"');
+      return reply.send(gameExport);
+    } catch (err) {
+      console.error('Game export error:', err);
+      return reply.code(500).send({ error: 'Failed to export game data' });
+    }
   });
 }
 

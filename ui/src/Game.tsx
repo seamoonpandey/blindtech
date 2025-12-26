@@ -1643,6 +1643,57 @@ function AdminView({
         {activeTab === 'data' && (
           <div className="admin-tab-pane">
             <h1 className="admin-pane-title">GAME DATA LOGS</h1>
+            
+            {/* Export Section */}
+            <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f0fdf4', border: '2px solid #22c55e' }}>
+              <h3 style={{ marginTop: 0, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📊 DATA EXPORT
+              </h3>
+              <p style={{ fontSize: '0.9rem', color: '#166534', marginBottom: '1rem' }}>
+                Download all game data for analysis, backup, or reporting purposes.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>USERS DATA</span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      className="admin-btn"
+                      style={{ background: '#22c55e', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
+                      onClick={() => window.open(`${API_URL}/admin/export/users?format=csv`, '_blank')}
+                    >
+                      📥 CSV
+                    </button>
+                    <button 
+                      className="admin-btn"
+                      style={{ background: '#16a34a', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
+                      onClick={() => window.open(`${API_URL}/admin/export/users?format=json`, '_blank')}
+                    >
+                      📥 JSON
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>GAME DATA</span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      className="admin-btn"
+                      style={{ background: '#22c55e', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
+                      onClick={() => window.open(`${API_URL}/admin/export/game?format=csv`, '_blank')}
+                    >
+                      📥 CSV
+                    </button>
+                    <button 
+                      className="admin-btn"
+                      style={{ background: '#16a34a', color: 'white', padding: '8px 16px', fontSize: '0.85rem' }}
+                      onClick={() => window.open(`${API_URL}/admin/export/game?format=json`, '_blank')}
+                    >
+                      📥 JSON
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="admin-data-tabs">
               <button className={dataSubTab === 'r3' ? 'active' : ''} onClick={() => setDataSubTab('r3')}>R3 MATCHES</button>
               <button className={dataSubTab === 'r4' ? 'active' : ''} onClick={() => setDataSubTab('r4')}>R4 SESSIONS</button>
