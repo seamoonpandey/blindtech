@@ -4207,8 +4207,20 @@ function Round7PlayerView({ state, userId, onAction }: {
 
     return (
       <div className="card" style={{ textAlign: 'center', padding: '3rem 2rem', border: '5px solid #ff4444' }}>
-        <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1.5rem' }}>TERMINATED</h1>
-        {isFinalDuelElimination ? finalDuelMessage : <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{loserMsg}</p>}
+        {isFinalDuelElimination ? (
+          <>
+            <h1 style={{ fontSize: '2.5rem', color: '#ff4444', marginBottom: '1.5rem' }}>
+              You won second place.<br/>
+              <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>But prizes are for the first.</span>
+            </h1>
+            {finalDuelMessage}
+          </>
+        ) : (
+          <>
+            <h1 style={{ fontSize: '4rem', color: '#ff4444', marginBottom: '1.5rem' }}>TERMINATED</h1>
+            <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>{loserMsg}</p>
+          </>
+        )}
       </div>
     );
   }
